@@ -1,6 +1,3 @@
-from datetime import date
-from datetime import timedelta
-
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,135 +10,11 @@ class AtlasRepository:
     ):
         self.db = db
 
-    async def get_display_score(
-        self,
-        enrollment_id: int
-    ):
+    # =====================================================
+    # LATEST SNAPSHOT
+    # =====================================================
 
-        today = date.today()
-
-        current_week_monday = (
-            today -
-            timedelta(
-                days=today.weekday()
-            )
-        )
-
-        previous_week_monday = (
-            current_week_monday -
-            timedelta(days=7)
-        )
-
-        atlas_query = text(
-            """
-            SELECT *
-
-            FROM analytics_student_daily_atlas_score
-
-            WHERE enrollment_id = :enrollment_id
-
-            AND snapshot_date < :current_week_monday
-
-            ORDER BY snapshot_date DESC
-
-            LIMIT 1
-            """
-        )
-
-        previous_query = text(
-            """
-            SELECT *
-
-            FROM analytics_student_daily_atlas_score
-
-            WHERE enrollment_id = :enrollment_id
-
-            AND snapshot_date < :previous_week_monday
-
-            ORDER BY snapshot_date DESC
-
-            LIMIT 1
-            """
-        )
-
-        atlas_result = await self.db.execute(
-            atlas_query,
-            {
-                "enrollment_id": enrollment_id,
-                "current_week_monday":
-                    current_week_monday
-            }
-        )
-
-        previous_result = await self.db.execute(
-            previous_query,
-            {
-                "enrollment_id": enrollment_id,
-                "previous_week_monday":
-                    previous_week_monday
-            }
-        )
-
-        current_snapshot = (
-            atlas_result
-            .mappings()
-            .first()
-        )
-
-        previous_snapshot = (
-            previous_result
-            .mappings()
-            .first()
-        )
-
-        if not current_snapshot:
-            return None
-
-        current_score = float(
-            current_snapshot["atlas_score"]
-        )
-
-        previous_score = (
-            float(
-                previous_snapshot["atlas_score"]
-            )
-            if previous_snapshot
-            else 0
-        )
-
-        change = round(
-            current_score -
-            previous_score,
-            2
-        )
-
-        return {
-
-            "score":
-                current_score,
-
-            "band":
-                current_snapshot["band"],
-
-            "change":
-                change,
-
-            "change_type":
-                (
-                    "increase"
-                    if change > 0
-                    else "decrease"
-                    if change < 0
-                    else "same"
-                ),
-
-            "snapshot_date":
-                current_snapshot[
-                    "snapshot_date"
-                ]
-        }
-
-    async def get_live_pillars(
+    async def get_latest_snapshot(
         self,
         enrollment_id: int
     ):
@@ -167,94 +40,158 @@ class AtlasRepository:
             }
         )
 
-        latest = (
+        row = (
             result
             .mappings()
             .first()
         )
 
+        if not row:
+            return None
+
+        return dict(row)
+
+    # =====================================================
+    # BUILD COMPLETE ATLAS PAYLOAD
+    # =====================================================
+
+    async def build_atlas_payload(
+        self,
+        enrollment_id: int
+    ):
+
+        latest = await self.get_latest_snapshot(
+            enrollment_id
+        )
+
         if not latest:
             return None
 
-        return {
+        score = {
+
+            "score":
+                float(
+                    latest.get(
+                        "display_atlas_score"
+                    )
+                    or 0
+                ),
+
+            "band":
+                latest.get(
+                    "display_atlas_band"
+                ),
+
+            "snapshot_date":
+                latest.get(
+                    "display_atlas_snapshot_date"
+                )
+        }
+
+        pillars = {
 
             "academic": {
 
                 "score":
                     float(
-                        latest[
-                            "academic_score"
-                        ]
+                        latest.get(
+                            "academic_score",
+                            0
+                        )
                     ),
 
                 "subject_grade_score":
-                    latest[
-                        "subject_grade_score"
-                    ],
+                    latest.get(
+                        "subject_grade_score",
+                        0
+                    ),
 
                 "homework_quality_score":
-                    latest[
-                        "homework_quality_score"
-                    ],
+                    latest.get(
+                        "homework_quality_score",
+                        0
+                    ),
 
                 "exam_readiness_score":
-                    latest[
-                        "exam_readiness_score"
-                    ]
+                    latest.get(
+                        "exam_readiness_score",
+                        0
+                    )
             },
 
             "growth": {
 
                 "score":
                     float(
-                        latest[
-                            "growth_score"
-                        ]
+                        latest.get(
+                            "growth_score",
+                            0
+                        )
                     ),
 
                 "attendance_score":
-                    latest[
-                        "attendance_score"
-                    ],
+                    latest.get(
+                        "attendance_score",
+                        0
+                    ),
 
                 "consistency_score":
-                    latest[
-                        "consistency_score"
-                    ],
+                    latest.get(
+                        "consistency_score",
+                        0
+                    ),
 
                 "conduct_score":
-                    latest[
-                        "conduct_score"
-                    ]
+                    latest.get(
+                        "conduct_score",
+                        0
+                    )
             },
 
             "initiative": {
 
                 "score":
                     float(
-                        latest[
-                            "initiative_score"
-                        ]
+                        latest.get(
+                            "initiative_score",
+                            0
+                        )
                     ),
 
                 "curiosity_score":
-                    latest[
-                        "curiosity_score"
-                    ],
+                    latest.get(
+                        "curiosity_score",
+                        0
+                    ),
 
                 "preparation_score":
-                    latest[
-                        "preparation_score"
-                    ],
+                    latest.get(
+                        "preparation_score",
+                        0
+                    ),
 
                 "contribution_score":
-                    latest[
-                        "contribution_score"
-                    ],
+                    latest.get(
+                        "contribution_score",
+                        0
+                    ),
 
                 "extracurricular_score":
-                    latest[
-                        "extracurricular_score"
-                    ]
+                    latest.get(
+                        "extracurricular_score",
+                        0
+                    )
             }
+        }
+
+        return {
+
+            "score":
+                score,
+
+            "pillars":
+                pillars,
+
+            "raw":
+                latest
         }

@@ -24,3 +24,16 @@ class StudentIntent(str, Enum):
     STUDENT_REPORT = "student_report"
 
     TOPIC_SUMMARY = "topic_summary"
+
+    PERSONAL_EVENT_SUMMARY = "personal_event_summary"
+
+    PERSONAL_EVENT_CREATE = "personal_event_create"
+
+    JOURNAL_SUMMARY = "journal_summary"
+    
+    JOURNAL_CREATE = "journal_create"
+
+    ACTION_CONFIRMATION = "action_confirmation"
+
+  
+

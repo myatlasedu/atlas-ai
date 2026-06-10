@@ -4,6 +4,14 @@ from intents.router import (
     parse_intent
 )
 
+from intents.student.enums import (
+    StudentIntent
+)
+
+from intents.student.schemas import (
+    ParsedStudentIntent
+)
+
 from routing.tool_router import (
     get_tools_for_intent
 )
@@ -20,6 +28,10 @@ from services.date_service import (
     DateService
 )
 
+from cache.pending_action_cache import (
+    PendingActionCache
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -31,16 +43,63 @@ class AIService:
         context
     ):
 
-        parsed_intent = await parse_intent(
-            query=query,
-            role=context.role
-        )
+        # =====================================
+        # CONFIRMATION SHORT CIRCUIT
+        # =====================================
 
-        parsed_intent = (
-            DateService.validate(
-                parsed_intent
+        pending_action = (
+            await PendingActionCache.get(
+                context.user_id
             )
         )
+
+        if (
+            pending_action
+            and
+            query.strip().lower()
+            in [
+                "yes",
+                "y",
+                "confirm",
+                "ok",
+                "okay"
+            ]
+        ):
+
+            logger.info(
+                "Pending action confirmation detected"
+            )
+
+            parsed_intent = (
+                ParsedStudentIntent(
+
+                    intent=
+                        StudentIntent.ACTION_CONFIRMATION,
+
+                    start_date=None,
+
+                    end_date=None,
+
+                    target_modules=[],
+
+                    confidence=1.0,
+
+                    original_query=query
+                )
+            )
+
+        else:
+
+            parsed_intent = await parse_intent(
+                query=query,
+                role=context.role
+            )
+
+            parsed_intent = (
+                DateService.validate(
+                    parsed_intent
+                )
+            )
 
         logger.info(
             "Parsed Intent: %s",
@@ -65,6 +124,12 @@ class AIService:
             )
 
             if tool is None:
+
+                logger.warning(
+                    "Tool not found: %s",
+                    tool_name
+                )
+
                 continue
 
             result = await tool.run(
@@ -73,6 +138,59 @@ class AIService:
             )
 
             results[tool_name] = result
+
+            logger.info(
+                "Tool result [%s]: %s",
+                tool_name,
+                result
+            )
+
+        # =====================================
+        # ACTION REQUIRED SHORT CIRCUIT
+        # =====================================
+
+        for tool_result in results.values():
+
+            if (
+                isinstance(tool_result, dict)
+                and
+                tool_result.get(
+                    "action_required"
+                )
+            ):
+
+                return {
+
+                    "success": True,
+
+                    "query":
+                        query,
+
+                    "intent":
+                        parsed_intent.model_dump(),
+
+                    "data":
+                        results,
+
+                    "summary":
+                        tool_result.get(
+                            "confirmation_message"
+                        ),
+
+                    "action_required":
+                        True,
+
+                    "confirmation_required":
+                        tool_result.get(
+                            "confirmation_required",
+                            False
+                        ),
+
+                    "action_type":
+                        tool_result.get(
+                            "action_type"
+                        )
+                }
 
         # =====================================
         # DIRECT ANSWER SHORT CIRCUIT

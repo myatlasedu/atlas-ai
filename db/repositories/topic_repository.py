@@ -107,12 +107,15 @@ class TopicRepository:
         query = text(
             """
             SELECT DISTINCT
+
                 t.name AS topic_name,
+
                 s.name AS subject_name
-            FROM students_assessmentstudentmap asm
+
+            FROM students_assessmentstudentrecord asr
 
             INNER JOIN students_assessment a
-                ON a.id = asm.assessment_id
+                ON a.id = asr.assessment_id
 
             INNER JOIN students_assessmenttopicmap atm
                 ON atm.assessment_id = a.id
@@ -129,7 +132,7 @@ class TopicRepository:
             INNER JOIN schools_subject s
                 ON s.id = t.subject_id
 
-            WHERE asm.enrollment_id = :enrollment_id
+            WHERE asr.enrollment_id = :enrollment_id
             """
         )
 

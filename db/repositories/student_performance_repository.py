@@ -122,19 +122,21 @@ class StudentPerformanceRepository:
             )
         )
 
-        atlas_score = (
+        atlas = (
             await self.atlas_repo
-            .get_display_score(
+            .build_atlas_payload(
                 enrollment_id
             )
         )
 
-        atlas_pillars = (
-            await self.atlas_repo
-            .get_live_pillars(
-                enrollment_id
-            )
-        )
+        atlas_score = None
+        atlas_pillars = None
+
+        if atlas:
+
+            atlas_score = atlas["score"]
+
+            atlas_pillars = atlas["pillars"]
 
         strongest_pillar = None
         weakest_pillar = None

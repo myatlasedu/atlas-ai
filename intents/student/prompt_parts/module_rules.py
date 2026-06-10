@@ -56,4 +56,13 @@ student_report
     "assessment",
     "subject"
 ]
+
+personal_event_summary
+["personal_event"]
+
+personal_event_create
+["personal_event_create"]
+
+action_confirmation
+[]
 """

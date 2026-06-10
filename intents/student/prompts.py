@@ -13,6 +13,10 @@ from intents.student.prompt_parts.response_format import RESPONSE_FORMAT
 from intents.student.prompt_parts.accouncement import ANNOUNCEMENT_PROMPT
 from intents.student.prompt_parts.forum import FORUM_PROMPT
 from intents.student.prompt_parts.subject import SUBJECT_PROMPT
+from intents.student.prompt_parts.personal_event import PERSONAL_EVENT_PROMPT
+from intents.student.prompt_parts.action_confirmation import ACTION_CONFIRMATION_PROMPT
+from intents.student.prompt_parts.journal_prompt import JOURNAL_PROMPT
+
 
 def get_student_intent_prompt():
 
@@ -29,6 +33,8 @@ Today's date:
 SUPPORTED INTENTS
 ==================================================
 
+{ACTION_CONFIRMATION_PROMPT}
+
 {ATTENDANCE_PROMPT}
 
 {HOMEWORK_PROMPT}
@@ -44,6 +50,10 @@ SUPPORTED INTENTS
 {ATLAS_PROMPT}
 
 {PERFORMANCE_PROMPT}
+
+{PERSONAL_EVENT_PROMPT}
+
+{JOURNAL_PROMPT}
 
 {MISC_PROMPTS}
 

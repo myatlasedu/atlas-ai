@@ -41,7 +41,8 @@ class AtlasTool:
         if not context.enrollment_id:
 
             return {
-                "error": "Enrollment ID missing"
+                "error":
+                    "Enrollment ID missing"
             }
 
         async with AsyncSessionLocal() as db:
@@ -50,19 +51,22 @@ class AtlasTool:
                 db
             )
 
-            score = await repo.get_display_score(
-                context.enrollment_id
+            atlas = (
+                await repo.build_atlas_payload(
+                    context.enrollment_id
+                )
             )
 
-            pillars = await repo.get_live_pillars(
-                context.enrollment_id
-            )
-
-            if not pillars:
+            if not atlas:
 
                 return {
-                    "error": "No atlas data found"
+                    "error":
+                        "No atlas data found"
                 }
+
+            score = atlas["score"]
+
+            pillars = atlas["pillars"]
 
             academic = pillars.get(
                 "academic",
@@ -220,10 +224,36 @@ class AtlasTool:
                     "conduct_score"
                 )
 
+            # =====================================
+            # SCORE CALIBRATION
+            # =====================================
+
+            atlas_score = score
+
+            if (
+                score.get(
+                    "snapshot_date"
+                ) is None
+            ):
+
+                atlas_score = {
+
+                    "status":
+                        "calibrating",
+
+                    "message":
+                        (
+                            "Atlas Score is currently "
+                            "calibrating. Your first "
+                            "weekly Atlas Score will "
+                            "be available next week."
+                        )
+                }
+
             payload = {
 
                 "atlas_score":
-                    score,
+                    atlas_score,
 
                 "pillars":
                     pillars,
@@ -260,37 +290,55 @@ class AtlasTool:
                     "insights":
                         insights,
 
-                    "message": (
-                        f"{weakest_actionable_pillar} "
-                        "is currently the weakest "
-                        "actionable pillar."
-                    )
+                    "message":
+                        (
+                            f"{weakest_actionable_pillar} "
+                            "is currently the weakest "
+                            "actionable pillar."
+                        )
                 }
             }
 
             query = (
-                parsed_intent.original_query or ""
-            ).lower()
+                getattr(
+                    parsed_intent,
+                    "original_query",
+                    ""
+                )
+                .lower()
+            )
 
-            if (
-                "weakest pillar" in query
-                or
-                "which pillar is weakest" in query
+            # =====================================
+            # DIRECT ANSWERS
+            # =====================================
+
+            if any(
+                phrase in query
+                for phrase in [
+                    "weakest pillar",
+                    "which pillar is weakest"
+                ]
             ):
 
-                payload["direct_answer"] = (
+                payload[
+                    "direct_answer"
+                ] = (
                     f"{weakest_actionable_pillar} "
                     "is currently the weakest "
                     "actionable pillar."
                 )
 
-            if (
-                "strongest pillar" in query
-                or
-                "which pillar is strongest" in query
+            elif any(
+                phrase in query
+                for phrase in [
+                    "strongest pillar",
+                    "which pillar is strongest"
+                ]
             ):
 
-                payload["direct_answer"] = (
+                payload[
+                    "direct_answer"
+                ] = (
                     f"{strongest_actionable_pillar} "
                     "is currently the strongest "
                     "actionable pillar."
@@ -309,26 +357,5 @@ class AtlasTool:
                 payload[
                     "performance_analysis"
                 ] = True
-
-                return payload
-
-            # =====================================
-            # ATLAS SCORE CALIBRATION
-            # =====================================
-
-            if score is None:
-
-                payload["atlas_score"] = {
-
-                    "status":
-                        "calibrating",
-
-                    "message": (
-                        "Atlas Score is currently "
-                        "calibrating. Your first "
-                        "weekly Atlas Score will "
-                        "be available next week."
-                    )
-                }
 
             return payload

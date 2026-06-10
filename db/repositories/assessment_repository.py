@@ -24,14 +24,16 @@ class AssessmentRepository:
                 a.title,
                 a.assessment_date,
                 a.total_marks,
-                a.type
+                a.type,
 
-            FROM students_assessmentstudentmap asm
+                r.status
+
+            FROM students_assessmentstudentrecord r
 
             INNER JOIN students_assessment a
-                ON a.id = asm.assessment_id
+                ON a.id = r.assessment_id
 
-            WHERE asm.enrollment_id = :enrollment_id
+            WHERE r.enrollment_id = :enrollment_id
 
             AND a.assessment_date >= CURRENT_DATE
 
@@ -43,15 +45,14 @@ class AssessmentRepository:
         result = await self.db.execute(
             query,
             {
-                "enrollment_id": enrollment_id
+                "enrollment_id":
+                    enrollment_id
             }
         )
 
-        rows = result.mappings().all()
-
         return [
             dict(row)
-            for row in rows
+            for row in result.mappings().all()
         ]
 
     # =====================================================
@@ -69,25 +70,21 @@ class AssessmentRepository:
                 a.id,
                 a.title,
                 a.assessment_date,
-                a.total_marks
+                a.total_marks,
+                a.type,
 
-            FROM students_assessmentstudentmap asm
+                r.status
+
+            FROM students_assessmentstudentrecord r
 
             INNER JOIN students_assessment a
-                ON a.id = asm.assessment_id
+                ON a.id = r.assessment_id
 
-            LEFT JOIN students_assessmentstudentrecord r
-                ON r.assessment_id = a.id
-                AND r.enrollment_id = asm.enrollment_id
-
-            WHERE asm.enrollment_id = :enrollment_id
+            WHERE r.enrollment_id = :enrollment_id
 
             AND a.assessment_date >= CURRENT_DATE
 
-            AND (
-                r.id IS NULL
-                OR r.status IN (1, 2)
-            )
+            AND r.status IN (1, 2)
 
             ORDER BY a.assessment_date ASC
         """)
@@ -95,15 +92,14 @@ class AssessmentRepository:
         result = await self.db.execute(
             query,
             {
-                "enrollment_id": enrollment_id
+                "enrollment_id":
+                    enrollment_id
             }
         )
 
-        rows = result.mappings().all()
-
         return [
             dict(row)
-            for row in rows
+            for row in result.mappings().all()
         ]
 
     # =====================================================

@@ -168,6 +168,36 @@ Do not discuss it.
 {common}
 """
 
+    if (
+    hasattr(StudentIntent, "PERSONAL_EVENT_SUMMARY")
+    and
+    intent == StudentIntent.PERSONAL_EVENT_SUMMARY
+    ):
+
+        return f"""
+You are Atlas AI.
+
+You are summarizing personal events.
+
+Use ONLY the provided event data.
+
+If events exist:
+
+- Mention the number of events.
+- List each event.
+- Include title and scheduled date/time.
+- Present them in chronological order.
+
+If no events exist:
+
+Say:
+"No events are scheduled."
+
+Do not invent dates or times.
+
+{common}
+"""
+    
     # =====================================
     # HOMEWORK
     # =====================================
