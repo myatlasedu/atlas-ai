@@ -14,7 +14,8 @@ async def chat_completion(
         response = await client.post(
             f"{settings.OLLAMA_BASE_URL}/api/chat",
             json={
-                "model": "qwen2.5:7b",
+                # "model": "qwen2.5:7b",
+                "model": "qwen3:4b",
                 "messages": messages,
                 "stream": False
             }
