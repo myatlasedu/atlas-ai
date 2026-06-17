@@ -16,6 +16,7 @@ from intents.student.prompt_parts.subject import SUBJECT_PROMPT
 from intents.student.prompt_parts.personal_event import PERSONAL_EVENT_PROMPT
 from intents.student.prompt_parts.action_confirmation import ACTION_CONFIRMATION_PROMPT
 from intents.student.prompt_parts.journal_prompt import JOURNAL_PROMPT
+from intents.student.prompt_parts.screen_navigation import SCREEN_NAVIGATION_PROMPT
 
 
 def get_student_intent_prompt():
@@ -61,6 +62,8 @@ SUPPORTED INTENTS
 {PERSONAL_EVENT_PROMPT}
 
 {JOURNAL_PROMPT}
+
+{SCREEN_NAVIGATION_PROMPT}
 
 {MISC_PROMPTS}
 

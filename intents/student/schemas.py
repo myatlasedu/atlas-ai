@@ -14,15 +14,13 @@ class ParsedStudentIntent(BaseModel):
 
     intent: StudentIntent
 
-    start_date: date | None = None
+    navigation_target: str | None = None
 
-    end_date: date | None = None
+    start_date: str | None = None
+    end_date: str | None = None
 
-    target_modules: list[str]
+    target_modules: list[str] = []
 
-    confidence: float = Field(
-        ge=0.0,
-        le=1.0
-    )
+    confidence: float = 0.0
 
-    original_query: str | None = None
+    original_query: str = ""

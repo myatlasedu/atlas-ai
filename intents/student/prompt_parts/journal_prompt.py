@@ -108,4 +108,114 @@ Always return:
 - confidence
 
 Never omit any field.
+
+==================================================
+JOURNAL NAVIGATION
+==================================================
+
+If the student wants to open or navigate
+to the journal screen:
+
+Examples:
+
+User:
+open journal
+
+Return:
+
+{
+    "intent": "screen_navigation",
+    "navigation_target": "journal",
+    "start_date": null,
+    "end_date": null,
+    "target_modules": [],
+    "confidence": 0.99
+}
+
+User:
+take me to journal
+
+Return:
+
+{
+    "intent": "screen_navigation",
+    "navigation_target": "journal",
+    "start_date": null,
+    "end_date": null,
+    "target_modules": [],
+    "confidence": 0.99
+}
+
+User:
+go to journal page
+
+Return:
+
+{
+    "intent": "screen_navigation",
+    "navigation_target": "journal",
+    "start_date": null,
+    "end_date": null,
+    "target_modules": [],
+    "confidence": 0.99
+}
+
+User:
+open my journal screen
+
+Return:
+
+{
+    "intent": "screen_navigation",
+    "navigation_target": "journal",
+    "start_date": null,
+    "end_date": null,
+    "target_modules": [],
+    "confidence": 0.99
+}
+
+IMPORTANT:
+
+When the user wants to navigate
+to the journal page:
+
+Use:
+
+screen_navigation
+
+NOT:
+
+journal_summary
+
+==================================================
+JOURNAL DISAMBIGUATION RULES
+==================================================
+
+Viewing journal content:
+
+- show my journal
+- show recent journal entries
+- read my journal
+- search my journal
+- summarize my journal
+
+→ journal_summary
+
+Creating journal content:
+
+- save this in my journal
+- journal this
+- add this to my journal
+- create journal entry
+
+→ journal_create
+
+Navigation:
+
+- open journal
+- take me to journal
+- go to journal page
+- open journal screen
+
+→ screen_navigation
 """

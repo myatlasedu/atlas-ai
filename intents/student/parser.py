@@ -190,6 +190,14 @@ async def parse_student_intent(
 
             intent = "action_confirmation"
 
+        elif (
+            "navigation" in intent
+            or "navigate" in intent
+            or "screen" in intent
+        ):
+
+            intent = "screen_navigation"
+
         # =====================================
         # EXPLICIT NORMALIZATION MAP
         # =====================================
@@ -248,7 +256,19 @@ async def parse_student_intent(
                 "journal_create",
 
             "journal_create_entry":
-                "journal_create"
+                "journal_create",
+
+            "screen_navigation":
+                "screen_navigation",
+
+            "navigation":
+                "screen_navigation",
+
+            "navigate":
+                "screen_navigation",
+
+            "open_screen":
+                "screen_navigation"
         }
 
         if intent in normalization_map:

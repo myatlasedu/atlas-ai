@@ -45,7 +45,13 @@ from tools.journal_create_tool import (
     JournalCreateTool
 )
 
+from tools.screen_navigation_tool import (
+    ScreenNavigationTool
+)
+
 TOOL_REGISTRY = {
+
+    "screen_navigation_tool": ScreenNavigationTool(),
 
     "atlas_tool": AtlasTool(),
 
