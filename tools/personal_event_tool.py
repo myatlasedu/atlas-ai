@@ -6,6 +6,7 @@ from db.repositories.personal_event_repository import (
     PersonalEventRepository
 )
 
+from utils import format_datetime
 
 class PersonalEventTool:
 
@@ -15,6 +16,15 @@ class PersonalEventTool:
         parsed_intent
     ):
 
+        query = (
+            getattr(
+                parsed_intent,
+                "original_query",
+                ""
+            )
+            .lower()
+        )
+
         async with AsyncSessionLocal() as db:
 
             repo = (
@@ -23,17 +33,41 @@ class PersonalEventTool:
                 )
             )
 
-            events = await repo.get_events(
+            #
+            # Upcoming events should not depend
+            # on parser-generated dates.
+            #
 
-                student_id=
-                    context.student_id,
+            if any(
+                phrase in query
+                for phrase in [
+                    "upcoming",
+                    "calendar",
+                    "schedule",
+                    "events",
+                    "reminders"
+                ]
+            ):
 
-                start_date=
-                    parsed_intent.start_date,
+                events = (
+                    await repo.get_upcoming_events(
+                        context.student_id
+                    )
+                )
 
-                end_date=
-                    parsed_intent.end_date
-            )
+            else:
+
+                events = await repo.get_events(
+
+                    student_id=
+                        context.student_id,
+
+                    start_date=
+                        parsed_intent.start_date,
+
+                    end_date=
+                        parsed_intent.end_date
+                )
 
             payload = {
 
@@ -47,42 +81,16 @@ class PersonalEventTool:
                     events
             }
 
-            query = (
-                getattr(
-                    parsed_intent,
-                    "original_query",
-                    ""
+            if not events:
+
+                payload[
+                    "direct_answer"
+                ] = (
+                    "You have no "
+                    "events scheduled."
                 )
-                .lower()
-            )
 
-            if any(
-                phrase in query
-                for phrase in [
+                return payload
 
-                    "events",
-
-                    "calendar",
-
-                    "schedule",
-
-                    "tomorrow",
-
-                    "today",
-
-                    "upcoming",
-
-                    "reminders"
-                ]
-            ):
-
-                if not events:
-
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        "You have no "
-                        "events scheduled."
-                    )
 
             return payload

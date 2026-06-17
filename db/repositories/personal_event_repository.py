@@ -142,3 +142,44 @@ class PersonalEventRepository:
         row = result.mappings().first()
 
         return dict(row)
+    
+    async def get_upcoming_events(
+        self,
+        student_id
+    ):
+
+        query = text(
+            """
+            SELECT
+
+                id,
+                title,
+                event_type,
+                start_datetime,
+                end_datetime,
+                description
+
+            FROM students_personalevent
+
+            WHERE
+
+                student_id = :student_id
+
+                AND start_datetime >= NOW()
+
+            ORDER BY
+                start_datetime ASC
+            """
+        )
+
+        result = await self.db.execute(
+            query,
+            {
+                "student_id": student_id
+            }
+        )
+
+        return [
+            dict(row)
+            for row in result.mappings().all()
+        ]

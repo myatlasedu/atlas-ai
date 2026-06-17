@@ -1,11 +1,16 @@
 import json
 import logging
 
+
 from llm.client import (
     chat_completion
 )
 
+from datetime import datetime
+
+
 logger = logging.getLogger(__name__)
+today = datetime.now().date()
 
 
 class EventExtractor:
@@ -19,7 +24,7 @@ class EventExtractor:
 Extract a personal event from the user request.
 
 Current date:
-2026-06-10
+{today.isoformat()}
 
 User request:
 

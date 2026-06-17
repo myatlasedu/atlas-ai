@@ -9,6 +9,8 @@ from llm.client import (
     chat_completion
 )
 
+from utils import format_datetime
+
 logger = logging.getLogger(__name__)
 
 
@@ -205,34 +207,52 @@ Explain that Atlas Score is still calibrating.
 """
 
     if (
-    hasattr(StudentIntent, "PERSONAL_EVENT_SUMMARY")
-    and
-    intent == StudentIntent.PERSONAL_EVENT_SUMMARY
+        hasattr(StudentIntent, "PERSONAL_EVENT_SUMMARY")
+        and
+        intent == StudentIntent.PERSONAL_EVENT_SUMMARY
     ):
 
         return f"""
-You are Atlas AI.
+    You are Atlas AI.
 
-You are summarizing personal events.
+    You are summarizing personal events.
 
-Use ONLY the provided event data.
+    Use ONLY the provided event data.
 
-If events exist:
+    IMPORTANT:
 
-- Mention the number of events.
-- List each event.
-- Include title and scheduled date/time.
-- Present them in chronological order.
+    If event_count > 0:
 
-If no events exist:
+    You MUST list the events.
 
-Say:
-"No events are scheduled."
+    Do NOT say:
 
-Do not invent dates or times.
+    "Insufficient data is available."
 
-{common}
-"""
+    Do NOT summarize only the count.
+
+    For each event include:
+
+    - title
+    - scheduled date
+    - scheduled time
+
+    Example:
+
+    You have 1 upcoming event:
+
+    • Play Chess — 18 Jun 2026 at 10:30 AM
+
+    If event_count = 0:
+
+    Respond exactly:
+
+    "No events are scheduled."
+
+    Do not invent dates or times.
+
+    {common}
+    """
     
     # =====================================
     # JOURNAL
@@ -573,6 +593,8 @@ Use only supplied data.
 
             {common}
         """
+    
+    
 
 async def summarize_response(
     query: str,
@@ -580,6 +602,33 @@ async def summarize_response(
     context,
     intent
 ):
+    
+    if intent == StudentIntent.PERSONAL_EVENT_SUMMARY:
+
+        events = (
+            data
+            .get("personal_event_tool", {})
+            .get("events", [])
+        )
+
+        if events:
+
+            lines = []
+
+            for event in events:
+
+                lines.append(
+                    f"• {event['title']} — "
+                    f"{format_datetime(event['start_datetime'])}"
+                )
+
+            return (
+                f"You have {len(events)} upcoming "
+                f"event{'s' if len(events) != 1 else ''}:\n\n"
+                + "\n".join(lines)
+            )
+
+        return "No events are scheduled."
 
     prompt = build_prompt(
         query=query,

@@ -30,21 +30,14 @@ class TopicTool:
                 db
             )
 
-            completed = (
-                await repo.get_completed_topics(
+            assessment_topics = (
+                await repo.get_assessment_topics(
                     context.enrollment_id
                 )
             )
 
-            pending = (
-                await repo.get_pending_topics(
-                    context.enrollment_id,
-                    context.academic_class_id
-                )
-            )
-
-            assessment_topics = (
-                await repo.get_assessment_topics(
+            weak_topics = (
+                await repo.get_weak_topics(
                     context.enrollment_id
                 )
             )
@@ -54,58 +47,77 @@ class TopicTool:
                 "module":
                     "topic",
 
-                "completed_count":
-                    len(completed),
+                "assessment_topic_count":
+                    len(
+                        assessment_topics
+                    ),
 
-                "pending_count":
-                    len(pending),
-
-                "completed_topics":
-                    completed,
-
-                "pending_topics":
-                    pending,
+                "weak_topic_count":
+                    len(
+                        weak_topics
+                    ),
 
                 "assessment_topics":
-                    assessment_topics
+                    assessment_topics,
+
+                "weak_topics":
+                    weak_topics
             }
 
-            if "completed" in query:
-
-                payload[
-                    "direct_answer"
-                ] = (
-                    f"You have completed "
-                    f"{len(completed)} topic(s)."
-                )
-
-                return payload
+            #
+            # Weak topic queries
+            #
 
             if any(
                 phrase in query
                 for phrase in [
-                    "pending",
-                    "left",
-                    "not completed"
+                    "weak topic",
+                    "weak topics",
+                    "struggling",
+                    "improve",
+                    "focus on",
+                    "difficult topic",
+                    "revision",
+                    "revise"
                 ]
             ):
 
-                payload[
-                    "direct_answer"
-                ] = (
-                    f"You have "
-                    f"{len(pending)} pending "
-                    f"topic(s)."
-                )
+                if weak_topics:
+
+                    payload[
+                        "direct_answer"
+                    ] = (
+                        f"You currently have "
+                        f"{len(weak_topics)} "
+                        f"weak topic(s) identified "
+                        f"from recent assessments "
+                        f"and homework."
+                    )
+
+                else:
+
+                    payload[
+                        "direct_answer"
+                    ] = (
+                        "No weak topics were "
+                        "identified in the last "
+                        "30 days."
+                    )
 
                 return payload
+
+            #
+            # Assessment topic queries
+            #
 
             if any(
                 phrase in query
                 for phrase in [
-                    "study next",
-                    "revise",
-                    "assessment topics"
+                    "assessment topics",
+                    "exam topics",
+                    "tested topics",
+                    "topics assessed",
+                    "study next"
                 ]
             ):
 
@@ -116,8 +128,8 @@ class TopicTool:
                     ] = (
                         f"There are "
                         f"{len(assessment_topics)} "
-                        f"assessment-related topics "
-                        f"available for review."
+                        f"topic(s) that have appeared "
+                        f"in your assessments."
                     )
 
                 else:
@@ -126,10 +138,14 @@ class TopicTool:
                         "direct_answer"
                     ] = (
                         "No assessment topics "
-                        "available."
+                        "were found."
                     )
 
                 return payload
+
+            #
+            # Default topic analysis
+            #
 
             payload[
                 "topic_analysis"
