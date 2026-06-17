@@ -35,8 +35,14 @@ async def parse_student_intent(
     query: str
 ) -> ParsedStudentIntent:
 
+
     prompt = build_prompt_for_query(
         query=query
+    )
+
+    logger.info(
+        "PROMPT >>>\n%s",
+        prompt
     )
 
     # prompt = (
