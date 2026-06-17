@@ -1,3 +1,7 @@
+from cache.pending_action_cache import (
+    PendingActionCache
+)
+
 from services.event_extractor import (
     EventExtractor
 )
@@ -11,9 +15,7 @@ class PersonalEventCreateTool:
         parsed_intent
     ):
 
-        extractor = (
-            EventExtractor()
-        )
+        extractor = EventExtractor()
 
         event = await extractor.extract(
             parsed_intent.original_query
@@ -22,19 +24,22 @@ class PersonalEventCreateTool:
         if not event:
 
             return {
-
-                "module":
-                    "personal_event",
-
-                "action_required":
-                    False,
-
-                "direct_answer":
-                    (
-                        "I could not determine "
-                        "the event details."
-                    )
+                "module": "personal_event",
+                "action_required": False,
+                "direct_answer": (
+                    "I could not determine "
+                    "the event details."
+                )
             }
+
+        await PendingActionCache.save(
+
+            user_id=context.user_id,
+
+            action_type="create_personal_event",
+
+            payload=event
+        )
 
         return {
 
@@ -56,12 +61,9 @@ class PersonalEventCreateTool:
             "confirmation_message":
                 (
                     f"Create event:\n\n"
-                    f"Title: "
-                    f"{event['title']}\n"
-                    f"Type: "
-                    f"{event['event_type']}\n"
-                    f"Start: "
-                    f"{event['start_datetime']}\n\n"
+                    f"Title: {event['title']}\n"
+                    f"Type: {event['event_type']}\n"
+                    f"Start: {event['start_datetime']}\n\n"
                     f"Reply YES to confirm."
                 )
         }

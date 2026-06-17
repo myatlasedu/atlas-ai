@@ -29,6 +29,13 @@ Today's date:
 
 {today}
 
+
+{DATE_RULES}
+
+{MODULE_RULES}
+
+{RESPONSE_FORMAT}
+
 ==================================================
 SUPPORTED INTENTS
 ==================================================
@@ -57,9 +64,5 @@ SUPPORTED INTENTS
 
 {MISC_PROMPTS}
 
-{DATE_RULES}
 
-{MODULE_RULES}
-
-{RESPONSE_FORMAT}
 """

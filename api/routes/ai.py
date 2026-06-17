@@ -24,6 +24,8 @@ async def ai_query(
 
     try:
 
+        
+
         return await ai_service.answer(
             query=payload.query,
             context=payload.context

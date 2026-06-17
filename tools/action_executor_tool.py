@@ -24,7 +24,13 @@ logger = logging.getLogger(__name__)
 
 
 class ActionExecutorTool:
-
+    logger.info(
+        "ACTION EXECUTOR STARTED"
+    )
+        
+    logger.info(
+        "ACTION EXECUTOR STARTED"
+    )
     async def run(
         self,
         context,
