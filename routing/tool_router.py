@@ -211,6 +211,16 @@ def get_tools_for_intent(
     if (
         intent
         ==
+        StudentIntent.SCREEN_NAVIGATION
+    ):
+
+        return [
+            "screen_navigation_tool"
+        ]
+    
+    if (
+        intent
+        ==
         StudentIntent.ACTION_CONFIRMATION
     ):
 

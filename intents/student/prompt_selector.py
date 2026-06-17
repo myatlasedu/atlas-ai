@@ -64,6 +64,10 @@ from intents.student.prompt_parts.misc import (
     MISC_PROMPTS
 )
 
+from intents.student.prompt_parts.screen_navigation import (
+    SCREEN_NAVIGATION_PROMPT
+)
+
 
 def build_prompt_for_query(
     query: str
@@ -79,6 +83,59 @@ def build_prompt_for_query(
 
         ACTION_CONFIRMATION_PROMPT
     ]
+
+    # =====================================
+    # SCREEN NAVIGATION
+    # =====================================
+
+    if any(
+        keyword in query
+        for keyword in [
+
+            "open",
+            "go to",
+            "take me to",
+            "navigate",
+            "show screen",
+            "open screen",
+
+            "profile",
+            "homework",
+            "attendance",
+            "journal",
+            "forum",
+            "calendar",
+            "events",
+            "classroom",
+            "timetable",
+            "enrichment",
+            "announcement",
+            "announcements",
+            "notification",
+            "notifications",
+            "wellbeing",
+            "healthroom",
+            "health room",
+            "report",
+            "reports",
+            "report card",
+            "report cards",
+            "academic report",
+            "assessment",
+            "assessments",
+            "exam",
+            "exams",
+            "result",
+            "results",
+            "grade",
+            "grades"
+        ]
+    ):
+
+        selected_parts.extend([
+
+            SCREEN_NAVIGATION_PROMPT
+        ])
 
     # =====================================
     # JOURNAL

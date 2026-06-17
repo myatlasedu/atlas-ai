@@ -19,8 +19,6 @@ Examples:
 - What exams are coming up?
 - What assessments are scheduled for me?
 - Which assessment is next?
-- Do I have any pending assessments?
-- Which assessment needs attention?
 
 Results & Marks:
 
@@ -56,13 +54,9 @@ Feedback:
 - Show teacher comments on my tests
 - What did my teacher say about my assessment?
 
-Missed / Pending:
+Missed:
 
 - Which assessment did I miss?
-- What assessments are pending?
-- What assessments have I not completed?
-- Which tests require action?
-- Which assessments are overdue?
 
 ==================================================
 ASSESSMENT INTERPRETATION RULES
@@ -96,7 +90,12 @@ Questions about:
 - upcoming assessment
 - upcoming test
 - upcoming exam
-- pending assessment
+- upcoming assessment
+- scheduled assessment
+- next assessment
+- upcoming exam
+- upcoming test
+- exam preparation
 
 must be classified as:
 
@@ -179,4 +178,60 @@ assessment_summary
 [
     "assessment"
 ]
+
+==================================================
+ASSESSMENT BUSINESS RULES
+==================================================
+
+Assessments are school-conducted exams,
+tests, quizzes or evaluations.
+
+Assessments are not homework.
+
+Students do not submit assessments
+through Atlas AI.
+
+Therefore:
+
+- assessments cannot be pending
+- assessments cannot be overdue
+- assessments cannot be incomplete
+
+An assessment may be:
+
+- upcoming
+- scheduled
+- graded
+- missed
+- absent
+
+Questions about preparing for an exam,
+upcoming tests or scheduled assessments
+must be classified as:
+
+assessment_summary
+
+==================================================
+NAVIGATION RULES
+==================================================
+
+If the student wants to open
+the assessment screen:
+
+Examples:
+
+- open assessment
+- open assessments
+- take me to assessments
+- show assessment page
+- go to exams
+- open exam screen
+
+Classify as:
+
+screen_navigation
+
+NOT:
+
+assessment_summary
 """

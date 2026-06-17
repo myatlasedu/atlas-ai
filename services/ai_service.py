@@ -273,6 +273,34 @@ class AIService:
                             "action_type"
                         )
                 }
+            
+        # =====================================
+        # SCREEN NAVIGATION SHORT CIRCUIT
+        # =====================================
+
+        if (
+            parsed_intent.intent
+            ==
+            StudentIntent.SCREEN_NAVIGATION
+        ):
+
+            return {
+
+                "success": True,
+
+                "query":
+                    query,
+
+                "intent":
+                    parsed_intent.model_dump(),
+
+                "data":
+                    results,
+
+                "summary":
+                    None
+            }
+
 
         # =====================================
         # DIRECT ANSWER SHORT CIRCUIT
