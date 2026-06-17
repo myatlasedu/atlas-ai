@@ -18,8 +18,15 @@ class HomeworkTool:
         if not context.enrollment_id:
 
             return {
+
+                "module":
+                    "homework",
+
                 "error":
-                "Enrollment ID missing"
+                    "Enrollment ID missing",
+
+                "direct_answer":
+                    "Unable to load homework information."
             }
 
         async with AsyncSessionLocal() as db:
@@ -58,7 +65,10 @@ class HomeworkTool:
                 )
             )
 
-            return {
+            payload = {
+
+                "module":
+                    "homework",
 
                 "pending_count":
                     len(pending),
@@ -81,3 +91,75 @@ class HomeworkTool:
                 "recent_feedback":
                     feedback
             }
+
+        # =====================================
+        # DIRECT ANSWER
+        # =====================================
+
+        lines = []
+
+        if pending:
+
+            lines.append(
+                f"You have {len(pending)} pending homework assignment(s)."
+            )
+
+        if overdue:
+
+            lines.append(
+                f"{len(overdue)} homework assignment(s) are overdue."
+            )
+
+        if due_today:
+
+            lines.append(
+                f"{len(due_today)} homework assignment(s) are due today."
+            )
+
+        if due_tomorrow:
+
+            lines.append(
+                f"{len(due_tomorrow)} homework assignment(s) are due tomorrow."
+            )
+
+        if feedback:
+
+            lines.append(
+                f"You have feedback on {len(feedback)} homework assignment(s)."
+            )
+
+        if pending:
+
+            lines.append("")
+            lines.append("Pending homework:")
+
+            for item in pending[:5]:
+
+                lines.append(
+                    f"• {item['title']}"
+                )
+
+        if overdue:
+
+            lines.append("")
+            lines.append("Overdue homework:")
+
+            for item in overdue[:5]:
+
+                lines.append(
+                    f"• {item['title']}"
+                )
+
+        if not lines:
+
+            payload["direct_answer"] = (
+                "You currently have no pending homework."
+            )
+
+        else:
+
+            payload["direct_answer"] = (
+                "\n".join(lines)
+            )
+
+        return payload

@@ -43,6 +43,12 @@ class AIService:
         context
     ):
 
+        normalized_query = (
+            query
+            .strip()
+            .lower()
+        )
+
         # =====================================
         # CONFIRMATION SHORT CIRCUIT
         # =====================================
@@ -53,40 +59,85 @@ class AIService:
             )
         )
 
-        if (
-            pending_action
-            and
-            query.strip().lower()
-            in [
+        if pending_action:
+
+            if normalized_query in [
+
                 "yes",
                 "y",
+                "yeah",
+                "yep",
                 "confirm",
                 "ok",
-                "okay"
-            ]
-        ):
+                "okay",
+                "proceed",
+                "go ahead",
+                "do it"
+            ]:
 
-            logger.info(
-                "Pending action confirmation detected"
-            )
-
-            parsed_intent = (
-                ParsedStudentIntent(
-
-                    intent=
-                        StudentIntent.ACTION_CONFIRMATION,
-
-                    start_date=None,
-
-                    end_date=None,
-
-                    target_modules=[],
-
-                    confidence=1.0,
-
-                    original_query=query
+                logger.info(
+                    "Pending action confirmation detected"
                 )
-            )
+
+                parsed_intent = (
+                    ParsedStudentIntent(
+
+                        intent=
+                            StudentIntent.ACTION_CONFIRMATION,
+
+                        start_date=None,
+
+                        end_date=None,
+
+                        target_modules=[],
+
+                        confidence=1.0,
+
+                        original_query=query
+                    )
+                )
+
+            elif normalized_query in [
+
+                "no",
+                "n",
+                "cancel",
+                "stop",
+                "don't",
+                "dont",
+                "never mind"
+            ]:
+
+                await PendingActionCache.delete(
+                    context.user_id
+                )
+
+                return {
+
+                    "success": True,
+
+                    "query":
+                        query,
+
+                    "data":
+                        {},
+
+                    "summary":
+                        "The pending action has been cancelled."
+                }
+
+            else:
+
+                parsed_intent = await parse_intent(
+                    query=query,
+                    role=context.role
+                )
+
+                parsed_intent = (
+                    DateService.validate(
+                        parsed_intent
+                    )
+                )
 
         else:
 
@@ -105,6 +156,37 @@ class AIService:
             "Parsed Intent: %s",
             parsed_intent.model_dump()
         )
+
+        # =====================================
+        # UNKNOWN INTENT SHORT CIRCUIT
+        # =====================================
+
+        if (
+            parsed_intent.intent
+            ==
+            StudentIntent.UNKNOWN
+        ):
+
+            return {
+
+                "success": True,
+
+                "query":
+                    query,
+
+                "intent":
+                    parsed_intent.model_dump(),
+
+                "data":
+                    {},
+
+                "summary":
+                    (
+                        "I couldn't determine "
+                        "what information you "
+                        "are looking for."
+                    )
+            }
 
         tools_to_run = get_tools_for_intent(
             intent=parsed_intent.intent
@@ -216,7 +298,7 @@ class AIService:
                 break
 
         # =====================================
-        # SKIP LLM FOR DETERMINISTIC ANSWERS
+        # DETERMINISTIC RESPONSE
         # =====================================
 
         if direct_answer:

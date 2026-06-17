@@ -80,23 +80,19 @@ Questions about:
 - assessments
 - marks
 - grades
-- score
-- scores
-- result
-- results
+- assessment result
+- assessment results
 - assessment performance
 - assessment feedback
 - teacher comments
-- teacher feedback on tests
-- teacher feedback on assessments
+- teacher feedback
 - graded assessments
-- latest result
 - latest assessment
-- average score
+- latest result
 - best assessment
 - weakest assessment
-- highest score
-- lowest score
+- highest assessment score
+- lowest assessment score
 - upcoming assessment
 - upcoming test
 - upcoming exam
@@ -106,46 +102,73 @@ must be classified as:
 
 assessment_summary
 
-unless the student is explicitly asking about:
+==================================================
+DO NOT CLASSIFY AS ASSESSMENT
+==================================================
 
-- homework
-- attendance
+The following belong to Atlas:
+
 - atlas score
-- daily summary
-- student report
+- academic score
+- growth score
+- initiative score
+- atlas band
+- atlas rank
+- academic pillar
+- growth pillar
+- initiative pillar
+- strongest pillar
+- weakest pillar
+- overall performance
+- performance pillars
+
+These MUST be classified as:
+
+atlas_score_summary
+
+NOT:
+
+assessment_summary
 
 ==================================================
 DISAMBIGUATION RULES
 ==================================================
 
-Questions like:
+"What score did I get?"
+
+→ assessment_summary
 
 "What marks did I get?"
-"What score did I get?"
+
+→ assessment_summary
+
 "What grade did I get?"
 
-should default to:
-
-assessment_summary
-
-unless the query explicitly mentions:
-
-- homework
-- assignment
-
-Examples:
-
-"What marks did I get?"
 → assessment_summary
 
-"What marks did I get in homework?"
-→ homework_summary
+"How is my academic score?"
 
-"What score did I get?"
-→ assessment_summary
+→ atlas_score_summary
 
-"What homework score did I get?"
-→ homework_summary
+"What is my growth score?"
+
+→ atlas_score_summary
+
+"What is my initiative score?"
+
+→ atlas_score_summary
+
+"What is my Atlas score?"
+
+→ atlas_score_summary
+
+"What is my strongest pillar?"
+
+→ atlas_score_summary
+
+"What is my weakest pillar?"
+
+→ atlas_score_summary
 
 ==================================================
 TARGET MODULES

@@ -18,6 +18,8 @@ class Settings(BaseSettings):
 
     INTERNAL_API_KEY: str
 
+    OLLAMA_MODEL: str
+
     class Config:
         env_file = ".env"
         extra = "ignore"

@@ -67,7 +67,15 @@ Do not mention:
 - backend systems
 - implementation details
 
-Maximum 120 words.
+Maximum 80 words.
+
+Answer directly.
+
+Do not repeat the question.
+
+Do not explain the data structure.
+
+Be concise.
 
 Be concise.
 """
@@ -122,6 +130,22 @@ Provide:
 3. Areas needing improvement
 4. Recommended focus
 
+IMPORTANT:
+
+If performance.graded_count = 0:
+
+Do NOT discuss:
+
+- average score
+- low score
+- weak performance
+- score trends
+- assessment decline
+
+Instead say:
+
+"No graded assessments are available yet."
+
 {common}
 """
 
@@ -165,6 +189,18 @@ If a pillar is missing:
 
 Do not discuss it.
 
+IMPORTANT:
+
+If atlas_score.status = "calibrating":
+
+Do not discuss:
+
+- rank
+- score changes
+- trends
+
+Explain that Atlas Score is still calibrating.
+
 {common}
 """
 
@@ -197,6 +233,71 @@ Do not invent dates or times.
 
 {common}
 """
+    
+    # =====================================
+    # JOURNAL
+    # =====================================
+
+    if intent == StudentIntent.JOURNAL_SUMMARY:
+
+        return f"""
+    You are Atlas AI.
+
+    You are summarizing journal entries.
+
+    Use ONLY journal data.
+
+    If entries exist:
+
+    - Mention the number of entries.
+    - Summarize recent entries.
+
+    If no entries exist:
+
+    Say:
+
+    "No journal entries are available."
+
+    Do not invent journal content.
+
+    {common}
+    """
+
+    # =====================================
+    # ACTION CONFIRMATION
+    # =====================================
+
+    if intent == StudentIntent.ACTION_CONFIRMATION:
+
+        return f"""
+    You are Atlas AI.
+
+    An action has already been completed.
+
+    Use ONLY supplied data.
+
+    Respond only with the outcome.
+
+    {common}
+    """
+
+    # =====================================
+    # UNKNOWN
+    # =====================================
+
+    if intent == StudentIntent.UNKNOWN:
+
+        return f"""
+    You are Atlas AI.
+
+    The request could not be understood.
+
+    Respond:
+
+    "I could not understand your request."
+
+    {common}
+    """
     
     # =====================================
     # HOMEWORK
@@ -490,11 +591,21 @@ async def summarize_response(
         [
             {
                 "role": "system",
-                "content": (
-                    "You are Atlas AI. "
-                    "Answer only using supplied data. "
-                    "Never invent information."
-                )
+                "content": """
+    You are Atlas AI.
+
+    You must follow these rules:
+
+    - Use ONLY supplied data.
+    - Never invent information.
+    - Never assume missing information.
+    - Never create scores, marks, grades, feedback, trends or recommendations that are not present.
+    - If sufficient data is unavailable, say:
+    "Insufficient data is available."
+    - Answer directly.
+    - Keep responses under 80 words.
+    - Speak directly to the student.
+    """
             },
             {
                 "role": "user",

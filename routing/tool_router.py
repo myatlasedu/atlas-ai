@@ -6,6 +6,13 @@ from intents.student.enums import (
 def get_tools_for_intent(
     intent
 ):
+    if (
+        intent
+        ==
+        StudentIntent.UNKNOWN
+    ):
+
+        return []
 
     # =====================================
     # DAILY SUMMARY
