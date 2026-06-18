@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     INTERNAL_API_KEY: str
 
     OLLAMA_MODEL: str
+    OLLAMA_TIMEOUT_SECONDS:int = 60
+    REQUEST_LOCK_TTL_SECONDS: int = 120
 
     class Config:
         env_file = ".env"

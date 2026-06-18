@@ -3,6 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes.ai import router as ai_router
 
+from middleware import (
+    RequestLockMiddleware
+)
+
 
 app = FastAPI(
     title="ERP AI Copilot",
@@ -16,6 +20,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(RequestLockMiddleware)
 
 app.include_router(
     ai_router,
