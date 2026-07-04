@@ -137,6 +137,27 @@ Use when the teacher asks about:
 
 --------------------------------------------------
 
+student_analysis
+
+Use when the teacher asks about:
+
+- at risk students
+- students needing intervention
+- struggling students
+- students at academic risk
+- students requiring attention
+- overall student risk
+- learning risk
+- intervention priority
+- students likely to fail
+- students who need support
+- who should I help first
+- risk analysis
+- student risk dashboard
+- class risk analysis
+
+--------------------------------------------------
+
 atlas_summary
 
 Use when the teacher asks about:

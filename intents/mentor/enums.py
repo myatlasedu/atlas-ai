@@ -3,6 +3,8 @@ from enum import Enum
 
 class MentorIntent(str, Enum):
 
+    ASSESSMENT_SUMMARY = "assessment_summary"
+
     # ==========================
     # Attendance
     # ==========================
@@ -17,14 +19,6 @@ class MentorIntent(str, Enum):
 
     HOMEWORK_SUMMARY = (
         "homework_summary"
-    )
-
-    # ==========================
-    # Assessments
-    # ==========================
-
-    ASSESSMENT_SUMMARY = (
-        "assessment_summary"
     )
 
     UPCOMING_ASSESSMENTS = (

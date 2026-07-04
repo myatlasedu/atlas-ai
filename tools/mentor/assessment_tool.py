@@ -6,6 +6,7 @@ from db.repositories.mentor.assessment_repository import (
     MentorAssessmentRepository
 )
 
+from sqlalchemy import text
 
 class AssessmentTool:
 
@@ -93,4 +94,3 @@ class AssessmentTool:
                 context=context,
                 parsed_intent=parsed_intent
             )
-        

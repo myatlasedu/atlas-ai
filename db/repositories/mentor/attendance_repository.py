@@ -1514,3 +1514,233 @@ class MentorAttendanceRepository:
 
             "trend": data
         }
+    
+    async def get_student_risk_data(
+        self,
+        context,
+        parsed_intent
+    ):
+
+        query = """
+        SELECT
+
+            s.id,
+
+            s.first_name,
+            s.middle_name,
+            s.last_name,
+
+            s.admission_number,
+
+            g.name AS grade,
+
+            sec.name AS section,
+
+            COUNT(*) AS total_periods,
+
+            COUNT(*) FILTER (
+                WHERE spa.status = 1
+            ) AS present_periods,
+
+            COUNT(*) FILTER (
+                WHERE spa.status = 2
+            ) AS absent_periods,
+
+            COUNT(*) FILTER (
+                WHERE spa.status = 3
+            ) AS late_periods
+
+        FROM students_studentperiodattendance spa
+
+        INNER JOIN schools_periodsession ps
+            ON ps.id = spa.period_session_id
+
+        INNER JOIN students_studentenrollment se
+            ON se.id = spa.enrollment_id
+
+        INNER JOIN students_student s
+            ON s.id = se.student_id
+
+        INNER JOIN schools_timetableslot ts
+            ON ts.id = ps.timetable_slot_id
+
+        INNER JOIN schools_academicclass ac
+            ON ac.id = ts.academic_class_id
+
+        INNER JOIN schools_grade g
+            ON g.id = ac.grade_id
+
+        INNER JOIN schools_section sec
+            ON sec.id = ac.section_id
+
+        WHERE
+
+            ps.actual_teacher_id = :staff_id
+
+        AND
+
+            se.academic_year_id = :academic_year_id
+        """
+
+        params = {
+
+            "staff_id":
+                context.staff_id,
+
+            "academic_year_id":
+                context.academic_year_id
+        }
+
+        if parsed_intent.start_date:
+
+            query += """
+
+            AND ps.date >= :start_date
+            """
+
+            params["start_date"] = (
+                parsed_intent.start_date
+            )
+
+        if parsed_intent.end_date:
+
+            query += """
+
+            AND ps.date <= :end_date
+            """
+
+            params["end_date"] = (
+                parsed_intent.end_date
+            )
+
+        if parsed_intent.grade:
+
+            query += """
+
+            AND g.name = :grade
+            """
+
+            params["grade"] = (
+                parsed_intent.grade
+            )
+
+        if parsed_intent.section:
+
+            query += """
+
+            AND sec.name = :section
+            """
+
+            params["section"] = (
+                parsed_intent.section
+            )
+
+        query += """
+
+        GROUP BY
+
+            s.id,
+            s.first_name,
+            s.middle_name,
+            s.last_name,
+            s.admission_number,
+
+            g.id,
+            g.name,
+            g."order",
+
+            sec.id,
+            sec.name,
+            sec.display_order
+
+        ORDER BY
+
+            g."order",
+
+            sec.display_order,
+
+            s.first_name,
+
+            s.last_name
+        """
+
+        result = await self.db.execute(
+            text(query),
+            params
+        )
+
+        students = []
+
+        for row in result.mappings():
+
+            row = dict(row)
+
+            total = row.pop(
+                "total_periods"
+            ) or 0
+
+            present = row.pop(
+                "present_periods"
+            ) or 0
+
+            absent = row.pop(
+                "absent_periods"
+            ) or 0
+
+            late = row.pop(
+                "late_periods"
+            ) or 0
+
+            attendance_percentage = 0
+
+            if total:
+
+                attendance_percentage = round(
+
+                    (
+                        present + late
+                    )
+                    * 100
+                    / total,
+
+                    2
+                )
+
+            row["name"] = " ".join(
+
+                filter(
+
+                    None,
+
+                    [
+
+                        row.pop("first_name"),
+
+                        row.pop("middle_name"),
+
+                        row.pop("last_name")
+                    ]
+                )
+            )
+
+            row["attendance_percentage"] = (
+                attendance_percentage
+            )
+
+            row["present_periods"] = (
+                present
+            )
+
+            row["absent_periods"] = (
+                absent
+            )
+
+            row["late_periods"] = (
+                late
+            )
+
+            students.append(
+                row
+            )
+
+        return students
