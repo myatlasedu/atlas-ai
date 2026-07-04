@@ -4,9 +4,14 @@ from intents.mentor.prompt_parts.attendance import (
     ATTENDANCE_PROMPT
 )
 
-# from intents.mentor.prompt_parts.homework import (
-#     HOMEWORK_PROMPT
-# )
+from intents.mentor.prompt_parts.homework import (
+    HOMEWORK_PROMPT
+)
+
+
+from intents.mentor.prompt_parts.student_analysis import (
+    STUDENT_ANALYSIS_PROMPT 
+)
 
 # from intents.mentor.prompt_parts.assessment import (
 #     ASSESSMENT_PROMPT
@@ -17,8 +22,11 @@ PROMPT_MAP = {
     MentorIntent.ATTENDANCE_SUMMARY:
         ATTENDANCE_PROMPT,
 
-    # MentorIntent.HOMEWORK_SUMMARY:
-    #     HOMEWORK_PROMPT,
+    MentorIntent.HOMEWORK_SUMMARY:
+        HOMEWORK_PROMPT,
+
+    MentorIntent.STUDENT_ANALYSIS:
+        STUDENT_ANALYSIS_PROMPT,
 
     # MentorIntent.ASSESSMENT_SUMMARY:
     #     ASSESSMENT_PROMPT,
@@ -37,20 +45,35 @@ def get_mentor_intent_prompt(
     return f"""
 You are Atlas AI's mentor intent parser.
 
-Return VALID JSON ONLY.
+The user's intent has ALREADY been classified.
 
-Never explain.
+Intent:
 
-Never return markdown.
+{intent.value}
 
-Never return text outside JSON.
+You MUST keep the intent field exactly as:
+
+"{intent.value}"
+
+Do NOT change it.
+
+Do NOT invent another intent.
+
+Your only job is to extract:
+
+- dates
+- grade
+- section
+- subject
+- enrichment
+- view
 
 {prompt}
 
 Return:
 
 {{
-    "intent": "...",
+    "intent": "{intent.value}",
     "start_date": null,
     "end_date": null,
     "academic_year": null,
