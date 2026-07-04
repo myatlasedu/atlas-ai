@@ -12,11 +12,11 @@ from intents.student.schemas import (
     ParsedStudentIntent
 )
 
-from routing.tool_router import (
+from routing.student_tool_router import (
     get_tools_for_intent
 )
 
-from tools.registry import (
+from tools.student.registry import (
     TOOL_REGISTRY
 )
 
@@ -35,7 +35,7 @@ from cache.pending_action_cache import (
 logger = logging.getLogger(__name__)
 
 
-class AIService:
+class StudentAIService:
 
     async def answer(
         self,
@@ -191,6 +191,11 @@ class AIService:
         tools_to_run = get_tools_for_intent(
             intent=parsed_intent.intent
         )
+
+        logger.info(
+        "Mentor tools: %s",
+        tools_to_run
+    )
 
         logger.info(
             "Selected Tools: %s",

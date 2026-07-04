@@ -2,7 +2,7 @@ import asyncio
 
 from db.session import AsyncSessionLocal
 
-from db.repositories.personal_event_repository import (
+from db.repositories.student.personal_event_repository import (
     PersonalEventRepository
 )
 

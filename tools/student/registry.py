@@ -1,51 +1,51 @@
-from tools.attendance_tool import (
+from tools.student.attendance_tool import (
     AttendanceTool
 )
-from tools.atlas_tool import (
+from tools.student.atlas_tool import (
     AtlasTool
 )
-from tools.homework_tool import (
+from tools.student.homework_tool import (
     HomeworkTool
 )
-from tools.assessment_tool import (
+from tools.student.assessment_tool import (
     AssessmentTool
 )
 
-from tools.announcement_tool import (
+from tools.student.announcement_tool import (
     AnnouncementTool
 )
 
-from tools.forum_tool import (
+from tools.student.forum_tool import (
     ForumTool
 )
 
-from tools.subject_tool import (
+from tools.student.subject_tool import (
     SubjectTool
 )
 
-from tools.topic_tool import (
+from tools.student.topic_tool import (
     TopicTool
 )
 
-from tools.student_performance_tool import (
+from tools.student.student_performance_tool import (
     StudentPerformanceTool
 )
 
-from tools.personal_event_create_tool import PersonalEventCreateTool
+from tools.student.personal_event_create_tool import PersonalEventCreateTool
 
-from tools.personal_event_tool import PersonalEventTool
+from tools.student.personal_event_tool import PersonalEventTool
 
-from tools.action_executor_tool import ActionExecutorTool
+from tools.student.action_executor_tool import ActionExecutorTool
 
-from tools.journal_tool import (
+from tools.student.journal_tool import (
     JournalTool
 )
 
-from tools.journal_create_tool import (
+from tools.student.journal_create_tool import (
     JournalCreateTool
 )
 
-from tools.screen_navigation_tool import (
+from tools.student.screen_navigation_tool import (
     ScreenNavigationTool
 )
 

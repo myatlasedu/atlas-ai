@@ -6,7 +6,7 @@ from db.session import (
     AsyncSessionLocal
 )
 
-from db.repositories.atlas_repository import (
+from db.repositories.student.atlas_repository import (
     AtlasRepository
 )
 

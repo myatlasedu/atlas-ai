@@ -1,20 +1,20 @@
-from db.repositories.assessment_repository import (
+from db.repositories.student.assessment_repository import (
     AssessmentRepository
 )
 
-from db.repositories.attendance_repository import (
+from db.repositories.student.attendance_repository import (
     AttendanceRepository
 )
 
-from db.repositories.homework_repository import (
+from db.repositories.student.homework_repository import (
     HomeworkRepository
 )
 
-from db.repositories.subject_repository import (
+from db.repositories.student.subject_repository import (
     SubjectRepository
 )
 
-from db.repositories.atlas_repository import (
+from db.repositories.student.atlas_repository import (
     AtlasRepository
 )
 
