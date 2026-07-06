@@ -406,95 +406,273 @@ class StudentPerformanceRepository:
             })
         return {
 
-        # ==================================================
-        # ATTENDANCE
-        # ==================================================
+            # ==================================================
+            # RAW DATA (FOR UI)
+            # ==================================================
 
-        "attendance":
-            attendance,
+            "attendance":
+                attendance,
 
-        # ==================================================
-        # HOMEWORK
-        # ==================================================
+            "homework": {
 
-        "homework": {
+                "pending_count":
+                    len(
+                        pending_homework
+                    ),
 
-            "pending_count":
-                len(
-                    pending_homework
-                ),
+                "overdue_count":
+                    len(
+                        overdue_homework
+                    ),
 
-            "overdue_count":
-                len(
+                "pending":
+                    pending_homework,
+
+                "overdue":
                     overdue_homework
-                ),
+            },
 
-            "pending":
-                pending_homework,
+            "assessment": {
 
-            "overdue":
-                overdue_homework
-        },
+                "summary":
+                    assessment_summary,
 
-        # ==================================================
-        # ASSESSMENTS
-        # ==================================================
+                "consistency":
+                    assessment_consistency,
 
-        "assessment": {
+                "risks":
+                    assessment_risks,
 
-            "summary":
-                assessment_summary,
+                "highest":
+                    highest_assessment,
 
-            "consistency":
-                assessment_consistency,
+                "lowest":
+                    lowest_assessment
+            },
 
-            "risks":
-                assessment_risks,
+            "subjects": {
 
-            "highest":
-                highest_assessment,
+                "strongest":
+                    strongest_subject,
 
-            "lowest":
-                lowest_assessment
-        },
+                "weakest":
+                    weakest_subject
+            },
 
-        # ==================================================
-        # SUBJECTS
-        # ==================================================
+            "atlas":
+                atlas,
 
-        "subjects": {
+            "signals":
+                signals,
 
-            "strongest":
-                strongest_subject,
+            # ==================================================
+            # LLM READY
+            # ==================================================
 
-            "weakest":
-                weakest_subject
-        },
+            "llm_summary": {
 
-        # ==================================================
-        # ATLAS
-        # ==================================================
+                "overall_status":
 
-        "atlas":
-            atlas,
+                    (
+                        "Needs Attention"
 
-        # ==================================================
-        # CROSS MODULE SIGNALS
-        # ==================================================
+                        if (
+                            signals["attendance"]["at_risk"]
+                            or
+                            signals["homework"]["at_risk"]
+                            or
+                            signals["assessment"]["at_risk"]
+                            or
+                            signals["atlas"]["at_risk"]
+                        )
 
-        "signals":
-            signals,
+                        else "Healthy"
+                    ),
 
-        # ==================================================
-        # AI HELPERS
-        # ==================================================
+                "strengths": [
 
-        "strengths":
-            strengths,
+                    item
 
-        "weaknesses":
-            weaknesses,
+                    for item in [
 
-        "recommended_focus":
-            recommended_focus
-    }
+                        (
+                            f"Attendance is "
+                            f"{attendance.get('attendance_percentage', 0)}%."
+                        )
+
+                        if (
+                            attendance.get(
+                                "attendance_percentage",
+                                0
+                            ) >= 90
+                        )
+
+                        else None,
+
+                        (
+                            f"Strongest subject is "
+                            f"{strongest_subject['subject_name']}."
+                        )
+
+                        if strongest_subject
+
+                        else None,
+
+                        (
+                            f"Best assessment was "
+                            f"{highest_assessment['title']} "
+                            f"({highest_assessment['percentage']}%)."
+                        )
+
+                        if highest_assessment
+
+                        else None,
+
+                        (
+                            f"Strongest Atlas pillar is "
+                            f"{strongest_pillar.title()}."
+                        )
+
+                        if (
+                            atlas_available
+                            and
+                            strongest_pillar
+                        )
+
+                        else None
+                    ]
+
+                    if item is not None
+                ],
+
+                "concerns": [
+
+                    item
+
+                    for item in [
+
+                        (
+                            f"{len(overdue_homework)} overdue homework assignment(s)."
+                        )
+
+                        if overdue_homework
+
+                        else None,
+
+                        (
+                            f"{len(pending_homework)} pending homework assignment(s)."
+                        )
+
+                        if pending_homework
+
+                        else None,
+
+                        (
+                            f"Weakest subject is "
+                            f"{weakest_subject['subject_name']}."
+                        )
+
+                        if weakest_subject
+
+                        else None,
+
+                        (
+                            f"Lowest assessment was "
+                            f"{lowest_assessment['title']} "
+                            f"({lowest_assessment['percentage']}%)."
+                        )
+
+                        if lowest_assessment
+
+                        else None,
+
+                        (
+                            f"Weakest Atlas pillar is "
+                            f"{weakest_pillar.title()}."
+                        )
+
+                        if (
+                            atlas_available
+                            and
+                            weakest_pillar
+                        )
+
+                        else None
+                    ]
+
+                    if item is not None
+                ],
+
+                "recommended_actions": [
+
+                    item
+
+                    for item in [
+
+                        "Improve attendance."
+
+                        if signals["attendance"]["at_risk"]
+
+                        else None,
+
+                        "Complete overdue homework."
+
+                        if signals["homework"]["at_risk"]
+
+                        else None,
+
+                        "Review recent assessment performance."
+
+                        if signals["assessment"]["at_risk"]
+
+                        else None,
+
+                        (
+                            f"Focus on {weakest_subject['subject_name']}."
+                        )
+
+                        if weakest_subject
+
+                        else None,
+
+                        (
+                            f"Improve the "
+                            f"{weakest_pillar.title()} pillar."
+                        )
+
+                        if (
+                            atlas_available
+                            and
+                            weakest_pillar
+                        )
+
+                        else None
+                    ]
+
+                    if item is not None
+                ],
+
+                "atlas_status":
+
+                    (
+                        "Available"
+
+                        if atlas_available
+
+                        else "Calibrating"
+                    )
+            },
+
+            # ==================================================
+            # LEGACY FIELDS
+            # ==================================================
+
+            "strengths":
+                strengths,
+
+            "weaknesses":
+                weaknesses,
+
+            "recommended_focus":
+                recommended_focus
+        }

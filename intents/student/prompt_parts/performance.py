@@ -152,7 +152,6 @@ assessment_summary
 - grades
 - assessment feedback
 - upcoming assessments
-- pending assessments
 
 Examples:
 

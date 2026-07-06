@@ -11,14 +11,33 @@ from llm.client import (
 
 from utils import format_datetime
 
+from llm.student_prompt import (
+    STUDENT_SYSTEM_PROMPT
+)
+
+from llm.guardian_prompt import (
+    GUARDIAN_SYSTEM_PROMPT
+)
+
 logger = logging.getLogger(__name__)
 
 
 def build_prompt(
     query: str,
     data: dict,
-    intent
+    role: str,
+    intent    
 ):
+
+    audience = (
+        "Speak directly to the guardian. \
+        Use 'your child' or the student's name to refer to the student.\
+        Do not tell the guardian to speak to the guardian.\
+        Do not address the student directly."
+        if role == "guardian"
+        else
+        "Speak directly to the student. Use 'you' to refer to the student."
+    )
 
     common = f"""
 USER QUERY:
@@ -53,13 +72,13 @@ Never create attendance records.
 
 Never create homework records.
 
-If sufficient data is unavailable:
+If the supplied data indicates that insights are still being prepared or some modules are not yet available:
 
-Say:
+Do NOT say "Insufficient data is available."
 
-"Insufficient data is available."
+Instead, explain that Atlas AI is still building the learning insights as more academic information becomes available.
 
-Speak directly to the student.
+{audience}
 
 Do not mention:
 
@@ -225,9 +244,9 @@ Explain that Atlas Score is still calibrating.
 
     You MUST list the events.
 
-    Do NOT say:
+    Do NOT say "Insufficient data is available."
 
-    "Insufficient data is available."
+    Instead, explain that Atlas AI is still building the learning insights as more academic information becomes available.
 
     Do NOT summarize only the count.
 
@@ -445,93 +464,79 @@ Do not invent missing information.
 {common}
 """
 
-    # =====================================
-    # STUDENT PERFORMANCE
-    # =====================================
-
     if intent == StudentIntent.STUDENT_PERFORMANCE:
 
-        return f"""
-            You are Atlas AI.
+            return f"""
+        You are Atlas AI.
 
-            You are performing cross-platform student analysis.
+        The backend has already analyzed the student's performance.
 
-            Use ONLY the supplied data.
+        Do NOT perform additional analysis.
 
-            You may use:
+        Do NOT calculate anything.
 
-            - attendance
-            - homework
-            - assessments
-            - subjects
-            - atlas
+        Do NOT infer trends.
 
-            Focus primarily on:
+        Do NOT invent recommendations.
 
-            - strengths
-            - weaknesses
-            - recommended_focus
-            - signals
-            - atlas pillars
-            - attendance risks
-            - homework risks
-            - assessment risks
+        Use ONLY the information inside:
 
-            Do NOT invent causes.
+        llm_summary
 
-            Do NOT create data.
+        Specifically:
 
-            Do NOT assume trends unless trend data exists.
+        - overall_status
+        - strengths
+        - concerns
+        - recommended_actions
+        - atlas_status
 
-            If cross_analysis=true:
+        Write:
 
-            Provide:
+        1. One sentence summarizing overall performance.
+        2. Mention the key strengths.
+        3. Mention the primary concerns.
+        4. Mention the recommended actions.
 
-            1. Overall performance summary
-            2. Key strengths
-            3. Areas needing improvement
-            4. Recommended focus areas
-            5. Academic risk indicators (if any)
+        Do not mention missing modules.
 
-            Use the supplied strengths,
-            weaknesses,
-            signals,
-            and recommended_focus lists.
+        Do not mention JSON.
 
-            {common}
+        Do not explain the data structure.
+
+        Use only the supplied information.
+
+        {common}
         """
-
-    # =====================================
-    # STUDENT REPORT
-    # =====================================
 
     if intent == StudentIntent.STUDENT_REPORT:
 
         return f"""
-You are Atlas AI.
+    You are Atlas AI.
 
-Provide a complete student report.
+    The backend has already prepared the student's report.
 
-Use all available information.
+    Use ONLY the supplied data.
 
-Summarize:
+    Do NOT perform calculations.
 
-- attendance
-- homework
-- assessments
-- announcements
-- atlas performance
+    Do NOT infer trends.
 
-Provide:
+    Do NOT create recommendations beyond those already supplied.
 
-1. Strengths
-2. Areas of concern
-3. Recommended next steps
+    Prioritize:
 
-Use only supplied data.
+    - llm_summary.overall_status
+    - llm_summary.strengths
+    - llm_summary.concerns
+    - llm_summary.recommended_actions
 
-{common}
-"""
+    Mention attendance, homework, assessments and Atlas only if present.
+
+    Produce a concise report in under 120 words.
+
+    {common}
+    """
         
     if intent == StudentIntent.SUBJECT_SUMMARY:
 
@@ -633,28 +638,22 @@ async def summarize_response(
     prompt = build_prompt(
         query=query,
         data=data,
+        role=context.role,
         intent=intent
     )
+
+    
+    system_prompt = STUDENT_SYSTEM_PROMPT
+
+    if context.role == "guardian":
+
+        system_prompt = GUARDIAN_SYSTEM_PROMPT
 
     response = await chat_completion(
         [
             {
                 "role": "system",
-                "content": """
-    You are Atlas AI.
-
-    You must follow these rules:
-
-    - Use ONLY supplied data.
-    - Never invent information.
-    - Never assume missing information.
-    - Never create scores, marks, grades, feedback, trends or recommendations that are not present.
-    - If sufficient data is unavailable, say:
-    "Insufficient data is available."
-    - Answer directly.
-    - Keep responses under 80 words.
-    - Speak directly to the student.
-    """
+                "content": system_prompt
             },
             {
                 "role": "user",

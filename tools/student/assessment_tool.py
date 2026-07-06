@@ -182,7 +182,7 @@ class AssessmentTool:
             if len(pending) > 0:
 
                 insights.append(
-                    "There are pending assessments."
+                    "There are upcoming assessments to prepare for."
                 )
 
             if (
@@ -262,13 +262,13 @@ class AssessmentTool:
             if len(pending) > 0:
 
                 improvement_opportunities.append(
-                    "Complete pending assessments."
+                    "Prepare for upcoming assessments.",
                 )
 
             if risk_assessments:
 
                 improvement_opportunities.append(
-                    "Improve low-scoring assessments."
+                    "Focus on improving performance in lower-scoring assessments."
                 )
 
             if (
@@ -277,7 +277,7 @@ class AssessmentTool:
             ):
 
                 improvement_opportunities.append(
-                    "Improve score consistency."
+                     "Aim for more consistent performance across assessments."
                 )
 
             performance_summary = {

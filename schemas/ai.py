@@ -37,3 +37,23 @@ class MentorAIRequest(BaseModel):
     query: str
     context: MentorContext
 
+
+class GuardianContext(BaseModel):
+
+    user_id: int
+
+    guardian_id: int
+
+    student_id: int
+
+    enrollment_id: int
+
+    campus_id: int
+
+    role: str
+
+class GuardianAIRequest(BaseModel):
+
+    query: str
+
+    context: GuardianContext
