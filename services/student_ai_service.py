@@ -307,50 +307,50 @@ class StudentAIService:
             }
 
 
-        # =====================================
-        # DIRECT ANSWER SHORT CIRCUIT
-        # =====================================
+        # # =====================================
+        # # DIRECT ANSWER SHORT CIRCUIT
+        # # =====================================
 
-        direct_answer = None
+        # direct_answer = None
 
-        for tool_result in results.values():
+        # for tool_result in results.values():
 
-            if not isinstance(
-                tool_result,
-                dict
-            ):
-                continue
+        #     if not isinstance(
+        #         tool_result,
+        #         dict
+        #     ):
+        #         continue
 
-            answer = tool_result.get(
-                "direct_answer"
-            )
+        #     answer = tool_result.get(
+        #         "direct_answer"
+        #     )
 
-            if answer:
+        #     if answer:
 
-                direct_answer = answer
-                break
+        #         direct_answer = answer
+        #         break
 
         # =====================================
         # DETERMINISTIC RESPONSE
         # =====================================
 
-        if direct_answer:
+        # if direct_answer:
 
-            logger.info(
-                "Using direct answer: %s",
-                direct_answer
-            )
+        #     logger.info(
+        #         "Using direct answer: %s",
+        #         direct_answer
+        #     )
 
-            summary = direct_answer
+        #     summary = direct_answer
 
-        else:
+        # else:
 
-            summary = await summarize_response(
-                query=query,
-                data=results,
-                context=context,
-                intent=parsed_intent.intent
-            )
+        summary = await summarize_response(
+            query=query,
+            data=results,
+            context=context,
+            intent=parsed_intent.intent
+        )
 
         return {
 

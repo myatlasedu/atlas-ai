@@ -28,7 +28,7 @@ from intents.student.prompt_parts.topic import (
     TOPIC_PROMPT
 )
 
-from intents.student.prompt_parts.accouncement import (
+from intents.student.prompt_parts.announcement import (
     ANNOUNCEMENT_PROMPT
 )
 
