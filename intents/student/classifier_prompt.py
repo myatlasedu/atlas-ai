@@ -21,6 +21,16 @@ Never return markdown.
 
 Never return text outside JSON.
 
+Atlas-related queries ALWAYS take precedence over
+student_performance.
+
+If the query contains Atlas, Band or Pillar,
+classify it as atlas_score_summary even if the query
+also mentions performance, strengths, weaknesses,
+progress or improvement.
+
+If the query asks about a specific subject, classify it as subject_summary even if it also mentions performance or improvement.
+
 ==================================================
 ALLOWED INTENTS
 ==================================================
@@ -54,6 +64,9 @@ Use when the student asks about:
 - homework grades
 - homework due today
 - homework due tomorrow
+- missing homework
+- homework comments
+- teacher comments
 
 --------------------------------------------------
 
@@ -69,6 +82,11 @@ Use when the student asks about:
 - grades
 - assessment performance
 - assessment results
+- assessment feedback
+- teacher remarks
+- latest result
+- latest marks
+- exam performance
 
 --------------------------------------------------
 
@@ -76,11 +94,52 @@ atlas_score_summary
 
 Use when the student asks about:
 
-- atlas score
-- overall score
-- learning score
-- learning progress score
-- gamification score
+- Atlas Score
+- Atlas Band
+- Atlas Rank
+- Atlas Dashboard
+- Atlas Summary
+- Atlas Analytics
+- Atlas Breakdown
+
+- Academic Pillar
+- Growth Pillar
+- Engagement Pillar
+
+- Academic Score
+- Growth Score
+- Engagement Score
+
+- Strongest Pillar
+- Weakest Pillar
+
+- Atlas Progress
+- Atlas Trend
+
+- Atlas Calibration
+
+- Why is my Atlas score low?
+- Why can't I see my Atlas score?
+- When will Atlas score be available?
+- Explain my Atlas score.
+
+If the query contains:
+
+Atlas
+
+Band
+
+Pillar
+
+Academic Pillar
+
+Growth Pillar
+
+Engagement Pillar
+
+it MUST be
+
+atlas_score_summary.
 
 --------------------------------------------------
 
@@ -88,14 +147,21 @@ student_performance
 
 Use when the student asks about:
 
-- academic performance
-- learning progress
 - strengths
 - weaknesses
-- improvement
-- overall performance
-- performance trends
-- progress report
+- recommendations
+- study advice
+- what should I improve
+- academic review
+- performance analysis
+- academic progress
+- overall academic health
+- complete performance review
+- how am I doing overall
+- areas to improve
+- how am I doing
+- review my progress
+- analyze me
 
 --------------------------------------------------
 
@@ -111,6 +177,9 @@ Use when the student asks about:
 - english
 - social studies
 - languages
+- maths
+- science
+- english
 
 --------------------------------------------------
 
@@ -124,6 +193,8 @@ Use when the student asks about:
 - weak topics
 - strong topics
 - chapter progress
+- chapter
+- lesson
 
 --------------------------------------------------
 
@@ -396,6 +467,72 @@ Open Homework screen
 Output:
 {
     "intent": "screen_navigation",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+What Atlas band am I in?
+
+Output:
+{
+    "intent": "atlas_score_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Which pillar is strongest?
+
+Output:
+{
+    "intent": "atlas_score_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Which pillar is weakest?
+
+Output:
+{
+    "intent": "atlas_score_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+How is my Growth Pillar?
+
+Output:
+{
+    "intent": "atlas_score_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Why can't I see my Atlas Score?
+
+Output:
+{
+    "intent": "atlas_score_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Why is my Atlas Score calibrating?
+
+Output:
+{
+    "intent": "atlas_score_summary",
     "confidence": 0.99
 }
 

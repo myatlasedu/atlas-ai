@@ -1,7 +1,3 @@
-from intents.student.enums import (
-    StudentIntent
-)
-
 from db.session import (
     AsyncSessionLocal
 )
@@ -16,20 +12,35 @@ class AtlasTool:
     IMPLEMENTED_METRICS = {
 
         "academic": [
+
             "subject_grade_score",
+
             "homework_quality_score",
-            "exam_readiness_score"
         ],
 
         "growth": [
-            "attendance_score",
+
+            "progress_score",
+
             "consistency_score",
-            "conduct_score"
+
+            "planning_ahead_score",
+
+            "journal_score",
+
+            "personal_event_score",
         ],
 
-        "initiative": [
-            "contribution_score"
-        ]
+        "engagement": [
+
+            "period_attendance_score",
+
+            "tentative_exam_preparation_score",
+
+            "contribution_score",
+
+            "enrichment_attendance_score",
+        ],
     }
 
     async def run(
@@ -51,207 +62,62 @@ class AtlasTool:
                 db
             )
 
-            atlas = (
-                await repo.build_atlas_payload(
-                    context.enrollment_id
-                )
+            atlas = await repo.build_atlas_payload(
+                context.enrollment_id
             )
 
             if not atlas:
 
                 return {
+
                     "error":
-                        "No atlas data found"
+                        "Atlas data not found."
                 }
 
-            score = atlas["score"]
+            if atlas["is_calibrating"]:
 
-            pillars = atlas["pillars"]
-
-            academic = pillars.get(
-                "academic",
-                {}
-            )
-
-            growth = pillars.get(
-                "growth",
-                {}
-            )
-
-            initiative = pillars.get(
-                "initiative",
-                {}
-            )
-
-            academic_score = (
-                academic.get(
-                    "score",
-                    0
-                )
-            )
-
-            growth_score = (
-                growth.get(
-                    "score",
-                    0
-                )
-            )
-
-            initiative_score = (
-                initiative.get(
-                    "score",
-                    0
-                )
-            )
-
-            # =====================================
-            # OVERALL PILLARS
-            # =====================================
-
-            all_pillar_scores = {
-
-                "academic":
-                    academic_score,
-
-                "growth":
-                    growth_score,
-
-                "initiative":
-                    initiative_score
-            }
-
-            strongest_pillar = max(
-                all_pillar_scores,
-                key=all_pillar_scores.get
-            )
-
-            # =====================================
-            # ACTIONABLE PILLARS
-            # =====================================
-
-            actionable_pillars = {
-
-                "academic":
-                    academic_score,
-
-                "growth":
-                    growth_score
-            }
-
-            strongest_actionable_pillar = max(
-                actionable_pillars,
-                key=actionable_pillars.get
-            )
-
-            weakest_actionable_pillar = min(
-                actionable_pillars,
-                key=actionable_pillars.get
-            )
-
-            # =====================================
-            # INSIGHTS
-            # =====================================
-
-            insights = []
-
-            recommended_focus = []
-
-            if (
-                academic.get(
-                    "homework_quality_score",
-                    0
-                )
-                <
-                academic.get(
-                    "subject_grade_score",
-                    0
-                )
-            ):
-
-                insights.append(
-                    "Homework quality is lower than subject grades."
-                )
-
-                recommended_focus.append(
-                    "homework_quality_score"
-                )
-
-            if (
-                growth.get(
-                    "attendance_score",
-                    0
-                )
-                == 0
-            ):
-
-                insights.append(
-                    "Attendance score is currently 0."
-                )
-
-                recommended_focus.append(
-                    "attendance_score"
-                )
-
-            if (
-                growth.get(
-                    "consistency_score",
-                    0
-                )
-                < 70
-            ):
-
-                insights.append(
-                    "Consistency score is below target."
-                )
-
-                recommended_focus.append(
-                    "consistency_score"
-                )
-
-            if (
-                growth.get(
-                    "conduct_score",
-                    0
-                )
-                < 80
-            ):
-
-                insights.append(
-                    "Conduct score has room for improvement."
-                )
-
-                recommended_focus.append(
-                    "conduct_score"
-                )
-
-            # =====================================
-            # SCORE CALIBRATION
-            # =====================================
-
-            atlas_score = score
-
-            if (
-                score.get(
-                    "snapshot_date"
-                ) is None
-            ):
-
-                atlas_score = {
+                return {
 
                     "status":
                         "calibrating",
 
                     "message":
-                        (
-                            "Atlas Score is currently "
-                            "calibrating. Your first "
-                            "weekly Atlas Score will "
-                            "be available next week."
-                        )
+                        atlas["message"],
+
+                    "calibration_end_date":
+                        atlas["calibration_end_date"]
                 }
 
-            payload = {
+            atlas_score = atlas["atlas"]
 
+            pillars = atlas["pillars"]
+
+            pillar_scores = {
+
+                name: pillar["score"]
+
+                for name, pillar
+
+                in pillars.items()
+            }
+
+            strongest_pillar = max(
+
+                pillar_scores,
+
+                key=pillar_scores.get
+            )
+
+            weakest_pillar = min(
+
+                pillar_scores,
+
+                key=pillar_scores.get
+            )
+
+            payload = {
+                "available": True,
+                
                 "atlas_score":
                     atlas_score,
 
@@ -261,44 +127,26 @@ class AtlasTool:
                 "strongest_pillar":
                     strongest_pillar,
 
-                "strongest_actionable_pillar":
-                    strongest_actionable_pillar,
-
-                "weakest_actionable_pillar":
-                    weakest_actionable_pillar,
+                "weakest_pillar":
+                    weakest_pillar,
 
                 "implemented_metrics":
                     self.IMPLEMENTED_METRICS,
 
-                "insights":
-                    insights,
+                "strengths": [
 
-                "recommended_focus":
-                    recommended_focus,
+                    {
+                        "pillar": strongest_pillar
+                    }
+                ],
 
-                "performance_summary": {
+                "recommended_focus": [
 
-                    "strongest":
-                        strongest_actionable_pillar,
-
-                    "weakest":
-                        weakest_actionable_pillar,
-
-                    "focus":
-                        recommended_focus,
-
-                    "insights":
-                        insights,
-
-                    "message":
-                        (
-                            f"{weakest_actionable_pillar} "
-                            "is currently the weakest "
-                            "actionable pillar."
-                        )
-                }
+                    {
+                        "pillar": weakest_pillar
+                    }
+                ]
             }
-
             query = (
                 getattr(
                     parsed_intent,
@@ -316,46 +164,28 @@ class AtlasTool:
                 phrase in query
                 for phrase in [
                     "weakest pillar",
-                    "which pillar is weakest"
+                    "lowest pillar",
+                    "which pillar is weakest",
+                    "which pillar needs improvement"
                 ]
             ):
 
-                payload[
-                    "direct_answer"
-                ] = (
-                    f"{weakest_actionable_pillar} "
-                    "is currently the weakest "
-                    "actionable pillar."
-                )
+                payload["direct_answer"] = {
+                    "pillar": weakest_pillar
+                }
 
             elif any(
                 phrase in query
                 for phrase in [
                     "strongest pillar",
+                    "best pillar",
+                    "highest pillar",
                     "which pillar is strongest"
                 ]
             ):
 
-                payload[
-                    "direct_answer"
-                ] = (
-                    f"{strongest_actionable_pillar} "
-                    "is currently the strongest "
-                    "actionable pillar."
-                )
-
-            # =====================================
-            # PERFORMANCE ANALYSIS
-            # =====================================
-
-            if (
-                parsed_intent.intent
-                ==
-                StudentIntent.STUDENT_PERFORMANCE
-            ):
-
-                payload[
-                    "performance_analysis"
-                ] = True
+                payload["direct_answer"] = {
+                    "pillar": strongest_pillar
+                }
 
             return payload

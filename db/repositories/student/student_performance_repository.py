@@ -25,6 +25,7 @@ class StudentPerformanceRepository:
         self,
         db
     ):
+
         self.db = db
 
         self.assessment_repo = (
@@ -53,275 +54,153 @@ class StudentPerformanceRepository:
     ):
 
         attendance = (
-            await self.attendance_repo
-            .get_attendance_percentage(
+            await self.attendance_repo.get_attendance_percentage(
                 enrollment_id
             )
         )
 
         pending_homework = (
-            await self.homework_repo
-            .get_pending_homework(
+            await self.homework_repo.get_pending_homework(
                 enrollment_id
             )
         )
 
         overdue_homework = (
-            await self.homework_repo
-            .get_overdue_homework(
+            await self.homework_repo.get_overdue_homework(
                 enrollment_id
             )
         )
 
         assessment_summary = (
-            await self.assessment_repo
-            .get_performance_summary(
+            await self.assessment_repo.get_performance_summary(
                 enrollment_id
             )
         )
 
         assessment_consistency = (
-            await self.assessment_repo
-            .get_consistency_metrics(
+            await self.assessment_repo.get_consistency_metrics(
                 enrollment_id
             )
         )
 
         assessment_risks = (
-            await self.assessment_repo
-            .get_risk_assessments(
+            await self.assessment_repo.get_risk_assessments(
                 enrollment_id
             )
         )
 
         highest_assessment = (
-            await self.assessment_repo
-            .get_highest_scoring_assessment(
+            await self.assessment_repo.get_highest_scoring_assessment(
                 enrollment_id
             )
         )
 
         lowest_assessment = (
-            await self.assessment_repo
-            .get_lowest_scoring_assessment(
+            await self.assessment_repo.get_lowest_scoring_assessment(
                 enrollment_id
             )
         )
 
         strongest_subject = (
-            await self.subject_repo
-            .get_strongest_subject(
+            await self.subject_repo.get_strongest_subject(
                 enrollment_id
             )
         )
 
         weakest_subject = (
-            await self.subject_repo
-            .get_weakest_subject(
+            await self.subject_repo.get_weakest_subject(
                 enrollment_id
             )
         )
 
         atlas = (
-            await self.atlas_repo
-            .build_atlas_payload(
+            await self.atlas_repo.build_atlas_payload(
                 enrollment_id
             )
         )
 
+        atlas_available = False
         atlas_score = None
-        atlas_pillars = None
-
-        if atlas:
-
-            atlas_score = atlas["score"]
-
-            atlas_pillars = atlas["pillars"]
-
+        pillars = {}
         strongest_pillar = None
         weakest_pillar = None
 
-        if atlas_pillars:
+        if atlas:
 
-            pillar_scores = {
+            atlas_available = atlas is not None
 
-                "academic":
-                    atlas_pillars[
-                        "academic"
-                    ]["score"],
-
-                "growth":
-                    atlas_pillars[
-                        "growth"
-                    ]["score"],
-
-                "initiative":
-                    atlas_pillars[
-                        "initiative"
-                    ]["score"]
-            }
-
-            strongest_pillar = max(
-                pillar_scores,
-                key=pillar_scores.get
+            atlas_score = atlas.get(
+                "atlas"
             )
 
-            weakest_pillar = min(
-                pillar_scores,
-                key=pillar_scores.get
-            )
+            pillars = atlas.get(
+                "pillars"
+            ) or {}
+
+            if pillars:
+
+                pillar_scores = {
+
+                    name: value["score"]
+
+                    for name, value
+
+                    in pillars.items()
+                }
+
+                strongest_pillar = max(
+
+                    pillar_scores,
+
+                    key=pillar_scores.get
+                )
+
+                weakest_pillar = min(
+
+                    pillar_scores,
+
+                    key=pillar_scores.get
+                )
+
+        # ======================================================
+        # RISK SIGNALS
+        # ======================================================
 
         signals = {
 
-            "attendance_risk":
-                attendance.get(
-                    "attendance_percentage",
-                    0
-                ) < 75,
+            "attendance": {
 
-            "homework_risk":
-                len(
-                    overdue_homework
-                ) >= 3,
+                "at_risk":
 
-            "assessment_risk":
-                len(
-                    assessment_risks
-                ) > 0,
+                    attendance.get(
+                        "attendance_percentage",
+                        0
+                    ) < 75,
 
-            "consistency_risk":
-                assessment_consistency.get(
-                    "rating"
-                )
-                in [
-                    "Moderate",
-                    "Poor"
-                ],
+                "attendance_percentage":
 
-            "atlas_risk":
-                (
-                    atlas_score
-                    and
-                    atlas_score["score"] < 60
-                )
-        }
-
-        strengths = []
-
-        weaknesses = []
-
-        recommended_focus = []
-
-        # ==========================
-        # STRENGTHS
-        # ==========================
-
-        if strongest_subject:
-
-            strengths.append(
-                f"Strongest subject: "
-                f"{strongest_subject['subject_name']}"
-            )
-
-        if highest_assessment:
-
-            strengths.append(
-                f"Best assessment: "
-                f"{highest_assessment['title']}"
-            )
-
-        if strongest_pillar:
-
-            strengths.append(
-                f"Strongest Atlas pillar: "
-                f"{strongest_pillar.title()}"
-            )
-
-        # ==========================
-        # WEAKNESSES
-        # ==========================
-
-        if weakest_subject:
-
-            weaknesses.append(
-                f"Weakest subject: "
-                f"{weakest_subject['subject_name']}"
-            )
-
-        if lowest_assessment:
-
-            weaknesses.append(
-                f"Weakest assessment: "
-                f"{lowest_assessment['title']}"
-            )
-
-        if weakest_pillar:
-
-            weaknesses.append(
-                f"Weakest Atlas pillar: "
-                f"{weakest_pillar.title()}"
-            )
-
-        if signals["attendance_risk"]:
-
-            weaknesses.append(
-                "Attendance below target."
-            )
-
-        if signals["homework_risk"]:
-
-            weaknesses.append(
-                "Multiple overdue homework."
-            )
-
-        # ==========================
-        # RECOMMENDED FOCUS
-        # ==========================
-
-        if weakest_pillar:
-
-            recommended_focus.append(
-                weakest_pillar.title()
-            )
-
-        if assessment_risks:
-
-            recommended_focus.extend(
-                [
-                    item["title"]
-                    for item
-                    in assessment_risks[:3]
-                ]
-            )
-
-        if (
-            weakest_subject
-            and
-            weakest_subject[
-                "subject_name"
-            ]
-            not in recommended_focus
-        ):
-
-            recommended_focus.append(
-                weakest_subject[
-                    "subject_name"
-                ]
-            )
-
-        return {
-
-            "attendance":
-                attendance,
+                    attendance.get(
+                        "attendance_percentage",
+                        0
+                    )
+            },
 
             "homework": {
 
+                "at_risk":
+
+                    len(
+                        overdue_homework
+                    ) >= 3,
+
                 "pending_count":
+
                     len(
                         pending_homework
                     ),
 
                 "overdue_count":
+
                     len(
                         overdue_homework
                     )
@@ -329,51 +208,293 @@ class StudentPerformanceRepository:
 
             "assessment": {
 
-                "summary":
-                    assessment_summary,
+                "at_risk":
 
-                "consistency":
-                    assessment_consistency,
-
-                "risk_count":
                     len(
                         assessment_risks
+                    ) > 0,
+
+                "risk_count":
+
+                    len(
+                        assessment_risks
+                    ),
+
+                "consistency":
+
+                    assessment_consistency.get(
+                        "rating"
                     )
-            },
-
-            "subjects": {
-
-                "strongest":
-                    strongest_subject,
-
-                "weakest":
-                    weakest_subject
             },
 
             "atlas": {
 
-                "score":
-                    atlas_score,
+                "available":
+                    atlas_available,
 
-                "pillars":
-                    atlas_pillars,
+                "at_risk":
 
-                "strongest_pillar":
+                    (
+                        atlas_available
+                        and
+                        atlas_score
+                        and
+                        atlas_score["score"] < 60
+                    )
+            }
+        }
+
+        # ======================================================
+        # STRENGTHS
+        # ======================================================
+
+        strengths = []
+
+        if strongest_subject:
+
+            strengths.append({
+
+                "type":
+                    "subject",
+
+                "value":
+                    strongest_subject
+            })
+
+        if highest_assessment:
+
+            strengths.append({
+
+                "type":
+                    "assessment",
+
+                "value":
+                    highest_assessment
+            })
+
+        if atlas_available and strongest_pillar:
+
+            strengths.append({
+
+                "type":
+                    "atlas",
+
+                "pillar":
                     strongest_pillar,
 
-                "weakest_pillar":
+                "score":
+
+                    pillars[
+                        strongest_pillar
+                    ]["score"]
+            })
+
+        # ======================================================
+        # WEAKNESSES
+        # ======================================================
+
+        weaknesses = []
+
+        if weakest_subject:
+
+            weaknesses.append({
+
+                "type":
+                    "subject",
+
+                "value":
+                    weakest_subject
+            })
+
+        if lowest_assessment:
+
+            weaknesses.append({
+
+                "type":
+                    "assessment",
+
+                "value":
+                    lowest_assessment
+            })
+
+        if atlas_available and weakest_pillar:
+
+            weaknesses.append({
+
+                "type":
+                    "atlas",
+
+                "pillar":
+                    weakest_pillar,
+
+                "score":
+
+                    pillars[
+                        weakest_pillar
+                    ]["score"]
+            })
+
+        if signals["attendance"]["at_risk"]:
+
+            weaknesses.append({
+
+                "type":
+                    "attendance"
+            })
+
+        if signals["homework"]["at_risk"]:
+
+            weaknesses.append({
+
+                "type":
+                    "homework"
+            })
+
+        # ======================================================
+        # RECOMMENDED FOCUS
+        # ======================================================
+
+        recommended_focus = []
+
+        if atlas_available and weakest_pillar:
+
+            recommended_focus.append({
+
+                "type":
+                    "atlas",
+
+                "pillar":
                     weakest_pillar
-            },
+            })
 
-            "signals":
-                signals,
+        if weakest_subject:
 
-            "strengths":
-                strengths,
+            recommended_focus.append({
 
-            "weaknesses":
-                weaknesses,
+                "type":
+                    "subject",
 
-            "recommended_focus":
-                recommended_focus
-        }
+                "value":
+                    weakest_subject
+            })
+
+        if assessment_risks:
+
+            recommended_focus.append({
+
+                "type":
+                    "assessment",
+
+                "value":
+                    assessment_risks[:3]
+            })
+
+        if signals["attendance"]["at_risk"]:
+
+            recommended_focus.append({
+
+                "type":
+                    "attendance"
+            })
+
+        if signals["homework"]["at_risk"]:
+
+            recommended_focus.append({
+
+                "type":
+                    "homework"
+            })
+        return {
+
+        # ==================================================
+        # ATTENDANCE
+        # ==================================================
+
+        "attendance":
+            attendance,
+
+        # ==================================================
+        # HOMEWORK
+        # ==================================================
+
+        "homework": {
+
+            "pending_count":
+                len(
+                    pending_homework
+                ),
+
+            "overdue_count":
+                len(
+                    overdue_homework
+                ),
+
+            "pending":
+                pending_homework,
+
+            "overdue":
+                overdue_homework
+        },
+
+        # ==================================================
+        # ASSESSMENTS
+        # ==================================================
+
+        "assessment": {
+
+            "summary":
+                assessment_summary,
+
+            "consistency":
+                assessment_consistency,
+
+            "risks":
+                assessment_risks,
+
+            "highest":
+                highest_assessment,
+
+            "lowest":
+                lowest_assessment
+        },
+
+        # ==================================================
+        # SUBJECTS
+        # ==================================================
+
+        "subjects": {
+
+            "strongest":
+                strongest_subject,
+
+            "weakest":
+                weakest_subject
+        },
+
+        # ==================================================
+        # ATLAS
+        # ==================================================
+
+        "atlas":
+            atlas,
+
+        # ==================================================
+        # CROSS MODULE SIGNALS
+        # ==================================================
+
+        "signals":
+            signals,
+
+        # ==================================================
+        # AI HELPERS
+        # ==================================================
+
+        "strengths":
+            strengths,
+
+        "weaknesses":
+            weaknesses,
+
+        "recommended_focus":
+            recommended_focus
+    }
