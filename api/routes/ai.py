@@ -35,9 +35,9 @@ guardian_ai_service = GuardianAIService()
 @router.post("/query")
 async def ai_query(
     payload: AIRequest,
-    # _: str = Depends(
-    #     verify_internal_api_key
-    # )
+    _: str = Depends(
+        verify_internal_api_key
+    )
 ):
 
     try:
@@ -56,7 +56,10 @@ async def ai_query(
     
 @router.post("/mentor_query")
 async def mentor_ai_query(
-    payload: MentorAIRequest
+    payload: MentorAIRequest,
+    _: str = Depends(
+        verify_internal_api_key
+    )
 ):
 
     try:
@@ -84,7 +87,10 @@ async def mentor_ai_query(
     
 @router.post("/guardian_query")
 async def guardian_ai_query(
-    payload: GuardianAIRequest
+    payload: GuardianAIRequest,
+    _: str = Depends(
+        verify_internal_api_key
+    )
 ):
 
     try:
