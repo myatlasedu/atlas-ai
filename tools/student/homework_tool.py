@@ -2,7 +2,7 @@ from db.session import (
     AsyncSessionLocal
 )
 
-from db.repositories.homework_repository import (
+from db.repositories.student.homework_repository import (
     HomeworkRepository
 )
 

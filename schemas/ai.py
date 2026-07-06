@@ -23,3 +23,17 @@ class AIRequest(BaseModel):
     query: str
 
     context: UserContext
+
+class MentorContext(BaseModel):
+
+    
+    user_id: int
+
+    academic_year_id: int
+
+    staff_id: int
+
+class MentorAIRequest(BaseModel):
+    query: str
+    context: MentorContext
+

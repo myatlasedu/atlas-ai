@@ -8,11 +8,11 @@ from cache.pending_action_cache import (
     PendingActionCache
 )
 
-from db.repositories.personal_event_repository import (
+from db.repositories.student.personal_event_repository import (
     PersonalEventRepository
 )
 
-from db.repositories.journal_repository import (
+from db.repositories.student.journal_repository import (
     JournalRepository
 )
 

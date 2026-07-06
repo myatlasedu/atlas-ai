@@ -2,7 +2,7 @@ from db.session import (
     AsyncSessionLocal
 )
 
-from db.repositories.period_attendance_repository import (
+from db.repositories.student.period_attendance_repository import (
     PeriodAttendanceRepository
 )
 

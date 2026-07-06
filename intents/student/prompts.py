@@ -1,71 +1,152 @@
-from datetime import date
+from intents.student.enums import StudentIntent
 
-from intents.student.prompt_parts.base import BASE_PROMPT
-from intents.student.prompt_parts.attendance import ATTENDANCE_PROMPT
-from intents.student.prompt_parts.homework import HOMEWORK_PROMPT
-from intents.student.prompt_parts.assessment import ASSESSMENT_PROMPT
-from intents.student.prompt_parts.atlas import ATLAS_PROMPT
-from intents.student.prompt_parts.performance import PERFORMANCE_PROMPT
-from intents.student.prompt_parts.misc import MISC_PROMPTS
-from intents.student.prompt_parts.date_rules import DATE_RULES
-from intents.student.prompt_parts.module_rules import MODULE_RULES
-from intents.student.prompt_parts.response_format import RESPONSE_FORMAT
-from intents.student.prompt_parts.accouncement import ANNOUNCEMENT_PROMPT
-from intents.student.prompt_parts.forum import FORUM_PROMPT
-from intents.student.prompt_parts.subject import SUBJECT_PROMPT
-from intents.student.prompt_parts.personal_event import PERSONAL_EVENT_PROMPT
-from intents.student.prompt_parts.action_confirmation import ACTION_CONFIRMATION_PROMPT
-from intents.student.prompt_parts.journal_prompt import JOURNAL_PROMPT
-from intents.student.prompt_parts.screen_navigation import SCREEN_NAVIGATION_PROMPT
+from intents.student.prompt_parts.attendance import (
+    ATTENDANCE_PROMPT
+)
+
+from intents.student.prompt_parts.homework import (
+    HOMEWORK_PROMPT
+)
+
+from intents.student.prompt_parts.assessment import (
+    ASSESSMENT_PROMPT
+)
+
+from intents.student.prompt_parts.performance import (
+    PERFORMANCE_PROMPT
+)
+
+from intents.student.prompt_parts.atlas import (
+    ATLAS_PROMPT
+)
+
+from intents.student.prompt_parts.subject import (
+    SUBJECT_PROMPT
+)
+
+from intents.student.prompt_parts.topic import (
+    TOPIC_PROMPT
+)
+
+from intents.student.prompt_parts.accouncement import (
+    ANNOUNCEMENT_PROMPT
+)
+
+from intents.student.prompt_parts.forum import (
+    FORUM_PROMPT
+)
+
+from intents.student.prompt_parts.personal_event import (
+    PERSONAL_EVENT_PROMPT
+)
+
+from intents.student.prompt_parts.journal_prompt import (
+    JOURNAL_PROMPT
+)
+
+from intents.student.prompt_parts.action_confirmation import (
+    ACTION_CONFIRMATION_PROMPT
+)
+
+from intents.student.prompt_parts.screen_navigation import (
+    SCREEN_NAVIGATION_PROMPT
+)
 
 
-def get_student_intent_prompt():
+PROMPT_MAP = {
 
-    today = date.today().isoformat()
+    StudentIntent.ATTENDANCE_SUMMARY:
+        ATTENDANCE_PROMPT,
+
+    StudentIntent.HOMEWORK_SUMMARY:
+        HOMEWORK_PROMPT,
+
+    StudentIntent.ASSESSMENT_SUMMARY:
+        ASSESSMENT_PROMPT,
+
+    StudentIntent.ATLAS_SCORE_SUMMARY:
+        ATLAS_PROMPT,
+
+    StudentIntent.STUDENT_PERFORMANCE:
+        PERFORMANCE_PROMPT,
+
+    StudentIntent.SUBJECT_SUMMARY:
+        SUBJECT_PROMPT,
+
+    StudentIntent.TOPIC_SUMMARY:
+        TOPIC_PROMPT,
+
+    StudentIntent.ANNOUNCEMENT_SUMMARY:
+        ANNOUNCEMENT_PROMPT,
+
+    StudentIntent.FORUM_SUMMARY:
+        FORUM_PROMPT,
+
+    StudentIntent.PERSONAL_EVENT_SUMMARY:
+        PERSONAL_EVENT_PROMPT,
+
+    StudentIntent.PERSONAL_EVENT_CREATE:
+        PERSONAL_EVENT_PROMPT,
+
+    StudentIntent.JOURNAL_SUMMARY:
+        JOURNAL_PROMPT,
+
+    StudentIntent.JOURNAL_CREATE:
+        JOURNAL_PROMPT,
+
+    StudentIntent.ACTION_CONFIRMATION:
+        ACTION_CONFIRMATION_PROMPT,
+
+    StudentIntent.SCREEN_NAVIGATION:
+        SCREEN_NAVIGATION_PROMPT,
+}
+
+def get_student_intent_prompt(
+    intent: StudentIntent
+):
+
+    prompt = PROMPT_MAP.get(
+        intent,
+        ""
+    )
 
     return f"""
-{BASE_PROMPT}
+You are Atlas AI's student intent parser.
 
-Today's date:
+The user's intent has ALREADY been classified.
 
-{today}
+Intent:
 
+{intent.value}
 
-{DATE_RULES}
+You MUST keep the intent field exactly as:
 
-{MODULE_RULES}
+"{intent.value}"
 
-{RESPONSE_FORMAT}
+Do NOT change it.
 
-==================================================
-SUPPORTED INTENTS
-==================================================
+Do NOT invent another intent.
 
-{ACTION_CONFIRMATION_PROMPT}
+Your only job is to extract:
 
-{ATTENDANCE_PROMPT}
+- dates
+- subject
+- topic
+- view
+- any other parameters relevant to this intent
 
-{HOMEWORK_PROMPT}
+{prompt}
 
-{ASSESSMENT_PROMPT}
+Return:
 
-{SUBJECT_PROMPT}
-
-{FORUM_PROMPT}
-
-{ANNOUNCEMENT_PROMPT}
-
-{ATLAS_PROMPT}
-
-{PERFORMANCE_PROMPT}
-
-{PERSONAL_EVENT_PROMPT}
-
-{JOURNAL_PROMPT}
-
-{SCREEN_NAVIGATION_PROMPT}
-
-{MISC_PROMPTS}
-
-
+{{
+    "intent": "{intent.value}",
+    "start_date": null,
+    "end_date": null,
+    "subject": null,
+    "topic": null,
+    "view": null,
+    "target_modules": [],
+    "confidence": 0.95
+}}
 """

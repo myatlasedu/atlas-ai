@@ -2,7 +2,7 @@ from db.session import (
     AsyncSessionLocal
 )
 
-from db.repositories.forum_repository import (
+from db.repositories.student.forum_repository import (
     ForumRepository
 )
 

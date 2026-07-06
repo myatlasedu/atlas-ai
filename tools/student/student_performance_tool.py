@@ -2,7 +2,7 @@ from db.session import (
     AsyncSessionLocal
 )
 
-from db.repositories.student_performance_repository import (
+from db.repositories.student.student_performance_repository import (
     StudentPerformanceRepository
 )
 
@@ -45,6 +45,34 @@ class StudentPerformanceTool:
                     context.enrollment_id
                 )
             )
+
+            print("PERFORMANCE DATA:", data)
+
+            if not data:
+
+                return {
+                    "module": "student_performance",
+                    "status": "building",
+                    "message": (
+                        "We're still building your performance insights. "
+                        "As more attendance, homework, assessments, and Atlas "
+                        "data become available, you'll start seeing a complete analysis."
+                    )
+                }
+
+
+            payload = {
+
+                "module":
+                    "student_performance",
+
+                **data,
+
+                "cross_analysis":
+                    True
+            }
+
+            
 
             payload = {
 

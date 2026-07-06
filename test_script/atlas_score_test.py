@@ -1,4 +1,3 @@
-
 import json
 import time
 import requests
@@ -15,6 +14,7 @@ CONTEXT = {
     "enrollment_id": 2,
     "academic_class_id": 1
 }
+
 
 QUERIES = [
 
@@ -46,8 +46,11 @@ QUERIES = [
     "Which pillar is weakest?",
     "How is my academic pillar?",
     "How is my growth pillar?",
-    "How is my initiative pillar?",
+    "How is my engagement pillar?",
     "Explain my Atlas performance.",
+    "Why is my Atlas score low?",
+    "Why is my growth score weak?",
+    "What is affecting my Atlas score most?",
 
     # =====================================================
     # ATTENDANCE
@@ -85,73 +88,19 @@ QUERIES = [
     "Analyze my assessment performance.",
 
     # =====================================================
-    # CROSS PLATFORM INTELLIGENCE
+    # CROSS MODULE
     # =====================================================
 
-    "Why is my Atlas score low?",
-    "Why is my growth score weak?",
     "What is causing my performance issues?",
     "What should I focus on to improve academically?",
-    "What is affecting my Atlas score most?",
     "Are my homework and assessments aligned?",
     "Does attendance seem to be impacting my performance?",
     "What patterns do you see across my data?",
     "Summarize everything important about me.",
     "What should I prioritize first?",
-    "Give me the top three areas to improve.",
-
-    # =====================================================
-    # REPORT
-    # =====================================================
-
-    "Generate my student report.",
-    "Give me a full student report.",
-    "Summarize my academic progress.",
-    "Provide a complete overview of my performance.",
-
-    # =====================================================
-    # EVENTS
-    # =====================================================
-
-    "What events do I have tomorrow?",
-    "Show my events for this week.",
-    "Do I have any upcoming events?",
-    "What personal reminders do I have?",
-    "What study events are scheduled?",
-
-    # =====================================================
-    # EVENT CREATION
-    # =====================================================
-
-    "Remind me to study maths tomorrow at 6pm",
-    "Schedule football practice on Saturday at 5pm",
-    "Remind me about my chemistry exam next Monday",
-    "Create a study session tomorrow from 7pm to 8pm",
-    "Book a revision session on Friday at 4pm",
-
-    # =====================================================
-    # CONFIRMATION FLOW
-    # =====================================================
-
-    "yes",
-    "confirm",
-    "yes create it",
-    "cancel",
-    "no",
-
-    # =====================================================
-    # EDGE CASES
-    # =====================================================
-
-    "What should I do?",
-    "How can I improve?",
-    "Help me perform better.",
-    "What needs attention?",
-    "What should I focus on today?",
-    "Give me recommendations.",
-    "Analyze me.",
-    "Review my progress.",
+    "Give me the top three areas to improve."
 ]
+
 
 def call_api(query):
 
@@ -170,9 +119,19 @@ def call_api(query):
         timeout=60
     )
 
+    try:
+
+        body = response.json()
+
+    except Exception:
+
+        body = response.text
+
     return {
+
         "status_code": response.status_code,
-        "response": response.json()
+
+        "response": body
     }
 
 
@@ -183,8 +142,16 @@ def main():
     )
 
     logfile = (
-        f"atlas_score_test_log_{timestamp}.txt"
+        f"atlas_regression_{timestamp}.txt"
     )
+
+    total = 0
+
+    passed = 0
+
+    failed = 0
+
+    total_time = 0
 
     with open(
         logfile,
@@ -193,10 +160,15 @@ def main():
     ) as f:
 
         f.write(
-            "=" * 100 +
-            "\ATLAS SCORE INTELLIGENCE TEST RUN\n" +
-            "=" * 100 +
-            "\n\n"
+            "=" * 120 + "\n"
+        )
+
+        f.write(
+            "ATLAS AI REGRESSION TEST\n"
+        )
+
+        f.write(
+            "=" * 120 + "\n\n"
         )
 
         for index, query in enumerate(
@@ -208,66 +180,176 @@ def main():
                 f"[{index}/{len(QUERIES)}] {query}"
             )
 
+            total += 1
+
+            start = time.perf_counter()
+
             try:
 
-                result = call_api(query)
+                result = call_api(
+                    query
+                )
+
+                elapsed = round(
+                    time.perf_counter() - start,
+                    3
+                )
+
+                total_time += elapsed
+
+                ok = (
+                    result["status_code"]
+                    == 200
+                )
+
+                if ok:
+
+                    passed += 1
+
+                else:
+
+                    failed += 1
 
                 f.write(
-                    "\n" +
-                    "=" * 100 +
-                    "\n"
+                    "=" * 120 + "\n"
                 )
 
                 f.write(
-                    f"QUERY #{index}\n"
+                    f"QUERY #{index}\n\n"
                 )
 
                 f.write(
-                    f"QUESTION: {query}\n\n"
+                    f"QUESTION : {query}\n"
                 )
 
                 f.write(
-                    f"STATUS: "
-                    f"{result['status_code']}\n\n"
+                    f"STATUS   : {result['status_code']}\n"
                 )
 
                 f.write(
-                    json.dumps(
-                        result["response"],
-                        indent=2,
-                        ensure_ascii=False
+                    f"TIME     : {elapsed:.3f}s\n"
+                )
+
+                f.write(
+                    f"PASS     : {ok}\n\n"
+                )
+
+                if isinstance(
+                    result["response"],
+                    dict
+                ):
+
+                    f.write(
+                        json.dumps(
+                            result["response"],
+                            indent=2,
+                            ensure_ascii=False
+                        )
                     )
-                )
 
-                f.write("\n")
+                else:
+
+                    f.write(
+                        str(
+                            result["response"]
+                        )
+                    )
+
+                f.write("\n\n")
 
             except Exception as e:
 
+                elapsed = round(
+                    time.perf_counter() - start,
+                    3
+                )
+
+                failed += 1
+
+                total_time += elapsed
+
                 f.write(
-                    "\n" +
-                    "=" * 100 +
-                    "\n"
+                    "=" * 120 + "\n"
                 )
 
                 f.write(
-                    f"QUERY #{index}\n"
+                    f"QUERY #{index}\n\n"
                 )
 
                 f.write(
-                    f"QUESTION: {query}\n\n"
+                    f"QUESTION : {query}\n"
                 )
 
                 f.write(
-                    f"ERROR: {str(e)}\n"
+                    f"TIME     : {elapsed:.3f}s\n"
+                )
+
+                f.write(
+                    "PASS     : False\n\n"
+                )
+
+                f.write(
+                    f"ERROR: {str(e)}\n\n"
                 )
 
             time.sleep(0.5)
 
-    print(
-        f"\nFinished.\n"
-        f"Log saved to: {logfile}"
-    )
+        average = round(
+            total_time / total,
+            3
+        )
+
+        f.write(
+            "=" * 120 + "\n"
+        )
+
+        f.write(
+            "SUMMARY\n"
+        )
+
+        f.write(
+            "=" * 120 + "\n\n"
+        )
+
+        f.write(
+            f"Total Queries : {total}\n"
+        )
+
+        f.write(
+            f"Passed        : {passed}\n"
+        )
+
+        f.write(
+            f"Failed        : {failed}\n"
+        )
+
+        f.write(
+            f"Average Time  : {average}s\n"
+        )
+
+        f.write(
+            f"Total Time    : {round(total_time, 2)}s\n"
+        )
+
+    print()
+
+    print("=" * 80)
+
+    print("Regression Complete")
+
+    print(f"Total   : {total}")
+
+    print(f"Passed  : {passed}")
+
+    print(f"Failed  : {failed}")
+
+    print(f"Average : {average}s")
+
+    print(f"Log File : {logfile}")
+
+    print("=" * 80)
 
 
 if __name__ == "__main__":
+
     main()
