@@ -21,7 +21,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.add_middleware(RequestLockMiddleware)
+# app.add_middleware(RequestLockMiddleware)
 
 app.include_router(
     ai_router,

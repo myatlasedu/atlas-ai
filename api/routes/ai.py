@@ -35,9 +35,9 @@ guardian_ai_service = GuardianAIService()
 @router.post("/query")
 async def ai_query(
     payload: AIRequest,
-    _: str = Depends(
-        verify_internal_api_key
-    )
+    # _: str = Depends(
+    #     verify_internal_api_key
+    # )
 ):
 
     try:
@@ -45,7 +45,8 @@ async def ai_query(
             query=payload.query,
             context=payload.context
         )
-
+        end = time.perf_counter()
+        
     except Exception as e:
         print("Error - ", e)
         print("Traceback - ", traceback.print_exc())

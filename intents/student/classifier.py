@@ -35,7 +35,7 @@ async def classify_student_intent(
             }
         ]
     )
-
+    print("response - ", response)
     parsed = parse_llm_json(
         response["message"]["content"]
     )

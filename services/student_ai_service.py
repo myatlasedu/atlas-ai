@@ -33,7 +33,7 @@ from cache.pending_action_cache import (
 )
 
 logger = logging.getLogger(__name__)
-
+import time
 
 class StudentAIService:
 
@@ -127,7 +127,8 @@ class StudentAIService:
                 }
 
             else:
-
+                
+                t0 = time.perf_counter()
                 parsed_intent = await parse_intent(
                     query=query,
                     role=context.role
@@ -138,9 +139,12 @@ class StudentAIService:
                         parsed_intent
                     )
                 )
+                t1 = time.perf_counter()
+
+                print(f"Intent: {t1-t0:.2f}s")
 
         else:
-
+            t0 = time.perf_counter()
             parsed_intent = await parse_intent(
                 query=query,
                 role=context.role
@@ -151,6 +155,9 @@ class StudentAIService:
                     parsed_intent
                 )
             )
+            t1 = time.perf_counter()
+
+            print(f"Intent: {t1-t0:.2f}s")
 
         logger.info(
             "Parsed Intent: %s",
@@ -218,12 +225,14 @@ class StudentAIService:
                 )
 
                 continue
-
+            t0 = time.perf_counter()
             result = await tool.run(
                 context=context,
                 parsed_intent=parsed_intent
             )
+            t1 = time.perf_counter()
 
+            print(f"Tool Time: {t1-t0:.2f}s")
             results[tool_name] = result
 
             logger.info(
@@ -344,14 +353,16 @@ class StudentAIService:
         #     summary = direct_answer
 
         # else:
-
+        t0 = time.perf_counter()
         summary = await summarize_response(
             query=query,
             data=results,
             context=context,
             intent=parsed_intent.intent
         )
+        t1 = time.perf_counter()
 
+        print(f"Summarize Time: {t1-t0:.2f}s")
         return {
 
             "success": True,
