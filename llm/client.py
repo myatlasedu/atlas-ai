@@ -1,56 +1,4 @@
-# import httpx
-# import asyncio
 
-# from core.config import settings
-
-
-# async def chat_completion(
-#     messages: list
-# ):
-
-#     timeout = httpx.Timeout(
-
-#         connect=10.0,
-
-#         read=60.0,
-
-#         write=10.0,
-
-#         pool=10.0
-#     )
-
-#     try:
-
-#         async with httpx.AsyncClient(
-#             timeout=timeout
-#         ) as client:
-
-#             response = await client.post(
-
-#                 f"{settings.OLLAMA_BASE_URL}/api/chat",
-
-#                 json={
-#                     "model": settings.OLLAMA_MODEL,
-#                     "messages": messages,
-#                     "stream": False
-#                 }
-#             )
-
-#             response.raise_for_status()
-
-#             return response.json()
-
-#     except httpx.ReadTimeout:
-
-#         raise Exception(
-#             "Ollama request timed out after 60 seconds."
-#         )
-
-#     except httpx.ConnectTimeout:
-
-#         raise Exception(
-#             "Unable to connect to Ollama server."
-#         )
 
 from openai import AsyncOpenAI
 
@@ -58,17 +6,18 @@ from core.config import settings
 
 
 client = AsyncOpenAI(
-    api_key="EMPTY",
-    base_url="http://142.93.153.43:8000/v1",
+    api_key=settings.LLM_API_KEY,
+    base_url=f"{settings.LLM_BASE_URL}/v1",
 )
 
 async def chat_completion(messages):
 
     response = await client.chat.completions.create(
-        model="Qwen/Qwen2.5-7B-Instruct",
+        model=settings.LLM_MODEL,
         messages=messages,
         temperature=0.3,
         max_tokens=500,
+        timeout=2
     )
 
     return {

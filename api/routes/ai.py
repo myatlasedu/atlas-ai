@@ -35,9 +35,9 @@ guardian_ai_service = GuardianAIService()
 @router.post("/query")
 async def ai_query(
     payload: AIRequest,
-    # _: str = Depends(
-    #     verify_internal_api_key
-    # )
+    _: str = Depends(
+        verify_internal_api_key
+    )
 ):
 
     try:

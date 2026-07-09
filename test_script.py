@@ -6,7 +6,7 @@ import time
 # Configuration
 # ===========================
 
-URL = "http://127.0.0.1:8000/api/ai/query"
+URL = "https://stagingai.keyedsolution.com/api/ai/query"
 
 CONCURRENT_REQUESTS = 1
 

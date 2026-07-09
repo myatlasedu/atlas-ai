@@ -18,6 +18,9 @@ class Settings(BaseSettings):
 
     INTERNAL_API_KEY: str
 
+    LLM_BASE_URL: str
+    LLM_MODEL: str
+
     OLLAMA_MODEL: str
     OLLAMA_TIMEOUT_SECONDS:int = 60
     REQUEST_LOCK_TTL_SECONDS: int = 120
