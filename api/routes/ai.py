@@ -45,7 +45,8 @@ async def ai_query(
             query=payload.query,
             context=payload.context
         )
-
+        end = time.perf_counter()
+        
     except Exception as e:
         print("Error - ", e)
         print("Traceback - ", traceback.print_exc())

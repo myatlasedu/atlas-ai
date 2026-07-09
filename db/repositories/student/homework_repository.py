@@ -2,6 +2,7 @@ from datetime import date
 from datetime import timedelta
 
 from sqlalchemy import text
+import time
 
 
 class HomeworkRepository:
@@ -52,14 +53,17 @@ class HomeworkRepository:
             ORDER BY h.due_date ASC
             """
         )
-
+        start = time.perf_counter()
         result = await self.db.execute(
             query,
             {
                 "enrollment_id": enrollment_id
             }
+        
         )
-
+        print(
+            f"get_pending_homework: {(time.perf_counter()-start)*1000:.2f} ms"
+        )
         return [
             dict(row)
             for row in result.mappings()
@@ -106,14 +110,16 @@ class HomeworkRepository:
             ORDER BY h.due_date ASC
             """
         )
-
+        start = time.perf_counter()
         result = await self.db.execute(
             query,
             {
                 "enrollment_id": enrollment_id
             }
         )
-
+        print(
+            f"get_overdue_homework: {(time.perf_counter()-start)*1000:.2f} ms"
+        )
         return [
             dict(row)
             for row in result.mappings()
@@ -150,7 +156,7 @@ class HomeworkRepository:
             ORDER BY h.due_date ASC
             """
         )
-
+        start = time.perf_counter()
         result = await self.db.execute(
             query,
             {
@@ -158,7 +164,9 @@ class HomeworkRepository:
                 "today": today
             }
         )
-
+        print(
+            f"get_due_today: {(time.perf_counter()-start)*1000:.2f} ms"
+        )
         return [
             dict(row)
             for row in result.mappings()
@@ -247,14 +255,16 @@ class HomeworkRepository:
             LIMIT 5
             """
         )
-
+        start = time.perf_counter()
         result = await self.db.execute(
             query,
             {
                 "enrollment_id": enrollment_id
             }
         )
-
+        print(
+            f"get_recent_feedback: {(time.perf_counter()-start)*1000:.2f} ms"
+        )
         return [
             dict(row)
             for row in result.mappings()
