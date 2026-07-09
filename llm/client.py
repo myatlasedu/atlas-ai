@@ -17,7 +17,7 @@ async def chat_completion(messages):
         messages=messages,
         temperature=0.3,
         max_tokens=500,
-        timeout=2
+        timeout=60
     )
 
     return {
