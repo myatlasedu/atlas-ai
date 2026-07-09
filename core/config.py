@@ -20,6 +20,7 @@ class Settings(BaseSettings):
 
     LLM_BASE_URL: str
     LLM_MODEL: str
+    LLM_API_KEY: str
 
     OLLAMA_MODEL: str
     OLLAMA_TIMEOUT_SECONDS:int = 60
