@@ -25,6 +25,21 @@ class JournalCreateTool:
             )
         )
 
+        content = journal.get(
+            "content",
+            ""
+        ).strip()
+
+        if not content:
+
+            return {
+
+                "module": "journal",
+
+                "error":
+                    "I couldn't find any journal content to save. Please tell me what you'd like to add to your journal."
+            }
+
         await PendingActionCache.save(
 
             user_id=context.user_id,
@@ -34,8 +49,17 @@ class JournalCreateTool:
             payload=journal
         )
         
+        content = journal["content"].strip()
+
         preview = (
-            journal["content"][:200]
+
+            content[:200]
+
+            + "..."
+
+            if len(content) > 200
+
+            else content
         )
 
         return {
@@ -52,10 +76,18 @@ class JournalCreateTool:
             "action_type":
                 "create_journal",
 
+            "preview":
+                preview,
+
+            "llm_context": {
+
+                "action":
+                    "create_journal",
+
+                "content":
+                    content,
+            },
+
             "confirmation_message":
-                (
-                    "Would you like me to save "
-                    "this journal entry?\n\n"
-                    f"{preview}"
-                )
+                "Would you like me to save this journal entry?"
         }
