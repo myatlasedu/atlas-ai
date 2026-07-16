@@ -1,6 +1,6 @@
 import json
 import logging
-
+from utils import ist_now
 
 from llm.client import (
     chat_completion
@@ -10,7 +10,7 @@ from datetime import datetime
 
 
 logger = logging.getLogger(__name__)
-today = datetime.now().date()
+today = ist_now().date()
 
 
 class EventExtractor:

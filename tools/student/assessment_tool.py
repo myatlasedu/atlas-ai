@@ -6,6 +6,9 @@ from db.repositories.student.assessment_repository import (
     AssessmentRepository
 )
 
+from llm.builders.assessment_builder import (
+    build_assessment_llm_context,
+)
 
 class AssessmentTool:
 
@@ -795,5 +798,11 @@ class AssessmentTool:
                 ] = True
 
                 return payload
+            
+            payload["llm_context"] = (
+                    build_assessment_llm_context(
+                        payload
+                    )
+                )
 
             return payload

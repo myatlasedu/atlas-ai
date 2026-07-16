@@ -3,7 +3,7 @@ import json
 import time
 import requests
 from datetime import datetime
-
+from utils import ist_now
 
 API_URL = "http://127.0.0.1:8000/api/ai/query"
 
@@ -54,7 +54,7 @@ def call_api(query):
 
 def main():
 
-    timestamp = datetime.now().strftime(
+    timestamp = ist_now().strftime(
         "%Y%m%d_%H%M%S"
     )
 

@@ -12,8 +12,15 @@ class TopicTool:
     async def run(
         self,
         context,
-        parsed_intent
+        parsed_intent,
     ):
+
+        if not context.enrollment_id:
+
+            return {
+                "error":
+                    "Enrollment ID missing"
+            }
 
         query = (
             getattr(
@@ -22,6 +29,7 @@ class TopicTool:
                 ""
             )
             .lower()
+            .strip()
         )
 
         async with AsyncSessionLocal() as db:
@@ -30,16 +38,34 @@ class TopicTool:
                 db
             )
 
-            assessment_topics = (
-                await repo.get_assessment_topics(
+            statistics = (
+                await repo.get_topic_statistics(
                     context.enrollment_id
                 )
             )
 
+            completed_topics = (
+                statistics[
+                    "completed_topics"
+                ]
+            )
+
+            pending_topics = (
+                statistics[
+                    "pending_topics"
+                ]
+            )
+
             weak_topics = (
-                await repo.get_weak_topics(
-                    context.enrollment_id
-                )
+                statistics[
+                    "weak_topics"
+                ]
+            )
+
+            all_topics = (
+                statistics[
+                    "all_topics"
+                ]
             )
 
             payload = {
@@ -47,9 +73,14 @@ class TopicTool:
                 "module":
                     "topic",
 
-                "assessment_topic_count":
+                "completed_topic_count":
                     len(
-                        assessment_topics
+                        completed_topics
+                    ),
+
+                "pending_topic_count":
+                    len(
+                        pending_topics
                     ),
 
                 "weak_topic_count":
@@ -57,28 +88,162 @@ class TopicTool:
                         weak_topics
                     ),
 
-                "assessment_topics":
-                    assessment_topics,
+                "total_topic_count":
+                    len(
+                        all_topics
+                    ),
+
+                "completed_topics":
+                    completed_topics,
+
+                "pending_topics":
+                    pending_topics,
 
                 "weak_topics":
-                    weak_topics
+                    weak_topics,
+
+                "llm_context": {
+
+                    "status":
+
+                        (
+                            "building"
+                            if not all_topics
+                            else "available"
+                        ),
+
+                    "metrics": {
+
+                        "total_topics":
+                            len(
+                                all_topics
+                            ),
+
+                        "completed_topics":
+                            len(
+                                completed_topics
+                            ),
+
+                        "pending_topics":
+                            len(
+                                pending_topics
+                            ),
+
+                        "weak_topics":
+                            len(
+                                weak_topics
+                            ),
+                    },
+
+                    "highlights": [
+
+                        (
+                            f"You have completed {len(completed_topics)} topic(s)."
+                        ),
+
+                        (
+                            f"{len(pending_topics)} topic(s) are still pending."
+                        ),
+
+                        (
+                            f"{len(weak_topics)} topic(s) currently need revision."
+                        ),
+                    ],
+
+                    "focus": [
+
+                        topic["topic_name"]
+
+                        for topic in weak_topics[:5]
+                    ],
+
+                    "actions": [
+
+                        "Revise weak topics.",
+
+                        "Complete pending topics."
+                    ],
+                }
             }
 
-            #
-            # Weak topic queries
-            #
+            # =====================================
+            # COMPLETED TOPICS
+            # =====================================
 
             if any(
+
                 phrase in query
+
                 for phrase in [
+
+                    "completed topic",
+                    "completed topics",
+                    "covered topics",
+                    "topics covered",
+                    "finished topics",
+                    "what have i completed",
+                ]
+            ):
+
+                payload[
+                    "direct_answer"
+                ] = (
+
+                    f"You have completed "
+                    f"{len(completed_topics)} "
+                    f"topic(s)."
+                )
+
+                return payload
+
+            # =====================================
+            # PENDING TOPICS
+            # =====================================
+
+            if any(
+
+                phrase in query
+
+                for phrase in [
+
+                    "pending topic",
+                    "pending topics",
+                    "remaining topics",
+                    "topics left",
+                    "what topics are left",
+                    "what should i study next",
+                ]
+            ):
+
+                payload[
+                    "direct_answer"
+                ] = (
+
+                    f"You still have "
+                    f"{len(pending_topics)} "
+                    f"topic(s) pending."
+                )
+
+                return payload
+
+            # =====================================
+            # WEAK TOPICS
+            # =====================================
+
+            if any(
+
+                phrase in query
+
+                for phrase in [
+
                     "weak topic",
                     "weak topics",
-                    "struggling",
-                    "improve",
-                    "focus on",
-                    "difficult topic",
                     "revision",
-                    "revise"
+                    "revise",
+                    "focus on",
+                    "struggling",
+                    "difficult topic",
+                    "improve",
                 ]
             ):
 
@@ -87,11 +252,11 @@ class TopicTool:
                     payload[
                         "direct_answer"
                     ] = (
+
                         f"You currently have "
                         f"{len(weak_topics)} "
-                        f"weak topic(s) identified "
-                        f"from recent assessments "
-                        f"and homework."
+                        f"weak topic(s) that "
+                        f"need revision."
                     )
 
                 else:
@@ -99,53 +264,49 @@ class TopicTool:
                     payload[
                         "direct_answer"
                     ] = (
-                        "No weak topics were "
-                        "identified in the last "
-                        "30 days."
+
+                        "No weak topics "
+                        "were identified."
                     )
 
                 return payload
 
-            #
-            # Assessment topic queries
-            #
+            # =====================================
+            # ALL TOPICS
+            # =====================================
 
             if any(
+
                 phrase in query
+
                 for phrase in [
-                    "assessment topics",
-                    "exam topics",
-                    "tested topics",
-                    "topics assessed",
-                    "study next"
+
+                    "topics",
+                    "topic summary",
+                    "topic overview",
+                    "list topics",
+                    "all topics",
                 ]
             ):
 
-                if assessment_topics:
+                payload[
+                    "direct_answer"
+                ] = (
 
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        f"There are "
-                        f"{len(assessment_topics)} "
-                        f"topic(s) that have appeared "
-                        f"in your assessments."
-                    )
-
-                else:
-
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        "No assessment topics "
-                        "were found."
-                    )
+                    f"You currently have "
+                    f"{len(all_topics)} topic(s), "
+                    f"of which "
+                    f"{len(completed_topics)} "
+                    f"are completed and "
+                    f"{len(pending_topics)} "
+                    f"are pending."
+                )
 
                 return payload
 
-            #
-            # Default topic analysis
-            #
+            # =====================================
+            # DEFAULT
+            # =====================================
 
             payload[
                 "topic_analysis"

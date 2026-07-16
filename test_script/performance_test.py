@@ -1,9 +1,9 @@
 import json
 import time
 from datetime import datetime
-
+from utils import ist_now
 import requests
-
+from utils import ist_now
 
 API_URL = "http://127.0.0.1:8000/api/ai/query"
 
@@ -199,7 +199,7 @@ def separator(
 def main():
 
     timestamp = (
-        datetime.now()
+        ist_now()
         .strftime("%Y%m%d_%H%M%S")
     )
 
@@ -237,7 +237,7 @@ def main():
         separator(f)
 
         f.write(
-            f"\nStarted : {datetime.now()}\n"
+            f"\nStarted : {ist_now()}\n"
         )
 
         f.write(

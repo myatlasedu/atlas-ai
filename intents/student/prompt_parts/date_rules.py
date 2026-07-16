@@ -1,47 +1,55 @@
 DATE_RULES = """
 ==================================================
-DATE RULES
+DATE EXTRACTION RULES
 ==================================================
 
-You MUST resolve all dates.
+Extract dates only.
 
-Convert all dates into ISO format.
+If the user explicitly mentions a calendar date, populate:
 
-today
-→ start_date=today
-→ end_date=today
+- start_date
+- end_date
 
-yesterday
-→ previous date
+using ISO format (YYYY-MM-DD).
 
-16th May
-→ YYYY-MM-DD
+Examples:
 
-Monday
-→ actual Monday date
+15 July 2026
+→ start_date="2026-07-15"
+→ end_date="2026-07-15"
 
-this week
-→ Monday of current week to today
+15 Jul
+→ YYYY-07-15
 
-last week
-→ Monday to Sunday of previous week
+2026-07-15
+→ keep unchanged
 
-this month
-→ first day of current month to today
+Date ranges:
 
-last month
-→ first day to last day of previous month
+15 Jul to 20 Jul
+→ populate both start_date and end_date.
 
-If only a day is specified:
-
-16th
-5th
-23rd
-
-Assume current month and current year.
-
-If no date is mentioned:
+If the user does NOT explicitly mention a calendar date, return:
 
 start_date = null
 end_date = null
+
+Do NOT resolve:
+
+- today
+- yesterday
+- tomorrow
+- this week
+- last week
+- next week
+- this month
+- last month
+- next month
+- Monday
+- Tuesday
+- weekends
+
+Leave them as null.
+
+The backend resolves all relative dates.
 """

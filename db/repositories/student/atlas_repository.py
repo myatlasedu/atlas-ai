@@ -1,7 +1,7 @@
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import date
-
+from utils import ist_today
 
 class AtlasRepository:
 
@@ -96,7 +96,7 @@ class AtlasRepository:
 
             and
 
-            date.today()
+            ist_today()
             <=
             atlas_calibration_end_date
         )

@@ -54,8 +54,10 @@ class StudentPerformanceRepository:
     ):
 
         attendance = (
-            await self.attendance_repo.get_attendance_percentage(
-                enrollment_id
+            await self.attendance_repo.get_attendance_summary(
+                enrollment_id=enrollment_id,
+                start_date=None,
+                end_date=None,
             )
         )
 
@@ -120,48 +122,58 @@ class StudentPerformanceRepository:
         )
 
         atlas_available = False
+
         atlas_score = None
+
         pillars = {}
+
         strongest_pillar = None
+
         weakest_pillar = None
 
         if atlas:
 
-            atlas_available = atlas is not None
+            atlas_available = atlas.get(
+                "available",
+                False,
+            )
 
             atlas_score = atlas.get(
-                "atlas"
+                "atlas",
+                {},
             )
 
             pillars = atlas.get(
-                "pillars"
-            ) or {}
+                "pillars",
+                {},
+            )
 
-            if pillars:
+            if atlas_available and pillars:
 
                 pillar_scores = {
 
-                    name: value["score"]
+                    name: value.get(
+                        "score",
+                        0,
+                    )
 
-                    for name, value
-
-                    in pillars.items()
+                    for name, value in pillars.items()
                 }
 
-                strongest_pillar = max(
+                if any(
+                    score > 0
+                    for score in pillar_scores.values()
+                ):
 
-                    pillar_scores,
+                    strongest_pillar = max(
+                        pillar_scores,
+                        key=pillar_scores.get,
+                    )
 
-                    key=pillar_scores.get
-                )
-
-                weakest_pillar = min(
-
-                    pillar_scores,
-
-                    key=pillar_scores.get
-                )
-
+                    weakest_pillar = min(
+                        pillar_scores,
+                        key=pillar_scores.get,
+                    )
         # ======================================================
         # RISK SIGNALS
         # ======================================================
@@ -170,20 +182,76 @@ class StudentPerformanceRepository:
 
             "attendance": {
 
-                "at_risk":
+            "at_risk":
 
+                (
                     attendance.get(
-                        "attendance_percentage",
-                        0
-                    ) < 75,
+                        "total_periods",
+                        0,
+                    ) > 0
+                    and
+                    (
+                        attendance.get(
+                            "present_periods",
+                            0,
+                        )
+                        /
+                        attendance.get(
+                            "total_periods",
+                            1,
+                        )
+                    ) < 0.90
+                ),
 
-                "attendance_percentage":
+            "present_days":
 
-                    attendance.get(
-                        "attendance_percentage",
-                        0
-                    )
-            },
+                attendance.get(
+                    "present_days",
+                    0,
+                ),
+
+            "total_marked_days":
+
+                attendance.get(
+                    "total_marked_days",
+                    0,
+                ),
+
+            "present_periods":
+
+                attendance.get(
+                    "present_periods",
+                    0,
+                ),
+
+            "missed_periods":
+
+                attendance.get(
+                    "missed_periods",
+                    0,
+                ),
+
+            "late_periods":
+
+                attendance.get(
+                    "late_periods",
+                    0,
+                ),
+
+            "excused_periods":
+
+                attendance.get(
+                    "excused_periods",
+                    0,
+                ),
+
+            "healthroom_periods":
+
+                attendance.get(
+                    "healthroom_periods",
+                    0,
+                ),
+        },
 
             "homework": {
 
@@ -237,9 +305,10 @@ class StudentPerformanceRepository:
                     (
                         atlas_available
                         and
-                        atlas_score
-                        and
-                        atlas_score["score"] < 60
+                        atlas_score.get(
+                            "score",
+                            0,
+                        ) < 60
                     )
             }
         }
@@ -496,15 +565,33 @@ class StudentPerformanceRepository:
                     for item in [
 
                         (
-                            f"Attendance is "
-                            f"{attendance.get('attendance_percentage', 0)}%."
+                            f"You attended "
+                            f"{attendance.get('present_days', 0)} school day(s) "
+                            f"and attended "
+                            f"{round((attendance.get('present_periods', 0) / max(attendance.get('total_periods', 1), 1)) * 100, 1)}% "
+                            f"of recorded class periods."
                         )
 
                         if (
+
                             attendance.get(
-                                "attendance_percentage",
-                                0
-                            ) >= 90
+                                "total_periods",
+                                0,
+                            ) > 0
+
+                            and
+
+                            (
+                                attendance.get(
+                                    "present_periods",
+                                    0,
+                                )
+                                /
+                                attendance.get(
+                                    "total_periods",
+                                    1,
+                                )
+                            ) >= 0.95
                         )
 
                         else None,
@@ -609,7 +696,7 @@ class StudentPerformanceRepository:
 
                     for item in [
 
-                        "Improve attendance."
+                        "Attend every scheduled class period and minimise missed lessons."
 
                         if signals["attendance"]["at_risk"]
 

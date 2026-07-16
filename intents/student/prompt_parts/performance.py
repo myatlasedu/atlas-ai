@@ -6,69 +6,18 @@ STUDENT PERFORMANCE
 Intent:
 student_performance
 
-Used when the student wants a holistic
-performance review that combines multiple
-areas of student life and learning.
+Use this intent ONLY when the user is asking for a
+holistic or cross-module analysis of their learning.
 
-This intent is used for analysis,
-recommendations, risks, trends and
-improvement guidance.
+Student Performance combines information from multiple
+academic modules to produce an overall evaluation.
 
 ==================================================
-USED FOR
+USE ONLY FOR CROSS-MODULE ANALYSIS
 ==================================================
 
-- overall performance
-- holistic performance
-- performance review
-- performance analysis
-- strengths
-- weaknesses
-- improvement advice
-- academic risk
-- readiness
-- recommendations
-- performance decline
-- focus areas
-- improvement plan
-- performance concerns
-- learning habits
-- study recommendations
-
-Examples:
-
-- How am I doing overall?
-- Give me a performance overview.
-- Review my academic performance.
-- What are my strengths?
-- What are my weaknesses?
-- What concerns do you see?
-- What should I focus on next?
-- What is preventing me from improving?
-- Why is my performance declining?
-- Am I at risk academically?
-- How prepared am I?
-- What should I improve?
-- Where do I need the most support?
-- Give me recommendations based on my performance.
-- Analyze my performance.
-- Summarize how I am doing as a student.
-- How can I improve my Atlas score?
-
-Return:
-
-{
-    "intent": "student_performance",
-    "target_modules": ["student_performance"],
-    "confidence": 0.95
-}
-
-==================================================
-CLASSIFICATION RULES
-==================================================
-
-Questions that require combining
-multiple systems such as:
+Choose student_performance only when the answer requires
+combining two or more of the following modules:
 
 - attendance
 - homework
@@ -76,66 +25,141 @@ multiple systems such as:
 - subjects
 - atlas
 
-must be classified as:
+Typical examples:
+
+- How am I doing overall?
+- Give me a performance review.
+- Review my academic performance.
+- Summarize my progress.
+- What are my biggest strengths?
+- What are my biggest weaknesses?
+- What should I improve?
+- What should I focus on?
+- Am I at academic risk?
+- How prepared am I overall?
+- How can I become a better student?
+- Give me recommendations.
+- Analyze my overall performance.
+- What areas need the most attention?
+- What is preventing me from improving?
+- Where should I spend more time studying?
+
+==================================================
+USED FOR
+==================================================
+
+This intent is appropriate for:
+
+- overall performance
+- holistic performance
+- performance review
+- performance analysis
+- academic strengths
+- academic weaknesses
+- improvement advice
+- study recommendations
+- academic risks
+- readiness
+- overall progress
+- focus areas
+- learning habits
+- recommendations
+- overall summary
+
+==================================================
+CLASSIFICATION RULES
+==================================================
+
+If answering the question requires looking across
+multiple systems, classify as:
 
 student_performance
 
 Examples:
 
-- How am I doing overall?
-- What are my strengths?
-- What are my weaknesses?
-- What should I focus on?
-- Am I at risk academically?
-- Give me a performance review.
-- Analyze my performance.
+"How am I doing overall?"
+→ student_performance
+
+"What should I improve?"
+→ student_performance
+
+"What are my strengths?"
+→ student_performance
+
+"What are my weaknesses?"
+→ student_performance
+
+"What should I focus on?"
+→ student_performance
+
+"Am I at academic risk?"
+→ student_performance
+
+"Give me a performance review."
+→ student_performance
+
+"Analyze my performance."
+→ student_performance
+
+"Summarize my progress."
+→ student_performance
 
 ==================================================
 DO NOT USE STUDENT PERFORMANCE
 ==================================================
 
-The following MUST NOT be classified as:
+The following belong to:
 
-student_performance
+attendance_summary
 
-They belong to:
-
-atlas_score_summary
-
-- atlas score
-- academic score
-- growth score
-- initiative score
-- atlas band
-- atlas rank
-- strongest pillar
-- weakest pillar
-- academic pillar
-- growth pillar
-- initiative pillar
-- pillar score
-- atlas progress
-- atlas trend
+- attendance
+- attendance percentage
+- attendance today
+- attendance yesterday
+- attendance this week
+- attendance this month
+- absent today
+- present today
+- late today
+- missed classes
+- period attendance
+- attendance statistics
 
 Examples:
 
-How is my academic score?
-→ atlas_score_summary
+"What is my attendance?"
+→ attendance_summary
 
-What is my growth score?
-→ atlas_score_summary
+"Attendance yesterday"
+→ attendance_summary
 
-What is my initiative score?
-→ atlas_score_summary
+"How many classes did I miss?"
+→ attendance_summary
 
-What is my Atlas score?
-→ atlas_score_summary
+==================================================
+DO NOT USE STUDENT PERFORMANCE
+==================================================
 
-What is my strongest pillar?
-→ atlas_score_summary
+The following belong to:
 
-What is my weakest pillar?
-→ atlas_score_summary
+homework_summary
+
+- homework
+- pending homework
+- overdue homework
+- due today
+- due tomorrow
+- homework feedback
+- homework status
+- assignments
+
+Examples:
+
+"What homework is pending?"
+→ homework_summary
+
+"Any overdue homework?"
+→ homework_summary
 
 ==================================================
 DO NOT USE STUDENT PERFORMANCE
@@ -145,32 +169,121 @@ The following belong to:
 
 assessment_summary
 
-- assessment result
-- test result
-- exam result
+- assessment
+- exam
+- quiz
+- test
 - marks
 - grades
+- latest assessment
+- upcoming assessment
 - assessment feedback
-- upcoming assessments
+- assessment result
+- assessment score
 
 Examples:
 
-What marks did I get?
+"What marks did I get?"
 → assessment_summary
 
-What was my latest assessment result?
+"Latest assessment"
 → assessment_summary
 
-Do I have any upcoming assessments?
+"What exams are coming?"
 → assessment_summary
 
 ==================================================
-TARGET MODULES
+DO NOT USE STUDENT PERFORMANCE
 ==================================================
 
-student_performance
+The following belong to:
 
-[
-    "student_performance"
-]
+subject_summary
+
+- strongest subject
+- weakest subject
+- best subject
+- worst subject
+- subject score
+- subject grades
+- subject comparison
+- compare subjects
+- list subjects
+- subject performance
+- subject analysis
+- subject overview
+- subject strengths
+- subject weaknesses
+
+Examples:
+
+"My strongest subject."
+→ subject_summary
+
+"My weakest subject."
+→ subject_summary
+
+"Compare my subjects."
+→ subject_summary
+
+"List all my subjects."
+→ subject_summary
+
+==================================================
+DO NOT USE STUDENT PERFORMANCE
+==================================================
+
+The following belong to:
+
+atlas_score_summary
+
+- atlas score
+- academic score
+- growth score
+- engagement score
+- atlas band
+- atlas rank
+- strongest pillar
+- weakest pillar
+- academic pillar
+- growth pillar
+- engagement pillar
+- pillar score
+- atlas trend
+- atlas progress
+
+Examples:
+
+"What is my Atlas Score?"
+→ atlas_score_summary
+
+"What is my strongest pillar?"
+→ atlas_score_summary
+
+"What is my weakest pillar?"
+→ atlas_score_summary
+
+==================================================
+IMPORTANT
+==================================================
+
+If the query clearly belongs to one specific module,
+DO NOT classify it as student_performance.
+
+Choose the most specific intent possible.
+
+Only use student_performance when the answer genuinely
+requires combining multiple modules.
+
+==================================================
+RETURN
+==================================================
+
+{
+    "intent": "student_performance",
+    "target_modules": [
+        "student_performance"
+    ],
+    "confidence": 0.95
+}
 """

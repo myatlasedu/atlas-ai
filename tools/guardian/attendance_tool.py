@@ -6,6 +6,10 @@ from db.repositories.student.attendance_repository import (
     AttendanceRepository
 )
 
+from llm.builders.attendance_builder import (
+    build_attendance_llm_context,
+)
+
 
 class AttendanceTool:
 
@@ -18,6 +22,10 @@ class AttendanceTool:
         if not context.enrollment_id:
 
             return {
+
+                "module":
+                    "attendance",
+
                 "error":
                     "Enrollment ID missing"
             }
@@ -28,16 +36,22 @@ class AttendanceTool:
                 db
             )
 
-            attendance = (
-                await repo.get_attendance_percentage(
-                    context.enrollment_id
-                )
-            )
-
-            return {
+            payload = {
 
                 "module":
                     "attendance",
 
-                **attendance
+                **await repo.get_attendance_summary(
+                    enrollment_id=context.enrollment_id,
+                    start_date=parsed_intent.start_date,
+                    end_date=parsed_intent.end_date,
+                )
             }
+
+            payload["llm_context"] = (
+                build_attendance_llm_context(
+                    payload
+                )
+            )
+
+            return payload
