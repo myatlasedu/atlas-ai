@@ -15,39 +15,74 @@ class JournalExtractor:
         query: str
     ):
 
-        prompt = f"""
-Extract a journal entry.
+        prompt = prompt = f"""
+Extract the journal entry from the student's message.
 
-User message:
+Student message
 
 {query}
 
-Return ONLY JSON.
+Return ONLY valid JSON.
 
-Schema:
+Schema
 
 {{
     "content": ""
 }}
 
-Rules:
+Rules
 
-- Extract only the journal content.
-- Remove phrases like:
-  - save this in my journal
-  - journal this
-  - add this to my journal
-  - save this
-- Preserve the student's actual text.
-- Return JSON only.
+1. Extract ONLY the journal content.
+
+2. Remove commands such as
+
+- save this in my journal
+- add this to my journal
+- journal this
+- save this
+- remember this
+- log this
+- create a journal entry
+- make a journal entry
+- write this in my journal
+- note this down
+
+3. Preserve the student's exact wording.
+
+4. Preserve punctuation.
+
+5. Preserve line breaks.
+
+6. Preserve paragraphs.
+
+7. Do NOT rewrite.
+
+8. Do NOT summarize.
+
+9. Do NOT improve grammar.
+
+10. Do NOT add any extra text.
+
+11. Do NOT include quotation marks unless they are part of the student's message.
+
+12. If nothing remains after removing the command phrases, return
+
+{{
+    "content": ""
+}}
+
+Return ONLY valid JSON.
 """
 
         response = await chat_completion(
             [
                 {
                     "role": "system",
-                    "content":
-                        "Extract journal content. Return JSON only."
+                    "content": (
+                        "You extract journal entries. "
+                        "Never rewrite, summarize, correct, or improve the student's writing. "
+                        "Return only valid JSON."
+                    )
                 },
                 {
                     "role": "user",

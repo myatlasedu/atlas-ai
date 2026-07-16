@@ -182,8 +182,8 @@ class ActionExecutorTool:
                 journal_id = (
                     await repo.create_entry(
 
-                        student_id=
-                            context.student_id,
+                        user_id=
+                            context.user_id,
 
                         content=
                             payload.get(

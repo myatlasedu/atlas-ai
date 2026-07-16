@@ -12,15 +12,18 @@ from intents.student.enums import (
 
 class ParsedStudentIntent(BaseModel):
 
-    intent: StudentIntent
+    intent: str
 
     navigation_target: str | None = None
 
     start_date: date | None = None
+
     end_date: date | None = None
 
-    target_modules: list[str] = Field(default_factory=list)
+    target_modules: list[str] = []
 
     confidence: float = 0.0
 
-    original_query: str = ""
+    original_query: str
+
+    topic: str | None = None

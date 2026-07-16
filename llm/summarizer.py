@@ -633,7 +633,13 @@ async def summarize_response(
         data
     )
 
-    print(json.dumps(llm_data, indent=2))
+    print(
+        json.dumps(
+            llm_data,
+            indent=2,
+            default=lambda x: x.isoformat(),
+        )
+    )
 
     prompt = build_prompt(
         query=query,

@@ -65,15 +65,117 @@ def resolve_dates(
     # Explicit dates already parsed by LLM
     # ------------------------------------------------------
 
+    start_date = parsed.get("start_date")
+    end_date = parsed.get("end_date")
+
+    #
+    # If the LLM already returned ISO dates,
+    # don't resolve again.
+    #
+
     if (
-        parsed.get("start_date")
-        is not None
+        isinstance(start_date, date)
+        and
+        isinstance(end_date, date)
     ):
         return parsed
 
+    if (
+        isinstance(start_date, str)
+        and
+        isinstance(end_date, str)
+    ):
+
+        try:
+
+            parsed["start_date"] = date.fromisoformat(
+                start_date
+            )
+
+            parsed["end_date"] = date.fromisoformat(
+                end_date
+            )
+
+            return parsed
+
+        except ValueError:
+
+            #
+            # Not ISO dates (e.g. "yesterday"),
+            # continue resolving below.
+            #
+            pass
+
     # ------------------------------------------------------
-    # Today / Yesterday / Tomorrow
+    # Day before yesterday
     # ------------------------------------------------------
+
+    if any(
+        phrase in query
+        for phrase in [
+            "day before yesterday",
+            "the day before yesterday",
+        ]
+    ):
+
+        target = today - timedelta(days=2)
+
+        parsed["start_date"] = target
+        parsed["end_date"] = target
+
+        return parsed
+
+    
+    # ------------------------------------------------------
+    # Relative day phrases
+    # ------------------------------------------------------
+
+    #
+    # day before yesterday
+    # day before day before yesterday
+    # last day before yesterday
+    #
+
+    if "yesterday" in query:
+
+        days = 1
+
+        #
+        # Count:
+        # day before yesterday
+        # day before day before yesterday
+        #
+
+        days += query.count(
+            "day before"
+        )
+
+        #
+        # Count any "last"
+        #
+        # yesterday                -> 0
+        # last yesterday           -> 1
+        # last last yesterday      -> 2
+        # last to last yesterday   -> 2
+        #
+
+        days += query.count(
+            "last"
+        )
+
+        target = (
+            today - timedelta(days=days)
+        )
+
+        parsed["start_date"] = target
+        parsed["end_date"] = target
+
+        return parsed
+
+
+    #
+    # today
+    #
 
     if "today" in query:
 
@@ -82,21 +184,27 @@ def resolve_dates(
 
         return parsed
 
-    if "yesterday" in query:
 
-        target = (
-            today - timedelta(days=1)
-        )
-
-        parsed["start_date"] = target
-        parsed["end_date"] = target
-
-        return parsed
+    #
+    # tomorrow
+    #
 
     if "tomorrow" in query:
 
+        days = 1
+
+        #
+        # tomorrow
+        # next tomorrow
+        # next next tomorrow
+        #
+
+        days += query.count(
+            "next"
+        )
+
         target = (
-            today + timedelta(days=1)
+            today + timedelta(days=days)
         )
 
         parsed["start_date"] = target
@@ -121,45 +229,57 @@ def resolve_dates(
         return parsed
 
     # ------------------------------------------------------
-    # Last week
+    # Relative weeks
     # ------------------------------------------------------
 
-    if "last week" in query:
+    if "week" in query:
 
-        start = (
-            today
-            - timedelta(
-                days=today.weekday() + 7
+        current_week_start = (
+            today - timedelta(days=today.weekday())
+        )
+
+        if "last" in query:
+
+            weeks = query.count("last")
+
+            start = (
+                current_week_start
+                - timedelta(days=7 * weeks)
             )
-        )
 
-        end = (
-            start + timedelta(days=6)
-        )
+            end = (
+                start + timedelta(days=6)
+            )
 
-        parsed["start_date"] = start
-        parsed["end_date"] = end
+            parsed["start_date"] = start
+            parsed["end_date"] = end
 
-        return parsed
+            return parsed
 
-    # ------------------------------------------------------
-    # Next week
-    # ------------------------------------------------------
+        if "next" in query:
 
-    if "next week" in query:
+            weeks = query.count("next")
 
-        start = (
-            today
-            - timedelta(days=today.weekday())
-            + timedelta(days=7)
-        )
+            start = (
+                current_week_start
+                + timedelta(days=7 * weeks)
+            )
 
-        end = (
-            start + timedelta(days=6)
-        )
+            end = (
+                start + timedelta(days=6)
+            )
 
-        parsed["start_date"] = start
-        parsed["end_date"] = end
+            parsed["start_date"] = start
+            parsed["end_date"] = end
+
+            return parsed
+
+        #
+        # this week
+        #
+
+        parsed["start_date"] = current_week_start
+        parsed["end_date"] = today
 
         return parsed
 
@@ -177,75 +297,70 @@ def resolve_dates(
 
         return parsed
 
-    # ------------------------------------------------------
-    # Last month
-    # ------------------------------------------------------
+    if "month" in query:
 
-    if "last month" in query:
+        if "last" in query:
 
-        if today.month == 1:
-
-            year = today.year - 1
-            month = 12
-
-        else:
+            months_back = query.count("last")
 
             year = today.year
-            month = today.month - 1
+            month = today.month
 
-        first = date(
-            year,
-            month,
-            1,
-        )
+            for _ in range(months_back):
 
-        last = date(
-            year,
-            month,
-            calendar.monthrange(
+                month -= 1
+
+                if month == 0:
+                    month = 12
+                    year -= 1
+
+            first = date(year, month, 1)
+
+            last = date(
                 year,
                 month,
-            )[1],
-        )
+                calendar.monthrange(year, month)[1],
+            )
 
-        parsed["start_date"] = first
-        parsed["end_date"] = last
+            parsed["start_date"] = first
+            parsed["end_date"] = last
 
-        return parsed
+            return parsed
 
-    # ------------------------------------------------------
-    # Next month
-    # ------------------------------------------------------
+        if "next" in query:
 
-    if "next month" in query:
-
-        if today.month == 12:
-
-            year = today.year + 1
-            month = 1
-
-        else:
+            months_forward = query.count("next")
 
             year = today.year
-            month = today.month + 1
+            month = today.month
 
-        first = date(
-            year,
-            month,
-            1,
-        )
+            for _ in range(months_forward):
 
-        last = date(
-            year,
-            month,
-            calendar.monthrange(
+                month += 1
+
+                if month == 13:
+                    month = 1
+                    year += 1
+
+            first = date(year, month, 1)
+
+            last = date(
                 year,
                 month,
-            )[1],
-        )
+                calendar.monthrange(year, month)[1],
+            )
 
-        parsed["start_date"] = first
-        parsed["end_date"] = last
+            parsed["start_date"] = first
+            parsed["end_date"] = last
+
+            return parsed
+
+        #
+        # this month
+        #
+
+        parsed["start_date"] = today.replace(day=1)
+        parsed["end_date"] = today
 
         return parsed
 
