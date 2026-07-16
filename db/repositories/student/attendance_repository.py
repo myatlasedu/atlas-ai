@@ -6,7 +6,7 @@ class AttendanceRepository:
 
     def __init__(
         self,
-        db: AsyncSession
+        db: AsyncSession,
     ):
         self.db = db
 
@@ -17,7 +17,7 @@ class AttendanceRepository:
     async def get_daily_attendance(
         self,
         enrollment_id: int,
-        target_date: str
+        target_date: str,
     ):
 
         query = text(
@@ -30,7 +30,7 @@ class AttendanceRepository:
                 exit_time
             FROM students_studentattendance
             WHERE enrollment_id = :enrollment_id
-            AND date = :target_date
+              AND date = :target_date
             LIMIT 1
             """
         )
@@ -39,8 +39,8 @@ class AttendanceRepository:
             query,
             {
                 "enrollment_id": enrollment_id,
-                "target_date": target_date
-            }
+                "target_date": target_date,
+            },
         )
 
         row = result.mappings().first()
@@ -58,7 +58,7 @@ class AttendanceRepository:
         self,
         enrollment_id: int,
         start_date: str,
-        end_date: str
+        end_date: str,
     ):
 
         query = text(
@@ -68,7 +68,7 @@ class AttendanceRepository:
                 status
             FROM students_studentattendance
             WHERE enrollment_id = :enrollment_id
-            AND date BETWEEN :start_date AND :end_date
+              AND date BETWEEN :start_date AND :end_date
             ORDER BY date
             """
         )
@@ -78,8 +78,8 @@ class AttendanceRepository:
             {
                 "enrollment_id": enrollment_id,
                 "start_date": start_date,
-                "end_date": end_date
-            }
+                "end_date": end_date,
+            },
         )
 
         return [
@@ -95,14 +95,18 @@ class AttendanceRepository:
         self,
         enrollment_id: int,
         start_date: str,
-        end_date: str
+        end_date: str,
     ):
 
-        query = text(
+        # -------------------------------------------------
+        # RFID attendance is the source of truth
+        # -------------------------------------------------
+
+        attendance_query = text(
             """
             SELECT
 
-                COUNT(*) AS total_days,
+                COUNT(*) AS total_marked_days,
 
                 SUM(
                     CASE
@@ -110,58 +114,168 @@ class AttendanceRepository:
                         THEN 1
                         ELSE 0
                     END
-                ) AS present_days,
-
-                SUM(
-                    CASE
-                        WHEN status = 2
-                        THEN 1
-                        ELSE 0
-                    END
-                ) AS absent_days,
-
-                SUM(
-                    CASE
-                        WHEN status = 3
-                        THEN 1
-                        ELSE 0
-                    END
-                ) AS late_days,
-
-                SUM(
-                    CASE
-                        WHEN status = 4
-                        THEN 1
-                        ELSE 0
-                    END
-                ) AS half_days
+                ) AS present_days
 
             FROM students_studentattendance
 
             WHERE enrollment_id = :enrollment_id
 
-            AND date BETWEEN :start_date
-            AND :end_date
+              AND date BETWEEN :start_date
+                          AND :end_date
             """
         )
 
-        result = await self.db.execute(
-            query,
+        attendance_result = await self.db.execute(
+            attendance_query,
             {
                 "enrollment_id": enrollment_id,
                 "start_date": start_date,
-                "end_date": end_date
-            }
+                "end_date": end_date,
+            },
         )
 
-        row = result.mappings().first()
+        attendance = attendance_result.mappings().first()
+
+        total_marked_days = (
+            attendance["total_marked_days"]
+            or 0
+        )
+
+        present_days = (
+            attendance["present_days"]
+            or 0
+        )
+
+        attendance_percentage = 0
+
+        if total_marked_days:
+
+            attendance_percentage = round(
+                (
+                    present_days
+                    /
+                    total_marked_days
+                ) * 100,
+                2,
+            )
+
+        # -------------------------------------------------
+        # Classroom attendance only for RFID present days
+        # -------------------------------------------------
+
+        period_query = text(
+            """
+            SELECT
+
+            COUNT(*) AS total_periods,
+
+            SUM(
+                CASE
+                    WHEN spa.status = 1
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS present_periods,
+
+            SUM(
+                CASE
+                    WHEN spa.status = 2
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS missed_periods,
+
+            SUM(
+                CASE
+                    WHEN spa.status = 3
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS late_periods,
+
+            SUM(
+                CASE
+                    WHEN spa.status = 4
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS excused_periods,
+
+            SUM(
+                CASE
+                    WHEN spa.status = 5
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS healthroom_periods
+
+        FROM students_studentperiodattendance spa
+
+        INNER JOIN schools_periodsession ps
+
+            ON ps.id = spa.period_session_id
+
+        INNER JOIN students_studentattendance sa
+
+            ON sa.enrollment_id = spa.enrollment_id
+        AND sa.date = ps.date
+
+        WHERE spa.enrollment_id = :enrollment_id
+
+        AND ps.date BETWEEN :start_date
+                        AND :end_date
+
+        AND sa.status = 1
+            """
+        )
+
+        period_result = await self.db.execute(
+            period_query,
+            {
+                "enrollment_id": enrollment_id,
+                "start_date": start_date,
+                "end_date": end_date,
+            },
+        )
+
+        periods = period_result.mappings().first()
 
         return {
-            "total_days": row["total_days"] or 0,
-            "present_days": row["present_days"] or 0,
-            "absent_days": row["absent_days"] or 0,
-            "late_days": row["late_days"] or 0,
-            "half_days": row["half_days"] or 0
+
+            # -------------------------------------------------
+            # RFID Attendance
+            # -------------------------------------------------
+
+            "total_marked_days":
+                total_marked_days,
+
+            "present_days":
+                present_days,
+
+            "attendance_percentage":
+                attendance_percentage,
+
+            # -------------------------------------------------
+            # Classroom Attendance
+            # -------------------------------------------------
+
+            "total_periods":
+                periods["total_periods"] or 0,
+
+            "present_periods":
+                periods["present_periods"] or 0,
+
+            "missed_periods":
+                periods["missed_periods"] or 0,
+
+            "late_periods":
+                periods["late_periods"] or 0,
+
+            "excused_periods":
+                periods["excused_periods"] or 0,
+
+            "healthroom_periods":
+                periods["healthroom_periods"] or 0,
         }
 
     # =====================================================
@@ -170,14 +284,14 @@ class AttendanceRepository:
 
     async def get_attendance_percentage(
         self,
-        enrollment_id: int
+        enrollment_id: int,
     ):
 
         query = text(
             """
             SELECT
 
-                COUNT(*) AS total_days,
+                COUNT(*) AS total_marked_days,
 
                 SUM(
                     CASE
@@ -196,35 +310,43 @@ class AttendanceRepository:
         result = await self.db.execute(
             query,
             {
-                "enrollment_id": enrollment_id
-            }
+                "enrollment_id": enrollment_id,
+            },
         )
 
         row = result.mappings().first()
 
-        total_days = (
-            row["total_days"] or 0
+        total_marked_days = (
+            row["total_marked_days"]
+            or 0
         )
 
         present_days = (
-            row["present_days"] or 0
+            row["present_days"]
+            or 0
         )
 
         attendance_percentage = 0
 
-        if total_days:
+        if total_marked_days:
 
             attendance_percentage = round(
                 (
                     present_days
                     /
-                    total_days
+                    total_marked_days
                 ) * 100,
-                2
+                2,
             )
 
         return {
-            "total_days": total_days,
-            "present_days": present_days,
-            "attendance_percentage": attendance_percentage
+
+            "total_marked_days":
+                total_marked_days,
+
+            "present_days":
+                present_days,
+
+            "attendance_percentage":
+                attendance_percentage,
         }

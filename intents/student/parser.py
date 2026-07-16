@@ -1,31 +1,35 @@
 import logging
 
 from llm.client import (
-    chat_completion
+    chat_completion,
 )
 
 from intents.base.fallbacks import (
-    build_fallback_student_intent
+    build_fallback_student_intent,
 )
 
 from intents.base.parser import (
-    parse_llm_json
+    parse_llm_json,
 )
 
 from intents.student.classifier import (
-    classify_student_intent
+    classify_student_intent,
 )
 
 from intents.student.enums import (
-    StudentIntent
+    StudentIntent,
 )
 
 from intents.student.prompts import (
-    get_student_intent_prompt
+    get_student_intent_prompt,
 )
 
 from intents.student.schemas import (
-    ParsedStudentIntent
+    ParsedStudentIntent,
+)
+
+from utils import (
+    resolve_dates,
 )
 
 logger = logging.getLogger(__name__)
@@ -80,12 +84,10 @@ VALID_INTENTS = {
 
 
 def _fallback(
-    query: str
+    query: str,
 ) -> ParsedStudentIntent:
 
-    data = (
-        build_fallback_student_intent()
-    )
+    data = build_fallback_student_intent()
 
     data["original_query"] = query
 
@@ -94,8 +96,58 @@ def _fallback(
     )
 
 
+def _normalize_modules(
+    parsed: dict,
+) -> dict:
+
+    modules = parsed.get(
+        "target_modules",
+        [],
+    )
+
+    if not isinstance(
+        modules,
+        list,
+    ):
+        modules = []
+
+    parsed["target_modules"] = list(
+        dict.fromkeys(
+            str(module).lower().strip()
+            for module in modules
+            if module
+        )
+    )
+
+    return parsed
+
+
+def _normalize_dates(
+    parsed: dict,
+) -> dict:
+
+    parsed = resolve_dates(
+        parsed
+    )
+
+    for field in (
+        "start_date",
+        "end_date",
+    ):
+
+        value = parsed.get(field)
+
+        if hasattr(
+            value,
+            "isoformat",
+        ):
+            parsed[field] = value.isoformat()
+
+    return parsed
+
+
 async def parse_student_intent(
-    query: str
+    query: str,
 ) -> ParsedStudentIntent:
 
     try:
@@ -108,7 +160,7 @@ async def parse_student_intent(
 
         logger.info(
             "Classified intent: %s",
-            classified_intent.value
+            classified_intent.value,
         )
 
         prompt = (
@@ -121,12 +173,12 @@ async def parse_student_intent(
             messages=[
                 {
                     "role": "system",
-                    "content": prompt
+                    "content": prompt,
                 },
                 {
                     "role": "user",
-                    "content": query
-                }
+                    "content": query,
+                },
             ]
         )
 
@@ -136,7 +188,7 @@ async def parse_student_intent(
 
         logger.info(
             "RAW MODEL RESPONSE >>> %r",
-            content
+            content,
         )
 
         parsed = parse_llm_json(
@@ -145,14 +197,14 @@ async def parse_student_intent(
 
         logger.info(
             "Parsed JSON >>> %s",
-            parsed
+            parsed,
         )
 
         intent = (
             str(
                 parsed.get(
                     "intent",
-                    classified_intent.value
+                    classified_intent.value,
                 )
             )
             .strip()
@@ -162,7 +214,7 @@ async def parse_student_intent(
         intent = (
             INTENT_ALIASES.get(
                 intent,
-                intent
+                intent,
             )
         )
 
@@ -170,7 +222,7 @@ async def parse_student_intent(
 
             logger.warning(
                 "Unknown parsed intent '%s'. Falling back to classifier intent.",
-                intent
+                intent,
             )
 
             intent = (
@@ -181,15 +233,23 @@ async def parse_student_intent(
 
         parsed.setdefault(
             "target_modules",
-            []
+            [],
         )
 
         parsed.setdefault(
             "confidence",
-            0.95
+            0.95,
         )
 
         parsed["original_query"] = query
+
+        parsed = _normalize_dates(
+            parsed
+        )
+
+        parsed = _normalize_modules(
+            parsed
+        )
 
         return ParsedStudentIntent(
             **parsed

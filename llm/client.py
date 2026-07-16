@@ -15,7 +15,7 @@ async def chat_completion(messages):
     response = await client.chat.completions.create(
         model=settings.LLM_MODEL,
         messages=messages,
-        temperature=0.3,
+        temperature=0.1,
         max_tokens=500,
         timeout=60
     )

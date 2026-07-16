@@ -3,7 +3,7 @@ from datetime import date
 from intents.mentor.enums import (
     MentorIntent
 )
-
+from utils import ist_today
 
 class DateService:
 
@@ -21,7 +21,7 @@ class DateService:
 
         if parsed_intent.intent == MentorIntent.ATTENDANCE_SUMMARY:
 
-            today = date.today()
+            today = ist_today()
 
             parsed_intent.start_date = today
 

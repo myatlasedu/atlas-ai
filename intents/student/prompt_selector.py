@@ -1,431 +1,143 @@
 # intents/student/prompt_selector.py
 
+from intents.student.enums import (
+    StudentIntent,
+)
+
 from intents.student.prompt_parts.base import (
-    BASE_PROMPT
+    BASE_PROMPT,
 )
 
 from intents.student.prompt_parts.date_rules import (
-    DATE_RULES
+    DATE_RULES,
 )
 
 from intents.student.prompt_parts.module_rules import (
-    MODULE_RULES
+    MODULE_RULES,
 )
 
 from intents.student.prompt_parts.response_format import (
-    RESPONSE_FORMAT
+    RESPONSE_FORMAT,
 )
 
 from intents.student.prompt_parts.action_confirmation import (
-    ACTION_CONFIRMATION_PROMPT
+    ACTION_CONFIRMATION_PROMPT,
 )
 
 from intents.student.prompt_parts.attendance import (
-    ATTENDANCE_PROMPT
+    ATTENDANCE_PROMPT,
 )
 
 from intents.student.prompt_parts.homework import (
-    HOMEWORK_PROMPT
+    HOMEWORK_PROMPT,
 )
 
 from intents.student.prompt_parts.assessment import (
-    ASSESSMENT_PROMPT
+    ASSESSMENT_PROMPT,
 )
 
 from intents.student.prompt_parts.atlas import (
-    ATLAS_PROMPT
+    ATLAS_PROMPT,
 )
 
 from intents.student.prompt_parts.performance import (
-    PERFORMANCE_PROMPT
+    PERFORMANCE_PROMPT,
 )
 
 from intents.student.prompt_parts.announcement import (
-    ANNOUNCEMENT_PROMPT
+    ANNOUNCEMENT_PROMPT,
 )
 
 from intents.student.prompt_parts.forum import (
-    FORUM_PROMPT
+    FORUM_PROMPT,
 )
 
 from intents.student.prompt_parts.subject import (
-    SUBJECT_PROMPT
+    SUBJECT_PROMPT,
 )
 
 from intents.student.prompt_parts.personal_event import (
-    PERSONAL_EVENT_PROMPT
+    PERSONAL_EVENT_PROMPT,
 )
 
 from intents.student.prompt_parts.journal_prompt import (
-    JOURNAL_PROMPT
+    JOURNAL_PROMPT,
 )
 
 from intents.student.prompt_parts.misc import (
-    MISC_PROMPTS
+    MISC_PROMPTS,
 )
 
 from intents.student.prompt_parts.screen_navigation import (
-    SCREEN_NAVIGATION_PROMPT
+    SCREEN_NAVIGATION_PROMPT,
 )
 
 
-def build_prompt_for_query(
-    query: str
-):
+PROMPT_MAP = {
 
-    query = (
-        query or ""
-    ).lower()
+    StudentIntent.ATTENDANCE_SUMMARY:
+        ATTENDANCE_PROMPT,
+
+    StudentIntent.HOMEWORK_SUMMARY:
+        HOMEWORK_PROMPT,
+
+    StudentIntent.ASSESSMENT_SUMMARY:
+        ASSESSMENT_PROMPT,
+
+    StudentIntent.ATLAS_SCORE_SUMMARY:
+        ATLAS_PROMPT,
+
+    StudentIntent.STUDENT_PERFORMANCE:
+        PERFORMANCE_PROMPT,
+
+    StudentIntent.STUDENT_REPORT:
+        PERFORMANCE_PROMPT,
+
+    StudentIntent.SUBJECT_SUMMARY:
+        SUBJECT_PROMPT,
+
+    StudentIntent.TOPIC_SUMMARY:
+        SUBJECT_PROMPT,
+
+    StudentIntent.ANNOUNCEMENT_SUMMARY:
+        ANNOUNCEMENT_PROMPT,
+
+    StudentIntent.FORUM_SUMMARY:
+        FORUM_PROMPT,
+
+    StudentIntent.PERSONAL_EVENT_SUMMARY:
+        PERSONAL_EVENT_PROMPT,
+
+    StudentIntent.JOURNAL_SUMMARY:
+        JOURNAL_PROMPT,
+
+    StudentIntent.SCREEN_NAVIGATION:
+        SCREEN_NAVIGATION_PROMPT,
+
+    StudentIntent.ACTION_CONFIRMATION:
+        ACTION_CONFIRMATION_PROMPT,
+}
+
+
+def build_prompt_for_intent(
+    intent: StudentIntent,
+):
 
     selected_parts = [
 
         BASE_PROMPT,
 
-        ACTION_CONFIRMATION_PROMPT
-    ]
-
-    # =====================================
-    # SCREEN NAVIGATION
-    # =====================================
-
-    if any(
-        keyword in query
-        for keyword in [
-
-            "open",
-            "go to",
-            "take me to",
-            "navigate",
-            "show screen",
-            "open screen",
-
-            "profile",
-            "homework",
-            "attendance",
-            "journal",
-            "forum",
-            "calendar",
-            "events",
-            "classroom",
-            "timetable",
-            "enrichment",
-            "announcement",
-            "announcements",
-            "notification",
-            "notifications",
-            "wellbeing",
-            "healthroom",
-            "health room",
-            "report",
-            "reports",
-            "report card",
-            "report cards",
-            "academic report",
-            "assessment",
-            "assessments",
-            "exam",
-            "exams",
-            "result",
-            "results",
-            "grade",
-            "grades"
-        ]
-    ):
-
-        selected_parts.extend([
-
-            SCREEN_NAVIGATION_PROMPT
-        ])
-
-    # =====================================
-    # JOURNAL
-    # =====================================
-
-    if any(
-        keyword in query
-        for keyword in [
-
-            "journal",
-            "journals",
-            "note",
-            "notes",
-            "reflection",
-            "reflections",
-            "diary",
-            "wrote",
-            "journaled"
-        ]
-    ):
-
-        selected_parts.extend([
-
-            JOURNAL_PROMPT
-        ])
-
-    # =====================================
-    # PERSONAL EVENTS
-    # =====================================
-
-    if any(
-        keyword in query
-        for keyword in [
-
-            "event",
-            "events",
-            "calendar",
-            "schedule",
-            "meeting",
-            "tomorrow",
-            "today",
-            "next week",
-            "birthday",
-            "appointment"
-        ]
-    ):
-
-        selected_parts.extend([
-
-            PERSONAL_EVENT_PROMPT
-        ])
-
-    # =====================================
-    # ATTENDANCE
-    # =====================================
-
-    if any(
-        keyword in query
-        for keyword in [
-
-            "attendance",
-            "present",
-            "absent",
-            "late",
-            "school attendance"
-        ]
-    ):
-
-        selected_parts.extend([
-
-            ATTENDANCE_PROMPT
-        ])
-
-    # =====================================
-    # HOMEWORK
-    # =====================================
-
-    if any(
-        keyword in query
-        for keyword in [
-
-            "homework",
-            "assignment",
-            "assignments",
-            "submission",
-            "due",
-            "teacher note"
-        ]
-    ):
-
-        selected_parts.extend([
-
-            HOMEWORK_PROMPT
-        ])
-
-    # =====================================
-    # ASSESSMENTS
-    # =====================================
-
-    if any(
-        keyword in query
-        for keyword in [
-
-            "assessment",
-            "assessments",
-            "test",
-            "tests",
-            "exam",
-            "exams",
-            "quiz",
-            "quizzes",
-            "grade",
-            "grades",
-            "marks",
-            "result",
-            "results"
-        ]
-    ):
-
-        selected_parts.extend([
-
-            ASSESSMENT_PROMPT
-        ])
-
-    # =====================================
-    # ATLAS
-    # =====================================
-
-    if any(
-        keyword in query
-        for keyword in [
-
-            "atlas",
-            "academic score",
-            "growth score",
-            "initiative score",
-            "atlas score",
-            "atlas band",
-            "atlas rank",
-            "pillar",
-            "strongest pillar",
-            "weakest pillar"
-        ]
-    ):
-
-        selected_parts.extend([
-
-            ATLAS_PROMPT
-        ])
-
-    # =====================================
-    # PERFORMANCE
-    # =====================================
-
-    if any(
-        keyword in query
-        for keyword in [
-
-            "performance",
-            "strength",
-            "strengths",
-            "weakness",
-            "weaknesses",
-            "risk",
-            "focus",
-            "improve",
-            "improvement",
-            "doing overall",
-            "prepared",
-            "readiness"
-        ]
-    ):
-
-        selected_parts.extend([
-
-            PERFORMANCE_PROMPT,
-
-            ATLAS_PROMPT
-        ])
-
-    # =====================================
-    # ANNOUNCEMENTS
-    # =====================================
-
-    if any(
-        keyword in query
-        for keyword in [
-
-            "announcement",
-            "announcements",
-            "notice",
-            "notices"
-        ]
-    ):
-
-        selected_parts.extend([
-
-            ANNOUNCEMENT_PROMPT
-        ])
-
-    # =====================================
-    # FORUM
-    # =====================================
-
-    if any(
-        keyword in query
-        for keyword in [
-
-            "forum",
-            "discussion",
-            "post",
-            "posts",
-            "thread"
-        ]
-    ):
-
-        selected_parts.extend([
-
-            FORUM_PROMPT
-        ])
-
-    # =====================================
-    # SUBJECTS / TOPICS
-    # =====================================
-
-    if any(
-        keyword in query
-        for keyword in [
-
-            "subject",
-            "subjects",
-            "topic",
-            "topics",
-            "chapter",
-            "chapters"
-        ]
-    ):
-
-        selected_parts.extend([
-
-            SUBJECT_PROMPT
-        ])
-
-    # =====================================
-    # NO MATCH
-    # =====================================
-
-    if len(selected_parts) <= 2:
-
-        selected_parts.extend([
-
-            ATTENDANCE_PROMPT,
-
-            HOMEWORK_PROMPT,
-
-            ASSESSMENT_PROMPT,
-
-            ATLAS_PROMPT,
-
-            PERFORMANCE_PROMPT,
-
-            ANNOUNCEMENT_PROMPT,
-
-            FORUM_PROMPT,
-
-            SUBJECT_PROMPT,
-
-            PERSONAL_EVENT_PROMPT,
-
-            JOURNAL_PROMPT,
-
-            MISC_PROMPTS
-        ])
-
-    # =====================================
-    # GLOBAL RULES
-    # =====================================
-
-    selected_parts.extend([
+        PROMPT_MAP.get(
+            intent,
+            MISC_PROMPTS,
+        ),
 
         DATE_RULES,
 
         MODULE_RULES,
 
-        RESPONSE_FORMAT
-    ])
-
-    # =====================================
-    # DEDUPE
-    # =====================================
+        RESPONSE_FORMAT,
+    ]
 
     seen = set()
 

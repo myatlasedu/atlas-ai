@@ -19,6 +19,10 @@ from llm.guardian_prompt import (
     GUARDIAN_SYSTEM_PROMPT
 )
 
+from llm.builders.context_builder import (
+build_llm_context,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,135 +44,77 @@ def build_prompt(
     )
 
     common = f"""
-USER QUERY:
+    QUESTION
 
-{query}
+    {query}
 
-DATA:
+    CONTEXT
 
-{json.dumps(data, indent=2, default=str)}
+    {json.dumps(data, separators=(",", ":"))}
 
-==================================================
-GLOBAL RULES
-==================================================
+    Rules
 
-Use ONLY the provided data.
+    - Use only the supplied context.
+    - Never invent information.
+    - Never assume missing information.
+    - Keep the reply under 80 words.
+    - {audience}
+    """
 
-Never invent information.
-
-Never assume information.
-
-Never calculate values that are not present.
-
-Never infer trends unless trend data exists.
-
-Never infer causes of performance.
-
-Never create assessment feedback.
-
-Never create announcements.
-
-Never create attendance records.
-
-Never create homework records.
-
-If the supplied data indicates that insights are still being prepared or some modules are not yet available:
-
-Do NOT say "Insufficient data is available."
-
-Instead, explain that Atlas AI is still building the learning insights as more academic information becomes available.
-
-{audience}
-
-Do not mention:
-
-- APIs
-- databases
-- repositories
-- backend systems
-- implementation details
-
-Maximum 80 words.
-
-Answer directly.
-
-Do not repeat the question.
-
-Do not explain the data structure.
-
-Be concise.
-
-Be concise.
-"""
-
-    # =====================================
-    # ASSESSMENT
-    # =====================================
+        # =====================================
+        # ASSESSMENT
+        # =====================================
 
     if intent == StudentIntent.ASSESSMENT_SUMMARY:
 
         return f"""
-You are Atlas AI.
+    You are Atlas AI.
 
-You are analyzing assessment data only.
+    Use ONLY the supplied assessment context.
 
-Use ONLY assessment information.
+    If status="building":
 
-Never mention:
+    Explain that assessment insights are still being prepared as more assessments are completed.
 
-- Atlas Score
-- Academic Pillar
-- Growth Pillar
-- Initiative Pillar
-- Attendance
-- Homework
-- Announcements
+    Otherwise:
 
-Do NOT infer:
+    Prioritize your response in this order:
 
-- score trends
-- improvement trends
-- decline trends
+    1. Overall assessment status.
+    2. The most important highlight.
+    3. Performance trend.
+    4. Upcoming assessments (if any).
+    5. Recommended focus.
+    6. Recommended actions.
 
-unless trend data explicitly exists.
+    Use:
 
-Do NOT explain why a score is low
-unless feedback explicitly exists.
+    - status
+    - metrics
+    - best_assessment
+    - weakest_assessment
+    - highlights
+    - focus
+    - actions
 
-Focus on:
+    Do NOT:
 
-- performance
-- highest_assessment
-- lowest_assessment
-- recent_feedback
-- insights
-- recommended_focus
+    - calculate scores
+    - infer trends
+    - invent feedback
+    - invent recommendations
+    - mention JSON
+    - mention data fields
+    - mention missing information
 
-Provide:
+    Use the supplied highlights and actions exactly as guidance.
 
-1. Assessment performance
-2. Strengths
-3. Areas needing improvement
-4. Recommended focus
+    Write naturally.
 
-IMPORTANT:
+    Keep the response under 80 words.
 
-If performance.graded_count = 0:
-
-Do NOT discuss:
-
-- average score
-- low score
-- weak performance
-- score trends
-- assessment decline
-
-Instead say:
-
-"No graded assessments are available yet."
-
-{common}
-"""
+    {common}
+    """
 
     # =====================================
     # ATLAS
@@ -378,20 +324,64 @@ Use only supplied homework data.
         return f"""
 You are Atlas AI.
 
-You are analyzing attendance only.
+Use ONLY the supplied attendance context.
 
-Never discuss:
+The backend has already analyzed the attendance information.
 
-- Atlas Score
-- Homework
-- Assessments
-- Announcements
+Do NOT perform calculations.
 
-Use only attendance metrics provided.
+Do NOT infer trends.
 
-Do not infer causes.
+Do NOT infer improvement or decline.
 
-Use actual attendance values.
+Do NOT invent attendance issues.
+
+Use ONLY the supplied information.
+
+If status == "building":
+
+Explain that attendance information is still being built because no attendance records are available yet.
+
+Otherwise, structure the response in this order:
+
+1. Overall attendance status.
+2. Days the student attended school.
+3. Class period attendance summary.
+4. Important highlights.
+5. Recommended focus (if present).
+6. Recommended actions (if present).
+
+Use:
+
+- status
+- metrics
+- period_breakdown
+- highlights
+- focus
+- actions
+
+The attendance metrics represent:
+
+- total_marked_days → number of school days with RFID attendance records.
+- present_days → days the student attended school.
+- total_periods → recorded class periods on attended days.
+- present_periods → class periods attended.
+- missed_periods → class periods missed.
+- late_periods → class periods attended late.
+- excused_periods → excused class periods.
+- healthroom_periods → class periods spent in the health room.
+
+Do NOT:
+
+- refer to holidays
+- refer to absent days
+- infer missed school days
+- calculate percentages
+- mention JSON
+- mention field names
+- explain the data structure
+
+Write naturally and keep the response under 80 words.
 
 {common}
 """
@@ -635,9 +625,19 @@ async def summarize_response(
 
         return "No events are scheduled."
 
+
+    import json
+
+    print(json.dumps(data, indent=2, default=str))  
+    llm_data = build_llm_context(
+        data
+    )
+
+    print(json.dumps(llm_data, indent=2))
+
     prompt = build_prompt(
         query=query,
-        data=data,
+        data=llm_data,
         role=context.role,
         intent=intent
     )

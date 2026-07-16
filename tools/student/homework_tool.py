@@ -1,9 +1,13 @@
 from db.session import (
-    AsyncSessionLocal
+    AsyncSessionLocal,
 )
 
 from db.repositories.student.homework_repository import (
-    HomeworkRepository
+    HomeworkRepository,
+)
+
+from llm.builders.homework_builder import (
+    build_homework_llm_context,
 )
 
 
@@ -12,7 +16,7 @@ class HomeworkTool:
     async def run(
         self,
         context,
-        parsed_intent
+        parsed_intent,
     ):
 
         if not context.enrollment_id:
@@ -26,7 +30,7 @@ class HomeworkTool:
                     "Enrollment ID missing",
 
                 "direct_answer":
-                    "Unable to load homework information."
+                    "Unable to load homework information.",
             }
 
         async with AsyncSessionLocal() as db:
@@ -89,11 +93,21 @@ class HomeworkTool:
                     due_tomorrow,
 
                 "recent_feedback":
-                    feedback
+                    feedback,
             }
 
         # =====================================
-        # DIRECT ANSWER
+        # LLM CONTEXT
+        # =====================================
+
+        payload["llm_context"] = (
+            build_homework_llm_context(
+                payload
+            )
+        )
+
+        # =====================================
+        # DIRECT ANSWER (Temporary)
         # =====================================
 
         lines = []

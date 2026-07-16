@@ -3,8 +3,7 @@ from datetime import timedelta
 
 from sqlalchemy import text
 import time
-
-
+from utils import ist_today
 class HomeworkRepository:
 
     def __init__(
@@ -130,7 +129,7 @@ class HomeworkRepository:
         enrollment_id: int
     ):
 
-        today = date.today()
+        today = ist_today()
 
         query = text(
             """
@@ -178,7 +177,7 @@ class HomeworkRepository:
     ):
 
         tomorrow = (
-            date.today()
+            ist_today()
             + timedelta(days=1)
         )
 

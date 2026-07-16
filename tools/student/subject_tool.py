@@ -1,32 +1,35 @@
 from db.session import (
-    AsyncSessionLocal
+    AsyncSessionLocal,
 )
 
 from db.repositories.student.subject_repository import (
-    SubjectRepository
+    SubjectRepository,
 )
 
+from llm.builders.subject_builder import (
+    build_subject_llm_context,
+)
 
 class SubjectTool:
 
     async def run(
         self,
         context,
-        parsed_intent
+        parsed_intent,
     ):
 
         if not context.enrollment_id:
 
             return {
                 "error":
-                "Enrollment ID missing"
+                    "Enrollment ID missing"
             }
 
         query = (
             getattr(
                 parsed_intent,
                 "original_query",
-                ""
+                "",
             )
             .lower()
             .replace("?", "")
@@ -40,60 +43,30 @@ class SubjectTool:
                 db
             )
 
-            subjects = (
-                await repo.get_subject_performance(
-                    context.enrollment_id
+            payload = await repo.get_subject_performance(
+                context.enrollment_id
+            )
+
+            payload["module"] = "subject"
+
+            payload["llm_context"] = (
+                build_subject_llm_context(
+                    payload
                 )
             )
 
-            strongest = (
-                await repo.get_strongest_subject(
-                    context.enrollment_id
-                )
+            strongest = payload.get(
+                "strongest_subject"
             )
 
-            weakest = (
-                await repo.get_weakest_subject(
-                    context.enrollment_id
-                )
+            weakest = payload.get(
+                "weakest_subject"
             )
 
-            insights = []
-
-            recommended_focus = []
-
-            if weakest:
-
-                insights.append(
-                    f"{weakest['subject_name']} "
-                    f"is currently the lowest "
-                    f"scoring subject."
-                )
-
-                recommended_focus.append(
-                    weakest["subject_name"]
-                )
-
-            payload = {
-
-                "module":
-                    "subject",
-
-                "subjects":
-                    subjects,
-
-                "strongest_subject":
-                    strongest,
-
-                "weakest_subject":
-                    weakest,
-
-                "insights":
-                    insights,
-
-                "recommended_focus":
-                    recommended_focus
-            }
+            subjects = payload.get(
+                "subjects",
+                [],
+            )
 
             # =====================================
             # SUBJECT ANALYSIS
@@ -107,32 +80,36 @@ class SubjectTool:
                     "analyse my subject performance",
 
                     "how am i doing across subjects",
+
                     "subject performance",
 
                     "subject analysis",
+
                     "subject insights",
 
                     "why is my weakest subject weak",
+
                     "why is my weakest subject",
 
                     "improve my weakest subject",
+
                     "how can i improve my weakest subject",
 
                     "what should i improve in subjects",
+
                     "what subject should i focus on",
 
                     "how can i improve my subject performance",
 
                     "subject strengths",
+
                     "subject weaknesses",
 
-                    "how am i doing in subjects"
+                    "how am i doing in subjects",
                 ]
             ):
 
-                payload[
-                    "subject_analysis"
-                ] = True
+                payload["subject_analysis"] = True
 
                 return payload
 
@@ -143,32 +120,33 @@ class SubjectTool:
             if any(
                 phrase in query
                 for phrase in [
+
                     "strongest subject",
+
                     "best subject",
+
                     "highest scoring subject",
-                    "top subject"
+
+                    "top subject",
                 ]
             ):
 
-                if strongest:
+                payload["direct_answer"] = (
 
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        f"Your strongest subject "
-                        f"is "
-                        f"{strongest['subject_name']} "
-                        f"with a score of "
-                        f"{strongest['score']}."
-                    )
+                    f"Your strongest subject is "
 
-                else:
+                    f"{strongest['subject_name']} "
 
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        "No subject data available."
-                    )
+                    f"with a score of "
+
+                    f"{strongest['score']}."
+
+                    if strongest
+
+                    else
+
+                    "No subject data available."
+                )
 
                 return payload
 
@@ -179,32 +157,33 @@ class SubjectTool:
             if any(
                 phrase in query
                 for phrase in [
+
                     "weakest subject",
+
                     "worst subject",
+
                     "lowest scoring subject",
-                    "needs attention"
+
+                    "needs attention",
                 ]
             ):
 
-                if weakest:
+                payload["direct_answer"] = (
 
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        f"Your weakest subject "
-                        f"is "
-                        f"{weakest['subject_name']} "
-                        f"with a score of "
-                        f"{weakest['score']}."
-                    )
+                    f"Your weakest subject is "
 
-                else:
+                    f"{weakest['subject_name']} "
 
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        "No subject data available."
-                    )
+                    f"with a score of "
+
+                    f"{weakest['score']}."
+
+                    if weakest
+
+                    else
+
+                    "No subject data available."
+                )
 
                 return payload
 
@@ -215,67 +194,74 @@ class SubjectTool:
             if any(
                 phrase in query
                 for phrase in [
+
                     "compare my subjects",
-                    "compare subjects"
+
+                    "compare subjects",
                 ]
             ):
 
-                if subjects:
+                payload["direct_answer"] = (
 
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        f"You have "
-                        f"{len(subjects)} subjects. "
-                        f"Strongest: "
-                        f"{strongest['subject_name']}. "
-                        f"Weakest: "
-                        f"{weakest['subject_name']}."
-                    )
+                    f"You have {payload['subject_count']} subjects. "
 
-                else:
+                    f"Your strongest subject is "
 
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        "No subject data available."
-                    )
+                    f"{strongest['subject_name']} "
+
+                    f"and your weakest subject is "
+
+                    f"{weakest['subject_name']}."
+
+                    if subjects
+
+                    else
+
+                    "No subject data available."
+                )
 
                 return payload
 
             # =====================================
-            # SUBJECT SUMMARY / OVERVIEW
+            # SUBJECT SUMMARY
             # =====================================
 
             if any(
                 phrase in query
                 for phrase in [
+
                     "subject summary",
+
                     "subject overview",
-                    "my subjects"
+
+                    "my subjects",
                 ]
             ):
 
-                if subjects:
+                payload["direct_answer"] = (
 
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        f"You currently have "
-                        f"{len(subjects)} subjects. "
-                        f"Your strongest subject is "
-                        f"{strongest['subject_name']} "
-                        f"and your weakest subject is "
-                        f"{weakest['subject_name']}."
-                    )
+                    f"You currently study "
 
-                else:
+                    f"{payload['subject_count']} subjects. "
 
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        "No subject data available."
-                    )
+                    f"Your average score is "
+
+                    f"{payload['average_score']}%. "
+
+                    f"Your strongest subject is "
+
+                    f"{strongest['subject_name']} "
+
+                    f"and your weakest subject is "
+
+                    f"{weakest['subject_name']}."
+
+                    if subjects
+
+                    else
+
+                    "No subject data available."
+                )
 
                 return payload
 
@@ -283,8 +269,6 @@ class SubjectTool:
             # DEFAULT
             # =====================================
 
-            payload[
-                "subject_analysis"
-            ] = True
+            payload["subject_analysis"] = True
 
             return payload

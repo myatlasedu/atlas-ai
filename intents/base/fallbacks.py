@@ -3,12 +3,12 @@ from datetime import date
 from intents.student.enums import (
     StudentIntent
 )
-
+from utils import ist_today
 
 def build_fallback_student_intent():
 
     today = (
-        date.today()
+        ist_today()
         .isoformat()
     )
 

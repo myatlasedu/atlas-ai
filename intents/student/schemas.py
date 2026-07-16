@@ -16,10 +16,10 @@ class ParsedStudentIntent(BaseModel):
 
     navigation_target: str | None = None
 
-    start_date: str | None = None
-    end_date: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
 
-    target_modules: list[str] = []
+    target_modules: list[str] = Field(default_factory=list)
 
     confidence: float = 0.0
 
