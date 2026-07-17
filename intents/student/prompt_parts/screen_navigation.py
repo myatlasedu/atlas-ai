@@ -112,11 +112,11 @@ Open assessment
 
 Take me to assessments
 
-→ navigation_target = assessment
+→ navigation_target = assessments
 
 Open exams
 
-→ navigation_target = assessment
+→ navigation_target = assessments
 
 Show assessments screen
 
