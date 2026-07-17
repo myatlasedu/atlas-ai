@@ -36,6 +36,9 @@ topic_summary
 announcement_summary
 ["announcement"]
 
+calendar_summary
+["calendar"]
+
 forum_summary
 ["forum"]
 

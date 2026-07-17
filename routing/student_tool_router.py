@@ -15,7 +15,9 @@ TOOL_MAP = {
 
         "announcement_tool",
 
-        "atlas_tool"
+        "atlas_tool",
+
+        "calendar_tool"
     ],
 
     StudentIntent.ATTENDANCE_SUMMARY: [
@@ -43,6 +45,7 @@ TOOL_MAP = {
         "student_performance_tool"
     ],
 
+
     StudentIntent.STUDENT_REPORT: [
 
         "atlas_tool",
@@ -57,6 +60,11 @@ TOOL_MAP = {
     StudentIntent.ANNOUNCEMENT_SUMMARY: [
 
         "announcement_tool"
+    ],
+
+    StudentIntent.CALENDAR_SUMMARY: [
+
+        "calendar_tool"
     ],
 
     StudentIntent.FORUM_SUMMARY: [

@@ -49,6 +49,10 @@ from tools.student.screen_navigation_tool import (
     ScreenNavigationTool
 )
 
+from tools.student.calendar_tool import (
+    CalendarTool
+)
+
 TOOL_REGISTRY = {
 
     "screen_navigation_tool": ScreenNavigationTool(),
@@ -62,6 +66,8 @@ TOOL_REGISTRY = {
     "assessment_tool": AssessmentTool(),
 
     "announcement_tool": AnnouncementTool(),
+
+    "calendar_tool": CalendarTool(),
     
     "forum_tool": ForumTool(),
 

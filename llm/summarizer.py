@@ -23,6 +23,37 @@ from llm.builders.context_builder import (
 build_llm_context,
 )
 
+from datetime import date, datetime
+
+
+def make_json_safe(value):
+    """
+    Recursively convert datetime/date objects into ISO strings so the
+    LLM context can always be serialized safely.
+    """
+
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+
+    if isinstance(value, dict):
+        return {
+            k: make_json_safe(v)
+            for k, v in value.items()
+        }
+
+    if isinstance(value, list):
+        return [
+            make_json_safe(v)
+            for v in value
+        ]
+
+    if isinstance(value, tuple):
+        return tuple(
+            make_json_safe(v)
+            for v in value
+        )
+
+    return value
 logger = logging.getLogger(__name__)
 
 
@@ -50,7 +81,11 @@ def build_prompt(
 
     CONTEXT
 
-    {json.dumps(data, separators=(",", ":"))}
+    {json.dumps(
+        make_json_safe(data),
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )}
 
     Rules
 
@@ -116,6 +151,54 @@ def build_prompt(
     {common}
     """
 
+    # =====================================
+    # CALENDAR
+    # =====================================
+
+    if (
+        hasattr(StudentIntent, "CALENDAR_SUMMARY")
+        and
+        intent == StudentIntent.CALENDAR_SUMMARY
+    ):
+
+        return f"""
+You are Atlas AI.
+
+You are summarizing school calendar events.
+
+Use ONLY the supplied calendar data.
+
+Focus on:
+
+- next_event
+- event_count
+- events
+
+If events exist:
+
+- Summarize the upcoming events.
+- Mention holidays, exams, activities or school events naturally.
+- Mention dates only if they are available.
+- Prioritize the next upcoming event.
+
+If no events exist:
+
+Respond:
+
+"There are no upcoming school events."
+
+Do not discuss:
+
+- personal reminders
+- homework
+- attendance
+- assessments
+- Atlas Score
+
+Do not invent events.
+
+{common}
+"""
     # =====================================
     # ATLAS
     # =====================================
@@ -629,15 +712,15 @@ async def summarize_response(
     import json
 
     print(json.dumps(data, indent=2, default=str))  
-    llm_data = build_llm_context(
-        data
+    llm_data = make_json_safe(
+        build_llm_context(data)
     )
 
     print(
         json.dumps(
             llm_data,
             indent=2,
-            default=lambda x: x.isoformat(),
+            ensure_ascii=False,
         )
     )
 
@@ -647,6 +730,11 @@ async def summarize_response(
         role=context.role,
         intent=intent
     )
+
+    if prompt is None:
+        raise RuntimeError(
+            f"No summarizer prompt configured for intent: {intent}"
+        )
 
     
     system_prompt = STUDENT_SYSTEM_PROMPT

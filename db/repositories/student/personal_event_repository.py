@@ -16,6 +16,7 @@ class PersonalEventRepository:
         end_date: str
     ):
 
+
         query = text(
             """
             SELECT

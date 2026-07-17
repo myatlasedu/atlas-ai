@@ -56,6 +56,14 @@ from intents.student.prompt_parts.subject import (
     SUBJECT_PROMPT,
 )
 
+from intents.student.prompt_parts.topic import (
+    TOPIC_PROMPT,
+)
+
+from intents.student.prompt_parts.calendar import (
+    CALENDAR_PROMPT,
+)
+
 from intents.student.prompt_parts.personal_event import (
     PERSONAL_EVENT_PROMPT,
 )
@@ -97,13 +105,16 @@ PROMPT_MAP = {
         SUBJECT_PROMPT,
 
     StudentIntent.TOPIC_SUMMARY:
-        SUBJECT_PROMPT,
+        TOPIC_PROMPT,
 
     StudentIntent.ANNOUNCEMENT_SUMMARY:
         ANNOUNCEMENT_PROMPT,
 
     StudentIntent.FORUM_SUMMARY:
         FORUM_PROMPT,
+
+    StudentIntent.CALENDAR_SUMMARY:
+        CALENDAR_PROMPT,
 
     StudentIntent.PERSONAL_EVENT_SUMMARY:
         PERSONAL_EVENT_PROMPT,

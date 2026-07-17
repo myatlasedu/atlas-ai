@@ -37,6 +37,8 @@ class StudentIntent(str, Enum):
 
     ACTION_CONFIRMATION = "action_confirmation"
 
+    CALENDAR_SUMMARY = "calendar_summary"
+
     UNKNOWN = "unknown"
   
 

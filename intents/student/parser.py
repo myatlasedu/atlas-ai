@@ -75,6 +75,9 @@ INTENT_ALIASES = {
 
     "navigation":
         StudentIntent.SCREEN_NAVIGATION.value,
+
+    "calendar":
+        StudentIntent.CALENDAR_SUMMARY.value,
 }
 
 VALID_INTENTS = {

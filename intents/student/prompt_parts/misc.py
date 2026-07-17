@@ -1,84 +1,167 @@
-MISC_PROMPTS = """
---------------------------------------------------
+CALENDAR_PROMPT = """
+==================================================
+CALENDAR SUMMARY
+==================================================
 
-subject_analysis
+Intent:
 
-Examples:
+calendar_summary
 
-- Which subject am I weakest in?
-- How am I doing in Mathematics?
-- Which subject needs improvement?
-- Show my subject performance
+Used when the student asks about:
 
---------------------------------------------------
+- school calendar
+- upcoming events
+- holidays
+- activities
+- school functions
+- celebrations
+- competitions
+- event schedule
+- calendar events
+- exams on the calendar
 
-topic_analysis
+==================================================
+SUPPORTED QUERIES
+==================================================
 
-Examples:
+General
 
-- Which topics should I revise?
-- Which chapters am I weak at?
-- What topics need improvement?
-- What should I study next?
+- Show my calendar
+- Show school calendar
+- What is happening today?
+- What is happening tomorrow?
+- What is happening this week?
+- What is happening next week?
+- What's coming up?
+- Show upcoming events
+- Show calendar
+- Any events?
 
---------------------------------------------------
+Holiday
 
-announcement_summary
+- Is tomorrow a holiday?
+- Show holidays
+- Show upcoming holidays
+- Any holidays this week?
+- Holidays this month
+- When is the next holiday?
 
-Examples:
+Exam Events
 
-- Any new announcements?
-- Show announcements
-- What was announced today?
+- Show upcoming exams
+- Any exams this week?
+- Next exam
+- Exam calendar
+- Show exam schedule
 
---------------------------------------------------
+Activities
 
-forum_summary
+- Show activities
+- Upcoming activities
+- Any activities this week?
+- School activities
 
-Examples:
+Events
 
-- Which forums am I part of?
-- Any new forum updates?
-- When is my next forum meeting?
-
---------------------------------------------------
-
-event_summary
-
-Examples:
-
+- Show events
 - Upcoming events
-- Events this week
-- What events do I have?
+- School functions
+- Sports day
+- Annual day
+- Science exhibition
+- Parent teacher meeting
+- Cultural event
 
---------------------------------------------------
+Keyword Search
 
-lesson_plan_summary
+- Show sports events
+- Find Independence Day event
+- Show transport events
+- Search science events
+- Find assembly
+- Show Mathematics events
 
-Examples:
+==================================================
+DATE EXTRACTION
+==================================================
 
-- What was taught today?
-- What topics were covered?
-- Show lesson plans
+Extract whenever present.
 
---------------------------------------------------
+Examples
 
-lor_summary
+Today
+Tomorrow
+Yesterday
+This week
+Last week
+Next week
+This month
+Last month
+Next month
+Monday
+Next Friday
+Between 1 June and 10 June
 
-Examples:
+Populate
 
-- LOR status
-- Why was my LOR rejected?
-- Who is reviewing my LOR?
+start_date
+end_date
 
---------------------------------------------------
+==================================================
+TOPIC EXTRACTION
+==================================================
 
-student_report
+Extract the event category or search keyword.
 
-Examples:
+Examples
 
-- Generate my report
-- Monthly report
-- Progress report
-- Summarize my progress
+Show holidays
+
+topic = "holiday"
+
+--------------------------------
+
+Upcoming exams
+
+topic = "exam"
+
+--------------------------------
+
+School activities
+
+topic = "activity"
+
+--------------------------------
+
+Show sports events
+
+topic = "sports"
+
+--------------------------------
+
+Science exhibition
+
+topic = "science"
+
+--------------------------------
+
+PTM
+
+topic = "ptm"
+
+--------------------------------
+
+What's happening this week?
+
+topic = null
+
+==================================================
+TARGET MODULES
+==================================================
+
+calendar_summary
+
+[
+    "calendar"
+]
 """
