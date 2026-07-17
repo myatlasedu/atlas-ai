@@ -12,27 +12,51 @@ class AnnouncementTool:
     async def run(
         self,
         context,
-        parsed_intent
+        parsed_intent,
     ):
 
         if not context.academic_class_id:
 
             return {
-                "error":
-                "Academic class missing"
+
+                "module":
+                    "announcement",
+
+                "announcement_count":
+                    0,
+
+                "announcements":
+                    [],
+
+                "direct_answer":
+                    "Academic class information is unavailable."
             }
 
         query = (
             getattr(
                 parsed_intent,
                 "original_query",
-                ""
+                "",
             )
             .lower()
-            .replace("?", "")
-            .replace(".", "")
-            .replace("!", "")
-            .strip()
+        )
+
+        keyword = getattr(
+            parsed_intent,
+            "topic",
+            None,
+        )
+
+        start_date = getattr(
+            parsed_intent,
+            "start_date",
+            None,
+        )
+
+        end_date = getattr(
+            parsed_intent,
+            "end_date",
+            None,
         )
 
         async with AsyncSessionLocal() as db:
@@ -41,16 +65,150 @@ class AnnouncementTool:
                 db
             )
 
-            announcements = (
-                await repo.get_recent_announcements(
-                    context.academic_class_id
-                )
-            )
+            #
+            # Latest announcement
+            #
 
-            latest = (
-                await repo.get_latest_announcement(
+            if any(
+                phrase in query
+                for phrase in [
+                    "latest",
+                    "recent",
+                    "newest",
+                    "last announcement",
+                ]
+            ):
+
+                latest = await repo.get_latest_announcement(
                     context.academic_class_id
                 )
+
+                if latest:
+
+                    return {
+
+                        "module":
+                            "announcement",
+
+                        "announcement_count":
+                            1,
+
+                        "announcements":
+                            [latest],
+
+                        "llm_context": {
+
+                            "announcement_count": 1,
+
+                            "latest_announcement":
+                                latest,
+                        },
+
+                        "direct_answer":
+                            (
+                                f"Latest announcement: "
+                                f"{latest['title']}"
+                            ),
+                    }
+
+                return {
+
+                    "module":
+                        "announcement",
+
+                    "announcement_count":
+                        0,
+
+                    "announcements":
+                        [],
+
+                    "llm_context": {
+
+                        "announcement_count": 0,
+                    },
+
+                    "direct_answer":
+                        "There are currently no announcements.",
+                }
+
+            #
+            # Oldest announcement
+            #
+
+            if any(
+                phrase in query
+                for phrase in [
+                    "first announcement",
+                    "oldest announcement",
+                    "earliest announcement",
+                ]
+            ):
+
+                oldest = await repo.get_oldest_announcement(
+                    context.academic_class_id
+                )
+
+                if oldest:
+
+                    return {
+
+                        "module":
+                            "announcement",
+
+                        "announcement_count":
+                            1,
+
+                        "announcements":
+                            [oldest],
+
+                        "llm_context": {
+
+                            "announcement_count": 1,
+
+                            "latest_announcement":
+                                oldest,
+                        },
+
+                        "direct_answer":
+                            (
+                                f"First announcement: "
+                                f"{oldest['title']}"
+                            ),
+                    }
+
+                return {
+
+                    "module":
+                        "announcement",
+
+                    "announcement_count":
+                        0,
+
+                    "announcements":
+                        [],
+
+                    "llm_context": {
+
+                        "announcement_count": 0,
+                    },
+
+                    "direct_answer":
+                        "There are currently no announcements.",
+                }
+
+            #
+            # General search
+            #
+
+            announcements = await repo.search_announcements(
+
+                academic_class_id=context.academic_class_id,
+
+                start_date=start_date,
+
+                end_date=end_date,
+
+                keyword=keyword,
             )
 
             payload = {
@@ -59,116 +217,68 @@ class AnnouncementTool:
                     "announcement",
 
                 "announcement_count":
-                    len(announcements),
-
-                "latest_announcement":
-                    latest,
-
-                "latest_title":
-                    (
-                        latest["title"]
-                        if latest
-                        else None
+                    len(
+                        announcements
                     ),
 
-                "latest_created_at":
-                    (
-                        latest["created_at"]
-                        if latest
-                        else None
-                    ),
+                "announcements":
+                    announcements,
 
-                "recent_announcements":
-                    announcements
+                "llm_context": {
+
+                    "announcement_count":
+                        len(
+                            announcements
+                        ),
+
+                    "latest_announcement":
+                        announcements[0]
+                        if announcements
+                        else None,
+
+                    "announcements":
+                        announcements,
+                },
             }
 
-            # =====================================
-            # SUMMARY / OVERVIEW
-            # =====================================
+            if announcements:
 
-            if any(
-                phrase in query
-                for phrase in [
-                    "summary",
-                    "overview",
-                    "recent announcements",
-                    "recent updates",
-                    "announcement summary",
-                    "announcement overview",
-                    "school updates",
-                    "show all announcements"
+                lines = [
+
+                    f"Found {len(announcements)} announcement{'s' if len(announcements) != 1 else ''}.",
+                    "",
                 ]
-            ):
 
-                if announcements:
+                for item in announcements:
 
-                    titles = [
-                        item["title"]
-                        for item in announcements[:5]
-                    ]
+                    lines.append(
 
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        f"There are "
-                        f"{len(announcements)} "
-                        f"recent announcement(s): "
-                        f"{', '.join(titles)}."
+                        f"• [{item['created_at']}] "
+                        f"{item['title']}"
+                    )
+
+                payload["direct_answer"] = "\n".join(
+                    lines
+                )
+
+            else:
+
+                if keyword:
+
+                    payload["direct_answer"] = (
+                        f"No announcements were found matching '{keyword}'."
+                    )
+
+                elif start_date or end_date:
+
+                    payload["direct_answer"] = (
+                        "No announcements were found in that date range."
                     )
 
                 else:
 
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        "There are currently "
-                        "no announcements."
+                    payload["direct_answer"] = (
+                        "There are currently no announcements."
                     )
-
-                return payload
-
-            # =====================================
-            # LATEST ANNOUNCEMENT
-            # =====================================
-
-            if any(
-                phrase in query
-                for phrase in [
-                    "announcement",
-                    "announcements",
-                    "notice",
-                    "notices",
-                    "latest update",
-                    "latest announcement",
-                    "latest notice",
-                    "whats new",
-                    "what's new",
-                    "new update",
-                    "new updates",
-                    "school update",
-                    "class announcement",
-                    "class announcements"
-                ]
-            ):
-
-                if latest:
-
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        f"Latest announcement: "
-                        f"{latest['title']}."
-                    )
-
-                else:
-
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        "There are currently "
-                        "no announcements."
-                    )
-
-                return payload
 
             return payload
