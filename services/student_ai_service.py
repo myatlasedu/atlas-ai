@@ -195,7 +195,7 @@ class StudentAIService:
                     {},
 
                 "summary":
-                    build_unknown_intent_summary(),
+                    build_unknown_intent_summary("student"),
             }
 
         tools_to_run = get_tools_for_intent(

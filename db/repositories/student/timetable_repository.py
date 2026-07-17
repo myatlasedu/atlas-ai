@@ -146,16 +146,9 @@ class TimetableRepository:
 
                     "period_order": row["period_order"],
 
-                    "start_time": (
-                        row.start_time.strftime("%H:%M:%S")
-                        if row.start_time
-                        else None
-                    ),
-                    "end_time": (
-                        row.end_time.strftime("%H:%M:%S")
-                        if row.end_time
-                        else None
-                    ),
+                    "start_time": row["start_time"],
+
+                    "end_time": row["end_time"],
 
                     "subject": row["subject"],
 
@@ -347,5 +340,5 @@ class TimetableRepository:
 
             "next_lesson": next_entry,
 
-            "structure_of_the_day": structure["entries"],
+            "structure_of_day": structure["entries"],
         }

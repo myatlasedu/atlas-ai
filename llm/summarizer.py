@@ -339,17 +339,21 @@ Explain that Atlas Score is still calibrating.
     - current_lesson
     - next_lesson
     - lessons
-    - structure_of_the_day
+    - structure_of_day
     - today's lessons
     - tomorrow's lessons
 
-    If lesson data exists:
+    The timetable information is inside the "timetable" object.
 
-    - Summarize the student's Structure of the Day.
-    - Mention the current lesson if available.
-    - Mention the next lesson if available.
-    - Mention today's lessons in order.
-    - Mention lesson timings only if they are provided.
+    A Structure of the Day is available if:
+
+    timetable.structure_of_day contains one or more items.
+
+    Only respond:
+
+    "No Structure of the Day is available."
+
+    when timetable.structure_of_day is empty ([]).
 
     If no lesson data exists:
 
@@ -787,6 +791,7 @@ async def summarize_response(
     llm_data = make_json_safe(
         build_llm_context(data)
     )
+    
 
     print(
         json.dumps(

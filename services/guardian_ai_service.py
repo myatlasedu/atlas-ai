@@ -80,7 +80,7 @@ class GuardianAIService:
                     {},
 
                 "summary":
-                    build_unknown_intent_summary(),
+                    build_unknown_intent_summary("guardian"),
             }
 
         # =====================================

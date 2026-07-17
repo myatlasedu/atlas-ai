@@ -85,7 +85,7 @@ INTENT_ALIASES = {
     "schedule":
         StudentIntent.TIMETABLE_SUMMARY.value,
 
-    "structure_of_the_day":
+    "structure_of_day":
         StudentIntent.TIMETABLE_SUMMARY.value,
 
     "structure of the day":
