@@ -264,7 +264,7 @@ Output:
 
 {
     "intent": "screen_navigation",
-    "navigation_target": "assessment"
+    "navigation_target": "assessments"
 }
 
 --------------------------------------------------
