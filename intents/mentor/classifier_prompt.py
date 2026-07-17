@@ -71,14 +71,46 @@ profile or summary of ONE specific student.
 
 timetable_summary
 
-Questions about:
+Questions about the student's Structure of the Day or timetable.
+
+Understand both Cambridge terminology and common school terminology.
+
+Treat the following as equivalent:
+
+- Structure of the Day
+- Today's Structure of the Day
+- Tomorrow's Structure of the Day
+- Weekly Structure of the Day
+- Lesson schedule
+- Lessons
+- Current lesson
+- Next lesson
+
+Also understand common terminology:
 
 - timetable
+- class timetable
+- school timetable
 - schedule
 - today's classes
 - tomorrow's classes
 - periods
+- class periods
+- teaching periods
 - free periods
+- next period
+- current period
+
+This intent covers any request asking about:
+
+- today's lessons
+- tomorrow's lessons
+- lesson timings
+- lesson order
+- free lessons
+- current lesson
+- next lesson
+- Structure of the Day
 
 --------------------------------------------------
 

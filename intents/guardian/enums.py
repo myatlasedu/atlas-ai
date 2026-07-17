@@ -38,6 +38,14 @@ class GuardianIntent(
         "forum_summary"
     )
 
+    CALENDAR_SUMMARY = (
+        "calendar_summary"
+    )
+
+    TIMETABLE_SUMMARY = (
+        "timetable_summary"
+    )
+
     STUDENT_REPORT = (
         "student_report"
     )

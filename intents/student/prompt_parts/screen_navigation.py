@@ -74,6 +74,58 @@ Open timetable
 
 → navigation_target = timetable
 
+Open timetable
+
+→ navigation_target = timetable
+
+Show my timetable
+
+→ navigation_target = timetable
+
+Open Structure of the Day
+
+→ navigation_target = timetable
+
+Show my Structure of the Day
+
+→ navigation_target = timetable
+
+Open today's Structure of the Day
+
+→ navigation_target = timetable
+
+Take me to Structure of the Day
+
+→ navigation_target = timetable
+
+Open SOD
+
+→ navigation_target = timetable
+
+Show my SOD
+
+→ navigation_target = timetable
+
+Take me to SOD
+
+→ navigation_target = timetable
+
+Open lesson schedule
+
+→ navigation_target = timetable
+
+Show today's lessons
+
+→ navigation_target = timetable
+
+Open my lessons
+
+→ navigation_target = timetable
+
+Show my schedule
+
+→ navigation_target = timetable
+
 Show my schedule
 
 → navigation_target = timetable
@@ -239,6 +291,30 @@ Output:
 {
     "intent": "screen_navigation",
     "navigation_target": "attendance"
+}
+
+--------------------------------------------------
+
+Open Structure of the Day
+
+Output:
+
+{
+    "intent": "screen_navigation",
+    "navigation_target": "timetable"
+}
+
+--------------------------------------------------
+
+User:
+
+Open SOD
+
+Output:
+
+{
+    "intent": "screen_navigation",
+    "navigation_target": "timetable"
 }
 
 --------------------------------------------------

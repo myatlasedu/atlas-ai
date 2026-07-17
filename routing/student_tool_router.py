@@ -110,7 +110,12 @@ TOOL_MAP = {
     StudentIntent.ACTION_CONFIRMATION: [
 
         "action_executor_tool"
-    ]
+    ],
+
+    StudentIntent.TIMETABLE_SUMMARY: [
+
+        "timetable_tool"
+    ],
 }
 
 

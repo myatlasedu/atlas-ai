@@ -53,6 +53,10 @@ from tools.student.calendar_tool import (
     CalendarTool
 )
 
+from tools.student.timetable_tool import (
+    TimetableTool,
+)
+
 TOOL_REGISTRY = {
 
     "screen_navigation_tool": ScreenNavigationTool(),
@@ -86,6 +90,9 @@ TOOL_REGISTRY = {
 
     "journal_tool": JournalTool(),
 
-    "journal_create_tool": JournalCreateTool()
+    "journal_create_tool": JournalCreateTool(),
+
+    "timetable_tool": TimetableTool()
+    
     
 }

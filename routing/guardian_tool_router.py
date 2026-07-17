@@ -64,14 +64,26 @@ TOOL_MAP = {
         "subject_tool"
 
     ],
+
+    GuardianIntent.TIMETABLE_SUMMARY: [
+
+        "timetable_tool"
+
+    ],
+
+    GuardianIntent.CALENDAR_SUMMARY: [
+
+        "calendar_tool"
+
+    ],
 }
 
 
 def get_tools_for_intent(
-    intent: GuardianIntent
+    intent: GuardianIntent,
 ) -> list[str]:
 
     return TOOL_MAP.get(
         intent,
-        []
+        [],
     )

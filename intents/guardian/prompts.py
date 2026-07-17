@@ -34,6 +34,14 @@ from intents.student.prompt_parts.forum import (
     FORUM_PROMPT
 )
 
+from intents.student.prompt_parts.calendar import (
+    CALENDAR_PROMPT
+)
+
+from intents.student.prompt_parts.timetable import (
+    TIMETABLE_PROMPT
+)
+
 # from intents.guardian.prompt_parts.student_report import (
 #     STUDENT_REPORT_PROMPT
 # )
@@ -65,18 +73,24 @@ PROMPT_MAP = {
     GuardianIntent.FORUM_SUMMARY:
         FORUM_PROMPT,
 
+    GuardianIntent.CALENDAR_SUMMARY:
+        CALENDAR_PROMPT,
+
+    GuardianIntent.TIMETABLE_SUMMARY:
+        TIMETABLE_PROMPT,
+
     # GuardianIntent.STUDENT_REPORT:
     #     STUDENT_REPORT_PROMPT,
 }
 
 
 def get_guardian_intent_prompt(
-    intent: GuardianIntent
+    intent: GuardianIntent,
 ):
 
     prompt = PROMPT_MAP.get(
         intent,
-        ""
+        "",
     )
 
     return f"""

@@ -52,6 +52,9 @@ from intents.student.prompt_parts.screen_navigation import (
     SCREEN_NAVIGATION_PROMPT
 )
 
+from intents.student.prompt_parts.timetable import (
+    TIMETABLE_PROMPT,
+)
 
 PROMPT_MAP = {
 
@@ -134,6 +137,52 @@ Your only job is to extract:
 - topic
 - view
 - any other parameters relevant to this intent
+
+==================================================
+CAMBRIDGE TERMINOLOGY
+==================================================
+
+Atlas AI follows Cambridge terminology.
+
+Understand both Cambridge terminology and common school terminology.
+
+Treat these as equivalent:
+
+Structure of the Day = Timetable
+SOD = Structure of the Day
+Lesson = Period
+Lessons = Periods
+
+The user may say:
+
+- Structure of the Day
+- SOD
+- timetable
+- schedule
+- lesson
+- period
+
+Interpret them as referring to the same concept where appropriate.
+
+When this intent is TIMETABLE_SUMMARY:
+
+- "Structure of the Day"
+- "SOD"
+- "Timetable"
+- "Schedule"
+
+all refer to the same thing.
+
+Likewise:
+
+- Lesson
+- Lessons
+- Period
+- Periods
+
+refer to the same instructional blocks.
+
+Do not reinterpret requests about the Structure of the Day as calendar events or personal events.
 
 {prompt}
 

@@ -24,6 +24,10 @@ from services.date_service import (
     DateService
 )
 
+from intents.common.prompt_categories import (
+    build_unknown_intent_summary,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -76,11 +80,7 @@ class GuardianAIService:
                     {},
 
                 "summary":
-                    (
-                        "I couldn't determine "
-                        "what information you "
-                        "are looking for."
-                    )
+                    build_unknown_intent_summary(),
             }
 
         # =====================================

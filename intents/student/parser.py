@@ -78,6 +78,21 @@ INTENT_ALIASES = {
 
     "calendar":
         StudentIntent.CALENDAR_SUMMARY.value,
+
+         "timetable":
+        StudentIntent.TIMETABLE_SUMMARY.value,
+
+    "schedule":
+        StudentIntent.TIMETABLE_SUMMARY.value,
+
+    "structure_of_the_day":
+        StudentIntent.TIMETABLE_SUMMARY.value,
+
+    "structure of the day":
+        StudentIntent.TIMETABLE_SUMMARY.value,
+
+    "sod":
+        StudentIntent.TIMETABLE_SUMMARY.value,
 }
 
 VALID_INTENTS = {
