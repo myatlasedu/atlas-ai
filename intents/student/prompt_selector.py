@@ -80,6 +80,9 @@ from intents.student.prompt_parts.screen_navigation import (
     SCREEN_NAVIGATION_PROMPT,
 )
 
+from intents.student.prompt_parts.timetable import (
+    TIMETABLE_PROMPT,
+)
 
 PROMPT_MAP = {
 
@@ -94,6 +97,9 @@ PROMPT_MAP = {
 
     StudentIntent.ATLAS_SCORE_SUMMARY:
         ATLAS_PROMPT,
+
+    StudentIntent.TIMETABLE_SUMMARY:
+        TIMETABLE_PROMPT,
 
     StudentIntent.STUDENT_PERFORMANCE:
         PERFORMANCE_PROMPT,
@@ -127,6 +133,8 @@ PROMPT_MAP = {
 
     StudentIntent.ACTION_CONFIRMATION:
         ACTION_CONFIRMATION_PROMPT,
+
+    
 }
 
 
