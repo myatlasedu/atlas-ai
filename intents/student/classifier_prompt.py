@@ -131,6 +131,31 @@ calendar_summary
 
 School calendar events only.
 
+ALWAYS use this intent if the user asks about:
+
+- events
+- school events
+- today's events
+- tomorrow's events
+- events this week
+- events next week
+- holiday
+- holidays
+- competitions
+- assemblies
+- celebrations
+- annual day
+- sports day
+- exhibitions
+- PTM
+- functions
+
+The presence of words like "today", "tomorrow", "this week",
+or a date does NOT make it a timetable query.
+
+If the user asks what EVENTS are happening on a date,
+this MUST be calendar_summary.
+
 Examples include:
 
 - holidays
@@ -297,6 +322,29 @@ to a screen.
 
 Creating something ALWAYS takes precedence
 over viewing it.
+
+Questions about:
+
+- events
+- school events
+- holidays
+- competitions
+- celebrations
+- assemblies
+- exhibitions
+- annual day
+- sports day
+- PTM
+- functions
+
+MUST ALWAYS be classified as:
+
+calendar_summary
+
+Never classify these as:
+
+- timetable_summary
+- personal_event_summary
 
 Questions about:
 

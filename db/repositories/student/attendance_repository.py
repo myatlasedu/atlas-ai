@@ -167,65 +167,73 @@ class AttendanceRepository:
             """
             SELECT
 
-            COUNT(*) AS total_periods,
+                COUNT(*) AS total_periods,
 
-            SUM(
-                CASE
-                    WHEN spa.status = 1
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS present_periods,
+                SUM(
+                    CASE
+                        WHEN spa.status = 1
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS present_periods,
 
-            SUM(
-                CASE
-                    WHEN spa.status = 2
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS missed_periods,
+                SUM(
+                    CASE
+                        WHEN spa.status = 2
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS missed_periods,
 
-            SUM(
-                CASE
-                    WHEN spa.status = 3
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS late_periods,
+                SUM(
+                    CASE
+                        WHEN spa.status = 3
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS late_periods,
 
-            SUM(
-                CASE
-                    WHEN spa.status = 4
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS excused_periods,
+                SUM(
+                    CASE
+                        WHEN spa.status = 4
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS excused_periods,
 
-            SUM(
-                CASE
-                    WHEN spa.status = 5
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS healthroom_periods
+                SUM(
+                    CASE
+                        WHEN spa.status = 5
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS healthroom_periods
 
-        FROM students_studentperiodattendance spa
+            FROM students_studentperiodattendance spa
 
-        INNER JOIN schools_periodsession ps
+            INNER JOIN schools_periodsession ps
+                ON ps.id = spa.period_session_id
 
-            ON ps.id = spa.period_session_id
+            INNER JOIN students_studentsubjectenrollment sse
+                ON sse.enrollment_id = spa.enrollment_id
+            AND sse.subject_offering_id = ps.subject_offering_id
 
-        INNER JOIN students_studentattendance sa
+            INNER JOIN students_studentattendance sa
+                ON sa.enrollment_id = spa.enrollment_id
+            AND sa.date = ps.date
 
-            ON sa.enrollment_id = spa.enrollment_id
-        AND sa.date = ps.date
+            WHERE
 
-        WHERE spa.enrollment_id = :enrollment_id
+                spa.enrollment_id = :enrollment_id
 
-        AND ps.date BETWEEN :start_date
-                        AND :end_date
+            AND
 
-        AND sa.status = 1
+                ps.date BETWEEN :start_date
+                            AND :end_date
+
+            AND
+
+                sa.status = 1
             """
         )
 
