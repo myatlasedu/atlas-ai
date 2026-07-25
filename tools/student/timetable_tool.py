@@ -34,7 +34,7 @@ class TimetableTool:
             )
 
             structure = await repo.get_structure_of_day(
-                academic_class_id=context.academic_class_id,
+                enrollment_id=context.enrollment_id,
                 target_date=target_date,
             )
 
