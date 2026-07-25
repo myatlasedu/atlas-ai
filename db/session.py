@@ -21,7 +21,13 @@ engine = create_async_engine(
     echo=False,
     pool_pre_ping=True,
     pool_size=20,
-    max_overflow=10
+    max_overflow=10,
+    echo_pool="debug",
+    connect_args={
+        "server_settings": {
+            "application_name": "atlas-fastapi"
+        }
+    }
 )
 
 AsyncSessionLocal = async_sessionmaker(
