@@ -325,6 +325,8 @@ over viewing it.
 
 Questions about:
 
+- activity
+- activities
 - events
 - school events
 - holidays
@@ -341,10 +343,15 @@ MUST ALWAYS be classified as:
 
 calendar_summary
 
-Never classify these as:
+This includes:
 
-- timetable_summary
-- personal_event_summary
+- next activity
+- upcoming activity
+- activities today
+- activities this week
+- activities next week
+
+Never classify these as timetable_summary.
 
 Questions about:
 
