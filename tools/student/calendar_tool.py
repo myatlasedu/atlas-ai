@@ -9,6 +9,68 @@ from db.repositories.student.calendar_repository import (
 
 class CalendarTool:
 
+    EVENT_KEYWORDS = {
+        "holiday": (
+            "holiday",
+            "holidays",
+        ),
+        "exam": (
+            "exam",
+            "exams",
+            "test",
+            "tests",
+        ),
+        "activity": (
+            "activity",
+            "activities",
+        ),
+        "event": (
+            "event",
+            "events",
+        ),
+    }
+
+    def _resolve_keyword(
+        self,
+        parsed_intent,
+    ):
+
+        #
+        # Prefer LLM extracted topic if available.
+        # Example:
+        # "Science Exhibition"
+        #
+
+        topic = getattr(
+            parsed_intent,
+            "topic",
+            None,
+        )
+
+        if topic:
+
+            return topic
+
+        query = (
+            getattr(
+                parsed_intent,
+                "original_query",
+                "",
+            )
+            .lower()
+            .strip()
+        )
+
+        for keyword, aliases in self.EVENT_KEYWORDS.items():
+
+            if any(
+                alias in query
+                for alias in aliases
+            ):
+                return keyword
+
+        return None
+
     async def run(
         self,
         context,
@@ -29,10 +91,8 @@ class CalendarTool:
                     "Academic class information is unavailable."
             }
 
-        topic = getattr(
-            parsed_intent,
-            "topic",
-            None,
+        keyword = self._resolve_keyword(
+            parsed_intent
         )
 
         start_date = getattr(
@@ -57,12 +117,20 @@ class CalendarTool:
             # Upcoming events
             #
 
-            if not start_date and not end_date and not topic:
+            if not start_date and not end_date:
 
                 events = await repo.get_upcoming_events(
+
                     academic_class_id=context.academic_class_id,
+
+                    keyword=keyword,
+
                     limit=5,
                 )
+
+            #
+            # Search events
+            #
 
             else:
 
@@ -74,7 +142,7 @@ class CalendarTool:
 
                     end_date=end_date,
 
-                    keyword=topic,
+                    keyword=keyword,
                 )
 
             payload = {
@@ -109,18 +177,18 @@ class CalendarTool:
 
                 payload["direct_answer"] = (
 
-                    f"Found {len(events)} upcoming calendar "
-                    f"event{'s' if len(events) != 1 else ''}. "
+                    f"Found {len(events)} "
+                    f"calendar event{'s' if len(events) != 1 else ''}. "
                     f"The next event is "
                     f"{next_event['title']}."
                 )
 
             else:
 
-                if topic:
+                if keyword:
 
                     payload["direct_answer"] = (
-                        f"No calendar events were found matching '{topic}'."
+                        f"No calendar events were found matching '{keyword}'."
                     )
 
                 elif start_date or end_date:
