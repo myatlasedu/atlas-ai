@@ -30,6 +30,17 @@ def ist_datetime():
 
 
 
+def convert_to_ist(dt):
+
+    if dt is None:
+        return None
+
+    return (
+        dt.astimezone(IST)
+        .isoformat()
+    )
+
+
 
 # ==========================================================
 # DATE RESOLUTION
