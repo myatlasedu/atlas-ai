@@ -70,23 +70,44 @@ USE THIS INTENT WHEN THE USER ASKS ABOUT
 DO NOT USE THIS INTENT FOR
 ==================================================
 
-Personal reminders
+This intent is ONLY for lessons and the student's Structure of the Day.
 
-Personal appointments
+Never use this intent for school-wide calendar items.
 
-Personal calendar events
+The following ALWAYS belong to calendar_summary:
 
-School events
+- school events
+- school activities
+- holidays
+- exams
+- competitions
+- annual day
+- sports day
+- assemblies
+- exhibitions
+- celebrations
+- PTM
+- functions
+- event schedule
 
-Holidays
+Examples that MUST use calendar_summary:
 
-Announcements
+- When's my next activity?
+- What activities are happening this week?
+- Show upcoming activities.
+- Any school events?
+- Next holiday.
+- Upcoming exams.
 
-Homework
+Also do NOT use this intent for:
 
-Attendance
-
-Assessments
+- personal reminders
+- personal appointments
+- personal calendar events
+- announcements
+- homework
+- attendance
+- assessments
 
 Those belong to their respective intents.
 
