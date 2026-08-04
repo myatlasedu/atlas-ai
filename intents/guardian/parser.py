@@ -1,5 +1,7 @@
 import logging
 
+from datetime import date
+
 from llm.client import (
     chat_completion
 )
@@ -41,6 +43,48 @@ VALID_INTENTS = {
 }
 
 
+def _normalize_dates(
+    parsed: dict,
+) -> dict:
+
+    parsed = resolve_dates(
+        parsed
+    )
+
+    for field in (
+        "start_date",
+        "end_date",
+    ):
+
+        value = parsed.get(field)
+
+        if hasattr(
+            value,
+            "isoformat",
+        ):
+            parsed[field] = value.isoformat()
+
+        elif isinstance(
+            value,
+            str,
+        ):
+
+            try:
+
+                parsed[field] = (
+                    date.fromisoformat(
+                        value
+                    )
+                    .isoformat()
+                )
+
+            except ValueError:
+
+                parsed[field] = None
+
+    return parsed
+
+
 async def parse_guardian_intent(
     query: str
 ) -> ParsedGuardianIntent:
@@ -70,7 +114,8 @@ async def parse_guardian_intent(
                     "role": "user",
                     "content": query
                 }
-            ]
+            ],
+            expect_json=True
         )
 
         content = (
@@ -113,9 +158,65 @@ async def parse_guardian_intent(
                 classified_intent.value
             )
 
+        # ------------------------------------------------------
+        # Narrow safety net: marks FOR a specific homework /
+        # assignment / worksheet must route to homework_summary,
+        # never assessment_summary. Only applies when BOTH a
+        # homework object word and a marks/result word appear.
+        # ------------------------------------------------------
+
+        if intent == GuardianIntent.ASSESSMENT_SUMMARY.value:
+
+            normalized_query = (
+                query
+                .strip()
+                .lower()
+            )
+
+            homework_words = [
+                "homework",
+                "assignment",
+                "worksheet",
+                "submission",
+            ]
+
+            marks_words = [
+                "marks",
+                "mark",
+                "score",
+                "grade",
+                "result",
+                "did i get",
+            ]
+
+            has_homework_word = any(
+                word in normalized_query
+                for word in homework_words
+            )
+
+            has_marks_word = any(
+                word in normalized_query
+                for word in marks_words
+            )
+
+            if (
+                has_homework_word
+                and
+                has_marks_word
+            ):
+
+                logger.info(
+                    "Reclassifying guardian assessment intent to homework_summary: %r",
+                    query,
+                )
+
+                intent = (
+                    GuardianIntent.HOMEWORK_SUMMARY.value
+                )
+
         parsed["intent"] = intent
 
-        parsed = resolve_dates(
+        parsed = _normalize_dates(
             parsed
         )
 

@@ -19,6 +19,8 @@ class ParsedGuardianIntent(BaseModel):
 
     subject: str | None = None
 
+    topic: str | None = None
+
     enrichment: bool | None = None
 
     view: str | None = None

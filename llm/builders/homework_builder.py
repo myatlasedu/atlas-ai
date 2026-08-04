@@ -5,6 +5,14 @@ def build_homework_llm_context(
     payload: dict,
 ) -> dict:
 
+    titled_mark = payload.get(
+        "titled_mark"
+    )
+
+    titled_lookup = payload.get(
+        "titled_lookup"
+    )
+
     pending = payload.get(
         "pending",
         [],
@@ -40,7 +48,11 @@ def build_homework_llm_context(
     # STATUS
     # ==========================================
 
-    if overdue_count:
+    if titled_lookup:
+
+        status = "info"
+
+    elif overdue_count:
 
         status = "critical"
 
@@ -56,7 +68,25 @@ def build_homework_llm_context(
     # HEADLINE
     # ==========================================
 
-    if overdue_count:
+    if titled_mark:
+
+        headline = (
+            f"Your mark for "
+            f"{titled_mark.get('title')} "
+            f"is "
+            f"{titled_mark.get('marks_obtained')}/"
+            f"{titled_mark.get('total_marks')} "
+            f"({titled_mark.get('percentage')}%)."
+        )
+
+    elif titled_lookup:
+
+        headline = (
+            f"Homework lookup for "
+            f"{titled_lookup.get('title')}."
+        )
+
+    elif overdue_count:
 
         headline = (
             "Some homework requires immediate attention."
@@ -193,4 +223,8 @@ def build_homework_llm_context(
         "priority_items": priority_items,
 
         "action_items": action_items,
+
+        "titled_mark": titled_mark,
+
+        "titled_lookup": titled_lookup,
     }

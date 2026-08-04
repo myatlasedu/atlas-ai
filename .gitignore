@@ -1,3 +1,8 @@
 .env
 **.pyc
 __pycache__/
+venv/
+
+# Redis
+dump.rdb
+*.rdb

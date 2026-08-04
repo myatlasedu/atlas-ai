@@ -1,5 +1,7 @@
 import logging
 
+from datetime import date
+
 from llm.client import (
     chat_completion,
 )
@@ -161,6 +163,30 @@ def _normalize_dates(
         ):
             parsed[field] = value.isoformat()
 
+        elif isinstance(
+            value,
+            str,
+        ):
+
+            #
+            # Defensive: the LLM sometimes returns
+            # non-ISO date strings (e.g. "28 July").
+            # Never let them crash intent validation.
+            #
+
+            try:
+
+                parsed[field] = (
+                    date.fromisoformat(
+                        value
+                    )
+                    .isoformat()
+                )
+
+            except ValueError:
+
+                parsed[field] = None
+
     return parsed
 
 
@@ -197,7 +223,8 @@ async def parse_student_intent(
                     "role": "user",
                     "content": query,
                 },
-            ]
+            ],
+            expect_json=True
         )
 
         content = (
@@ -246,6 +273,62 @@ async def parse_student_intent(
             intent = (
                 classified_intent.value
             )
+
+        # ------------------------------------------------------
+        # Narrow safety net: marks FOR a specific homework /
+        # assignment / worksheet must route to homework_summary,
+        # never assessment_summary. Only applies when BOTH a
+        # homework object word and a marks/result word appear.
+        # ------------------------------------------------------
+
+        if intent == StudentIntent.ASSESSMENT_SUMMARY.value:
+
+            normalized_query = (
+                query
+                .strip()
+                .lower()
+            )
+
+            homework_words = [
+                "homework",
+                "assignment",
+                "worksheet",
+                "submission",
+            ]
+
+            marks_words = [
+                "marks",
+                "mark",
+                "score",
+                "grade",
+                "result",
+                "did i get",
+            ]
+
+            has_homework_word = any(
+                word in normalized_query
+                for word in homework_words
+            )
+
+            has_marks_word = any(
+                word in normalized_query
+                for word in marks_words
+            )
+
+            if (
+                has_homework_word
+                and
+                has_marks_word
+            ):
+
+                logger.info(
+                    "Reclassifying assessment intent to homework_summary: %r",
+                    query,
+                )
+
+                intent = (
+                    StudentIntent.HOMEWORK_SUMMARY.value
+                )
 
         parsed["intent"] = intent
 

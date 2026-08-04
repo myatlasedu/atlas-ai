@@ -81,6 +81,8 @@ Summarize homework information only.
 
 Use only supplied homework data.
 
+Keep the response under 100 words.
+
 {common}
 """
 

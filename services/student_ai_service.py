@@ -1,5 +1,9 @@
 import logging
 
+from asyncio import (
+    gather,
+)
+
 from intents.router import (
     parse_intent
 )
@@ -30,6 +34,10 @@ from services.date_service import (
 
 from cache.pending_action_cache import (
     PendingActionCache
+)
+
+from cache.response_cache import (
+    ResponseCache
 )
 
 from intents.common.prompt_categories import (
@@ -65,6 +73,27 @@ class StudentAIService:
                 context.user_id
             )
         )
+
+        # =====================================
+        # RESPONSE CACHE CHECK (only when no pending action)
+        # =====================================
+
+        if not pending_action:
+
+            cached = (
+                await ResponseCache.get(
+                    context=context,
+                    query=query,
+                )
+            )
+
+            if cached is not None:
+
+                logger.info(
+                    "CACHE HIT - returning cached response"
+                )
+
+                return cached
 
         if pending_action:
 
@@ -208,9 +237,9 @@ class StudentAIService:
             tools_to_run
         )
 
-        results = {}
-
-        for tool_name in tools_to_run:
+        async def _run_tool(
+            tool_name,
+        ):
 
             tool = TOOL_REGISTRY.get(
                 tool_name
@@ -223,22 +252,79 @@ class StudentAIService:
                     tool_name
                 )
 
-                continue
+                return (
+                    tool_name,
+                    None,
+                )
+
             t0 = time.perf_counter()
-            result = await tool.run(
-                context=context,
-                parsed_intent=parsed_intent
-            )
+
+            try:
+
+                result = await tool.run(
+                    context=context,
+                    parsed_intent=parsed_intent
+                )
+
+            except Exception as e:
+
+                logger.exception(
+                    "Tool [%s] failed: %s",
+                    tool_name,
+                    e,
+                )
+
+                result = {
+
+                    "module":
+                        tool_name,
+
+                    "error":
+                        str(e),
+
+                    "direct_answer":
+                        (
+                            "Unable to load "
+                            "this information."
+                        ),
+                }
+
             t1 = time.perf_counter()
 
             print(f"Tool Time: {t1-t0:.2f}s")
-            results[tool_name] = result
 
             logger.info(
                 "Tool result [%s]: %s",
                 tool_name,
                 result
             )
+
+            return (
+                tool_name,
+                result,
+            )
+
+        outcomes = await gather(
+            *[
+                _run_tool(
+                    tool_name,
+                )
+                for tool_name in tools_to_run
+            ]
+        )
+
+        results = {}
+
+        for (
+            tool_name,
+            result,
+        ) in outcomes:
+
+            if result is not None:
+
+                results[
+                    tool_name
+                ] = result
 
         # =====================================
         # ACTION REQUIRED SHORT CIRCUIT
@@ -362,7 +448,8 @@ class StudentAIService:
         t1 = time.perf_counter()
 
         print(f"Summarize Time: {t1-t0:.2f}s")
-        return {
+
+        response = {
 
             "success": True,
 
@@ -378,3 +465,11 @@ class StudentAIService:
             "summary":
                 summary
         }
+
+        await ResponseCache.set(
+            context=context,
+            query=query,
+            response=response,
+        )
+
+        return response

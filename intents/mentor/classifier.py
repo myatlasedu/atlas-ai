@@ -30,7 +30,8 @@ async def classify_mentor_intent(
                 "role": "user",
                 "content": query
             }
-        ]
+        ],
+        expect_json=True
     )
 
     content = response["message"]["content"]

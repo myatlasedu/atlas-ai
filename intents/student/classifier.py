@@ -33,7 +33,8 @@ async def classify_student_intent(
                 "role": "user",
                 "content": query
             }
-        ]
+        ],
+        expect_json=True
     )
     print("response - ", response)
     parsed = parse_llm_json(

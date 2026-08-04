@@ -33,7 +33,8 @@ async def classify_guardian_intent(
                 "role": "user",
                 "content": query
             }
-        ]
+        ],
+        expect_json=True
     )
 
     parsed = parse_llm_json(

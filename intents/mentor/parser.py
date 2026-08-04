@@ -45,7 +45,8 @@ async def parse_mentor_intent(
                 "role": "user",
                 "content": query
             }
-        ]
+        ],
+        expect_json=True
     )
 
     content = (

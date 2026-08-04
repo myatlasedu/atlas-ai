@@ -64,15 +64,38 @@ def build_prompt(
     intent    
 ):
 
-    audience = (
-        "Speak directly to the guardian. \
-        Use 'your child' or the student's name to refer to the student.\
-        Do not tell the guardian to speak to the guardian.\
-        Do not address the student directly."
-        if role == "guardian"
-        else
-        "Speak directly to the student. Use 'you' to refer to the student."
+    is_titled_mark = bool(
+        (
+            data
+            .get("homework", {})
+            .get("titled_mark")
+        )
+        or
+        (
+            data
+            .get("homework", {})
+            .get("titled_lookup")
+        )
     )
+
+    if (
+        role == "guardian"
+        and
+        not is_titled_mark
+    ):
+
+        audience = (
+            "Speak directly to the guardian. \
+            Use 'your child' or the student's name to refer to the student.\
+            Do not tell the guardian to speak to the guardian.\
+            Do not address the student directly."
+        )
+
+    else:
+
+        audience = (
+            "Speak directly to the student. Use 'you' to refer to the student."
+        )
 
     common = f"""
     QUESTION
@@ -449,6 +472,161 @@ Explain that Atlas Score is still calibrating.
 
     if intent == StudentIntent.HOMEWORK_SUMMARY:
 
+        tm = (
+            data
+            .get("homework", {})
+            .get("titled_mark")
+        )
+
+        if tm:
+
+            try:
+
+                obtained = int(
+                    round(
+                        float(
+                            tm.get("marks_obtained")
+                        )
+                    )
+                )
+
+                total = int(
+                    round(
+                        float(
+                            tm.get("total_marks")
+                        )
+                    )
+                )
+
+                percentage = int(
+                    round(
+                        float(
+                            tm.get("percentage")
+                        )
+                    )
+                )
+
+            except (TypeError, ValueError):
+
+                obtained = tm.get("marks_obtained")
+
+                total = tm.get("total_marks")
+
+                percentage = tm.get("percentage")
+
+            title = tm.get("title")
+
+            if percentage >= 80:
+
+                band = (
+                    "good work and keep it up"
+                )
+
+            elif percentage >= 60:
+
+                band = (
+                    "nice job, keep pushing"
+                )
+
+            else:
+
+                band = (
+                    "strive hard - you can do better"
+                )
+
+            return f"""
+You are Atlas AI.
+
+The student asked for their mark on a SPECIFIC homework.
+
+Use ONLY:
+- titled_mark.title
+- titled_mark.marks_obtained
+- titled_mark.total_marks
+- titled_mark.percentage
+
+Never invent or replace the mark with any other score.
+
+Structure your response like this:
+
+1. Lead with the exact score:
+
+"Your latest homework score for {title} is {obtained} out of {total} ({percentage}%)."
+
+2. Then add an encouraging note naturally based on the score.
+
+The score is {percentage}%, so use this as guidance:
+
+- {band}.
+
+3. Add one short supportive sentence consistent with the score.
+
+Write naturally, in 2 to 4 sentences.
+
+Do not mention JSON or data fields.
+
+Keep the whole reply under 100 words.
+
+{common}
+"""
+
+        titled_lookup = (
+            data
+            .get("homework", {})
+            .get("titled_lookup")
+        )
+
+        if titled_lookup:
+
+            lookup_state = (
+                titled_lookup.get("state")
+            )
+
+            lookup_title = (
+                titled_lookup.get("title")
+            )
+
+            if lookup_state == "assigned_not_submitted":
+
+                state_line = (
+                    f"This homework ('{lookup_title}') was assigned to you "
+                    "and you have not completed it, so it is not scored."
+                )
+
+            elif lookup_state == "not_assigned":
+
+                state_line = (
+                    f"The homework '{lookup_title}' was not assigned to you."
+                )
+
+            else:
+
+                state_line = (
+                    f"No homework matching '{lookup_title}' was found."
+                )
+
+            return f"""
+You are Atlas AI.
+
+The student asked for their mark on a SPECIFIC homework.
+
+No score is available for this homework.
+
+Reply naturally in 2 to 3 short sentences using ONLY this fact:
+
+"{state_line}"
+
+Do not invent a score, percentage or grade.
+
+Do not list other homework.
+
+Do not mention JSON or data fields.
+
+Keep the whole reply under 50 words.
+
+{common}
+"""
+
         return f"""
 You are Atlas AI.
 
@@ -816,7 +994,25 @@ async def summarize_response(
     
     system_prompt = STUDENT_SYSTEM_PROMPT
 
-    if context.role == "guardian":
+    is_titled_mark = bool(
+        (
+            llm_data
+            .get("homework", {})
+            .get("titled_mark")
+        )
+        or
+        (
+            llm_data
+            .get("homework", {})
+            .get("titled_lookup")
+        )
+    )
+
+    if (
+        context.role == "guardian"
+        and
+        not is_titled_mark
+    ):
 
         system_prompt = GUARDIAN_SYSTEM_PROMPT
 

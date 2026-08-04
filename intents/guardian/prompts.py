@@ -116,6 +116,7 @@ Your only job is to extract:
 - grade
 - section
 - subject
+- topic
 - enrichment
 - view
 
@@ -131,6 +132,7 @@ Return:
     "grade": null,
     "section": null,
     "subject": null,
+    "topic": null,
     "enrichment": null,
     "view": null,
     "target_modules": [],

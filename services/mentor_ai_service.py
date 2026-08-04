@@ -1,5 +1,9 @@
 import logging
 
+from asyncio import (
+    gather,
+)
+
 from intents.router import (
     parse_intent
 )
@@ -24,6 +28,10 @@ from services.date_service import (
     DateService
 )
 
+from cache.response_cache import (
+    ResponseCache
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,6 +42,21 @@ class MentorAIService:
         query: str,
         context
     ):
+
+        cached = (
+            await ResponseCache.get(
+                context=context,
+                query=query,
+            )
+        )
+
+        if cached is not None:
+
+            logger.info(
+                "CACHE HIT - returning cached response"
+            )
+
+            return cached
 
         parsed_intent = await parse_intent(
             query=query,
@@ -93,9 +116,9 @@ class MentorAIService:
             tools_to_run
         )
 
-        results = {}
-
-        for tool_name in tools_to_run:
+        async def _run_tool(
+            tool_name,
+        ):
 
             tool = TOOL_REGISTRY.get(
                 tool_name
@@ -108,20 +131,73 @@ class MentorAIService:
                     tool_name
                 )
 
-                continue
+                return (
+                    tool_name,
+                    None,
+                )
 
-            result = await tool.run(
-                context=context,
-                parsed_intent=parsed_intent
-            )
+            try:
 
-            results[tool_name] = result
+                result = await tool.run(
+                    context=context,
+                    parsed_intent=parsed_intent
+                )
+
+            except Exception as e:
+
+                logger.exception(
+                    "Mentor tool [%s] failed: %s",
+                    tool_name,
+                    e,
+                )
+
+                result = {
+
+                    "module":
+                        tool_name,
+
+                    "error":
+                        str(e),
+
+                    "direct_answer":
+                        (
+                            "Unable to load "
+                            "this information."
+                        ),
+                }
 
             logger.info(
                 "Tool result [%s]: %s",
                 tool_name,
                 result
             )
+
+            return (
+                tool_name,
+                result,
+            )
+
+        outcomes = await gather(
+            *[
+                _run_tool(
+                    tool_name,
+                )
+                for tool_name in tools_to_run
+            ]
+        )
+
+        results = {}
+
+        for (
+            tool_name,
+            result,
+        ) in outcomes:
+
+            if result is not None:
+
+                results[
+                    tool_name
+                ] = result
 
         # =====================================
         # DIRECT ANSWER
@@ -163,7 +239,7 @@ class MentorAIService:
                 intent=parsed_intent.intent
             )
 
-        return {
+        response = {
 
             "success": True,
 
@@ -179,3 +255,11 @@ class MentorAIService:
             "summary":
                 summary
         }
+
+        await ResponseCache.set(
+            context=context,
+            query=query,
+            response=response,
+        )
+
+        return response

@@ -307,6 +307,21 @@ Use only when none of the above apply.
 PRIORITY RULES
 ==================================================
 
+If a query asks for marks, grades, score or result
+FOR a homework, assignment, worksheet or submission
+(e.g. "marks for homework", "marks for the worksheet",
+"grade on the assignment"), classify it as:
+
+homework_summary
+
+A query about marks WITHOUT any homework, assignment,
+worksheet or submission keyword must remain:
+
+assessment_summary
+
+Do NOT treat other intents as homework when homework
+words are absent.
+
 Atlas-related queries ALWAYS take precedence
 over student_performance.
 
@@ -388,6 +403,24 @@ EXAMPLES
 "What are my marks?"
 
 → assessment_summary
+
+--------------------------------------------------
+
+"What marks did I get in my homework?"
+
+→ homework_summary
+
+--------------------------------------------------
+
+"Show me my marks for homework 'Worksheet 1'."
+
+→ homework_summary
+
+--------------------------------------------------
+
+"What grade did I get on the worksheet?"
+
+→ homework_summary
 
 --------------------------------------------------
 
