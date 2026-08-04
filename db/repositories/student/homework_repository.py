@@ -38,6 +38,13 @@ class HomeworkRepository:
 
         normalized = self._normalize_title(title)
 
+        if not normalized:
+
+            return {
+                "state": "not_found",
+                "title": title,
+            }
+
         query = text(
             """
             SELECT
