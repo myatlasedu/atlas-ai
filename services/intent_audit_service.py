@@ -1,10 +1,13 @@
 import logging
 
-from db.session import AsyncSessionLocal
-
-from db.repositories.intent_audit_repository import (
-    IntentAuditRepository,
+from db.session import (
+    AsyncSessionLocal,
 )
+
+from db.repositories.ai_conversation_audit_repository import (
+    AIConversationAuditRepository,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +27,13 @@ class IntentAuditService:
 
             async with AsyncSessionLocal() as db:
 
-                repo = IntentAuditRepository(db)
+                repo = (
+                    AIConversationAuditRepository()
+                )
 
                 await repo.create(
+
+                    db,
 
                     query=query,
 
@@ -34,15 +41,20 @@ class IntentAuditService:
 
                     user_id=context.user_id,
 
-                    predicted_intent=parsed_intent.intent,
+                    predicted_intent=(
+                        parsed_intent.intent
+                    ),
 
-                    confidence=parsed_intent.confidence,
-
-                    parser_output=parsed_intent.model_dump(),
+                    parsed_intent=(
+                        parsed_intent.model_dump()
+                    ),
                 )
 
         except Exception:
 
+            # Audit failure must never
+            # break the AI request.
+
             logger.exception(
-                "Failed to capture intent audit."
+                "Failed to capture AI conversation audit."
             )
