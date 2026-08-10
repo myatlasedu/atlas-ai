@@ -46,10 +46,6 @@ from intents.common.prompt_categories import (
     build_unknown_intent_summary,
 )
 
-from services.intent_audit_service import (
-    IntentAuditService,
-)
-
 
 logger = logging.getLogger(__name__)
 
@@ -410,16 +406,6 @@ class StudentAIService:
         logger.info(
             "Parsed Intent: %s",
             parsed_intent.model_dump()
-        )
-
-        # ==================================================
-        # EXISTING INTENT AUDIT
-        # ==================================================
-
-        await IntentAuditService.capture(
-            query=query,
-            context=context,
-            parsed_intent=parsed_intent,
         )
 
         # ==================================================
