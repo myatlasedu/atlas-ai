@@ -30,3 +30,9 @@ class ParsedGuardianIntent(BaseModel):
     confidence: float = 0.95
 
     original_query: str = ""
+
+    is_injection: bool = False
+
+    generate_content: bool = False
+
+    asks_for_marks: bool = False

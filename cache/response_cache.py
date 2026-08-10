@@ -8,6 +8,7 @@ from cache.redis import (
 
 from utils import (
     ist_today,
+    is_guardian_context,
 )
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,8 @@ class ResponseCache:
     def _build_key(
         context,
         query,
+        rev: int = 0,
+        session_marker: str | None = None,
     ) -> str:
 
         qhash = (
@@ -48,6 +51,10 @@ class ResponseCache:
             "none",
         )
 
+        if is_guardian_context(context):
+
+            role = "guardian"
+
         student_id = getattr(
             context,
             "student_id",
@@ -74,22 +81,32 @@ class ResponseCache:
             )
         )
 
+        marker = (
+            session_marker
+            if session_marker
+            else "none"
+        )
+
         return (
             f"cache:{user_id}:{role}:"
             f"{student_id}:{campus_id}:{extra}:"
-            f"{qhash}:{ist_today()}"
+            f"{marker}:{rev}:{qhash}:{ist_today()}"
         )
 
     @staticmethod
     async def get(
         context,
         query,
+        rev: int = 0,
+        session_marker: str | None = None,
     ):
 
         key = (
             ResponseCache._build_key(
                 context,
                 query,
+                rev,
+                session_marker,
             )
         )
 
@@ -124,12 +141,16 @@ class ResponseCache:
         context,
         query,
         response,
+        rev: int = 0,
+        session_marker: str | None = None,
     ):
 
         key = (
             ResponseCache._build_key(
                 context,
                 query,
+                rev,
+                session_marker,
             )
         )
 

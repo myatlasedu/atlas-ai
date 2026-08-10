@@ -21,6 +21,17 @@ def ist_now() -> datetime:
     return datetime.now(IST)
 
 
+def is_guardian_context(context) -> bool:
+    return (
+        getattr(
+            context,
+            "guardian_id",
+            None,
+        )
+        is not None
+    )
+
+
 def ist_today() -> date:
     return ist_now().date()
 

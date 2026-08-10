@@ -157,6 +157,62 @@ class TopicTool:
                         for topic in weak_topics[:5]
                     ],
 
+                    "completed_topic_items": [
+
+                        {
+                            "topic_name": topic.get(
+                                "topic_name",
+                                "Topic",
+                            ),
+                            "subject_name": topic.get(
+                                "subject_name",
+                                None,
+                            ),
+                            "average_score": topic.get(
+                                "average_score",
+                                None,
+                            ),
+                        }
+
+                        for topic in completed_topics[:8]
+                    ],
+
+                    "pending_topic_items": [
+
+                        {
+                            "topic_name": topic.get(
+                                "topic_name",
+                                "Topic",
+                            ),
+                            "subject_name": topic.get(
+                                "subject_name",
+                                None,
+                            ),
+                        }
+
+                        for topic in pending_topics[:8]
+                    ],
+
+                    "weak_topic_items": [
+
+                        {
+                            "topic_name": topic.get(
+                                "topic_name",
+                                "Topic",
+                            ),
+                            "subject_name": topic.get(
+                                "subject_name",
+                                None,
+                            ),
+                            "average_score": topic.get(
+                                "average_score",
+                                None,
+                            ),
+                        }
+
+                        for topic in weak_topics[:8]
+                    ],
+
                     "actions": [
 
                         "Revise weak topics.",

@@ -7,6 +7,13 @@ Do NOT answer the question.
 Do NOT extract dates.
 Do NOT extract filters.
 Do NOT explain.
+
+If a PRIOR CONVERSATION is provided:
+
+Use it only to resolve references (pronouns, subjects, classes, dates) in the question.
+
+The question itself decides the intent.
+
 Return VALID JSON ONLY.
 
 ==================================================
@@ -131,6 +138,31 @@ overall analytics or Atlas dashboard.
 unknown
 
 Use only when none of the above apply.
+
+==================================================
+GUARDRAILS
+==================================================
+
+If the user asks Atlas to write, generate, create or
+produce content (stories, essays, plots, poems, letters,
+scripts, code), classify as:
+
+unknown
+
+A query that mentions "homework", "assignment" or
+"subject" but asks Atlas to WRITE or CREATE content is
+NOT homework_summary or essay help.
+
+Classify it as:
+
+unknown
+
+NEVER provide instructions or assistance on weapons,
+explosives, drugs or anything that could cause harm.
+
+Such requests classify as:
+
+unknown
 
 ==================================================
 DISAMBIGUATION

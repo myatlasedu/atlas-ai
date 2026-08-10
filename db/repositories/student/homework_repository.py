@@ -94,10 +94,106 @@ class HomeworkRepository:
         ]
 
         # --------------------------------------------------
-        # 2. Across ALL matching homeworks, find the latest
-        #    graded submission for this enrollment.
-        #    Prefer a real mark over the most recent title.
+        # 2. Across ALL matching homeworks, find this student's
+        #    latest graded mark; otherwise, whether any was
+        #    assigned but not submitted. Single query.
         # --------------------------------------------------
+
+        # --------------------------------------------------
+        # PREVIOUS TWO-QUERY VERSION (commented out)
+        # --------------------------------------------------
+
+        # result = await self.db.execute(
+        #     text(
+        #         """
+        #         SELECT
+        #             h.id,
+        #             h.title,
+        #             h.total_marks,
+        #             hs.marks_obtained,
+        #             hs.reviewed_at,
+        #             hs.attempt_number,
+        #             hs.status
+        #         FROM students_homework h
+        #         INNER JOIN
+        #             students_homeworksubmission hs
+        #         ON
+        #             hs.homework_id = h.id
+        #         WHERE
+        #             h.id = ANY(:homework_ids)
+        #         AND
+        #             hs.enrollment_id = :enrollment_id
+        #         AND
+        #             hs.marks_obtained IS NOT NULL
+        #         ORDER BY hs.reviewed_at DESC NULLS LAST
+        #         LIMIT 1
+        #         """
+        #     ),
+        #     {
+        #         "homework_ids": matching_ids,
+        #         "enrollment_id": enrollment_id,
+        #     }
+        # )
+        # row = result.mappings().first()
+
+        # if row:
+
+        #     row = dict(row)
+
+        #     if row.get("total_marks"):
+        #         row["percentage"] = round(
+        #             (
+        #                 row["marks_obtained"]
+        #                 / row["total_marks"]
+        #             ) * 100,
+        #             2
+        #         )
+        #     else:
+        #         row["percentage"] = 0
+
+        #     row["state"] = "marks"
+
+        #     return row
+
+        # result = await self.db.execute(
+        #     text(
+        #         """
+        #         SELECT h.id, h.title, h.total_marks
+        #         FROM students_homework h
+        #         INNER JOIN
+        #             students_homeworkstudentmap hm
+        #         ON
+        #             hm.homework_id = h.id
+        #         WHERE
+        #             h.id = ANY(:homework_ids)
+        #         AND
+        #             hm.enrollment_id = :enrollment_id
+        #         ORDER BY h.due_date DESC NULLS LAST
+        #         LIMIT 1
+        #         """
+        #     ),
+        #     {
+        #         "homework_ids": matching_ids,
+        #         "enrollment_id": enrollment_id,
+        #     }
+        # )
+        # assigned = result.mappings().first()
+
+        # if assigned:
+
+        #     assigned = dict(assigned)
+
+        #     return {
+        #         "state": "assigned_not_submitted",
+        #         "id": assigned["id"],
+        #         "title": assigned["title"],
+        #     }
+
+        # return {
+        #     "state": "not_assigned",
+        #     "id": matching[0]["id"],
+        #     "title": matching[0]["title"],
+        # }
 
         result = await self.db.execute(
             text(
@@ -109,19 +205,24 @@ class HomeworkRepository:
                     hs.marks_obtained,
                     hs.reviewed_at,
                     hs.attempt_number,
-                    hs.status
+                    hs.status,
+                    CASE
+                        WHEN hm.enrollment_id IS NOT NULL THEN TRUE
+                        ELSE FALSE
+                    END AS is_assigned
                 FROM students_homework h
-                INNER JOIN
-                    students_homeworksubmission hs
-                ON
-                    hs.homework_id = h.id
+                LEFT JOIN students_homeworksubmission hs
+                    ON hs.homework_id = h.id
+                    AND hs.enrollment_id = :enrollment_id
+                    AND hs.marks_obtained IS NOT NULL
+                LEFT JOIN students_homeworkstudentmap hm
+                    ON hm.homework_id = h.id
+                    AND hm.enrollment_id = :enrollment_id
                 WHERE
                     h.id = ANY(:homework_ids)
-                AND
-                    hs.enrollment_id = :enrollment_id
-                AND
-                    hs.marks_obtained IS NOT NULL
-                ORDER BY hs.reviewed_at DESC NULLS LAST
+                ORDER BY
+                    (hs.reviewed_at IS NOT NULL) DESC,
+                    hs.reviewed_at DESC NULLS LAST
                 LIMIT 1
                 """
             ),
@@ -132,11 +233,17 @@ class HomeworkRepository:
         )
         row = result.mappings().first()
 
-        if row:
+        if not row:
+            return {
+                "state": "not_found",
+                "title": title,
+            }
 
-            row = dict(row)
+        row = dict(row)
 
-            if row.get("total_marks"):
+        if row["marks_obtained"] is not None:
+
+            if row["total_marks"]:
                 row["percentage"] = round(
                     (
                         row["marks_obtained"]
@@ -151,49 +258,18 @@ class HomeworkRepository:
 
             return row
 
-        # --------------------------------------------------
-        # 3. No graded submission. Was any of the matching
-        #    homeworks assigned to this enrollment?
-        # --------------------------------------------------
-
-        result = await self.db.execute(
-            text(
-                """
-                SELECT h.id, h.title, h.total_marks
-                FROM students_homework h
-                INNER JOIN
-                    students_homeworkstudentmap hm
-                ON
-                    hm.homework_id = h.id
-                WHERE
-                    h.id = ANY(:homework_ids)
-                AND
-                    hm.enrollment_id = :enrollment_id
-                ORDER BY h.due_date DESC NULLS LAST
-                LIMIT 1
-                """
-            ),
-            {
-                "homework_ids": matching_ids,
-                "enrollment_id": enrollment_id,
-            }
-        )
-        assigned = result.mappings().first()
-
-        if assigned:
-
-            assigned = dict(assigned)
+        if row["is_assigned"]:
 
             return {
                 "state": "assigned_not_submitted",
-                "id": assigned["id"],
-                "title": assigned["title"],
+                "id": row["id"],
+                "title": row["title"],
             }
 
         return {
             "state": "not_assigned",
-            "id": matching[0]["id"],
-            "title": matching[0]["title"],
+            "id": row["id"],
+            "title": row["title"],
         }
 
 

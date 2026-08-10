@@ -26,6 +26,85 @@ def build_assessment_llm_context(
     else:
         status = "good"
 
+    def _itemize(
+        rows: list,
+    ) -> list[dict]:
+
+        return [
+            {
+                "title": row.get(
+                    "title",
+                    "Assessment",
+                ),
+                "assessment_date": (
+                    str(
+                        row["assessment_date"]
+                    )
+                    if row.get("assessment_date")
+                    else None
+                ),
+                "type": row.get(
+                    "type",
+                    None,
+                ),
+                "status": row.get(
+                    "status",
+                    None,
+                ),
+            }
+            for row in rows[:8]
+        ]
+
+    upcoming_items = _itemize(
+        payload.get("upcoming", [])
+    )
+
+    pending_items = _itemize(
+        payload.get("pending", [])
+    )
+
+    risk_items = [
+        {
+            "title": row.get(
+                "title",
+                "Assessment",
+            ),
+            "percentage": row.get(
+                "percentage",
+                None,
+            ),
+            "risk_level": row.get(
+                "risk_level",
+                None,
+            ),
+        }
+        for row in payload.get(
+            "risk_assessments",
+            [],
+        )[:8]
+    ]
+
+    feedback_items = [
+        {
+            "title": row.get(
+                "title",
+                "Assessment",
+            ),
+            "grade": row.get(
+                "grade",
+                None,
+            ),
+            "marks_obtained": row.get(
+                "marks_obtained",
+                None,
+            ),
+        }
+        for row in payload.get(
+            "recent_feedback",
+            [],
+        )[:8]
+    ]
+
     return {
 
         "status": status,
@@ -65,4 +144,12 @@ def build_assessment_llm_context(
             "improvement_opportunities",
             [],
         )[:3],
+
+        "upcoming_items": upcoming_items,
+
+        "pending_items": pending_items,
+
+        "risk_items": risk_items,
+
+        "feedback_items": feedback_items,
     }

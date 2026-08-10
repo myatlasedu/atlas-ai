@@ -20,8 +20,22 @@ logger = logging.getLogger(__name__)
 
 
 async def classify_guardian_intent(
-    query: str
+    query: str,
+    prior_context: str | None = None,
 ) -> GuardianIntent:
+
+    user_content = query
+
+    if prior_context:
+
+        user_content = (
+            f"PRIOR CONVERSATION\n\n"
+            f"{prior_context}\n\n"
+            f"QUESTION\n\n{query}\n\n"
+            "Use the prior conversation only to "
+            "resolve references (subjects, dates, "
+            "pronouns)."
+        )
 
     response = await chat_completion(
         messages=[
@@ -31,7 +45,7 @@ async def classify_guardian_intent(
             },
             {
                 "role": "user",
-                "content": query
+                "content": user_content
             }
         ],
         expect_json=True

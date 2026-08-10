@@ -11,13 +11,19 @@ class RequestLockMiddleware(
     BaseHTTPMiddleware
 ):
 
+    LOCKED_PATHS = {
+        "/api/ai/query",
+        "/api/ai/mentor_query",
+        "/api/ai/guardian_query",
+    }
+
     async def dispatch(
         self,
         request: Request,
         call_next
     ):
 
-        if request.url.path != "/api/ai/query":
+        if request.url.path not in self.LOCKED_PATHS:
 
             return await call_next(
                 request

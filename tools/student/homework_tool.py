@@ -39,15 +39,6 @@ class HomeworkTool:
         # grade on a specific titled homework.
         # =====================================
 
-        raw_query = (
-            getattr(
-                parsed_intent,
-                "original_query",
-                "",
-            )
-            .lower()
-        )
-
         title = getattr(
             parsed_intent,
             "topic",
@@ -61,38 +52,16 @@ class HomeworkTool:
                 .strip()
             )
 
-        homework_words = [
-            "homework",
-            "assignment",
-            "worksheet",
-            "submission",
-        ]
-
-        marks_words = [
-            "marks",
-            "mark",
-            "score",
-            "grade",
-            "result",
-            "did i get",
-        ]
-
-        asks_for_marks = any(
-            word in raw_query
-            for word in marks_words
-        )
-
-        is_homework_query = any(
-            word in raw_query
-            for word in homework_words
+        asks_for_marks = getattr(
+            parsed_intent,
+            "asks_for_marks",
+            False,
         )
 
         if (
             title
             and
             asks_for_marks
-            and
-            is_homework_query
         ):
 
             async with AsyncSessionLocal() as db:

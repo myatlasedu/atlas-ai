@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     OLLAMA_TIMEOUT_SECONDS:int = 60
     REQUEST_LOCK_TTL_SECONDS: int = 120
 
+    CONVERSATION_TTL_SECONDS: int = 300
+    CONVERSATION_MAX_TURNS: int = 6
+
     class Config:
         env_file = ".env"
         extra = "ignore"

@@ -86,14 +86,16 @@ def _normalize_dates(
 
 
 async def parse_guardian_intent(
-    query: str
+    query: str,
+    prior_context: str | None = None,
 ) -> ParsedGuardianIntent:
 
     try:
 
         classified_intent = (
             await classify_guardian_intent(
-                query
+                query,
+                prior_context=prior_context,
             )
         )
 
@@ -101,6 +103,19 @@ async def parse_guardian_intent(
             "Guardian classified intent: %s",
             classified_intent.value
         )
+
+        user_content = query
+
+        if prior_context:
+
+            user_content = (
+                f"PRIOR CONVERSATION\n\n"
+                f"{prior_context}\n\n"
+                f"QUESTION\n\n{query}\n\n"
+                "Use the prior conversation only to "
+                "resolve references (subjects, dates, "
+                "pronouns)."
+            )
 
         response = await chat_completion(
             messages=[
@@ -112,7 +127,7 @@ async def parse_guardian_intent(
                 },
                 {
                     "role": "user",
-                    "content": query
+                    "content": user_content
                 }
             ],
             expect_json=True
@@ -159,60 +174,34 @@ async def parse_guardian_intent(
             )
 
         # ------------------------------------------------------
-        # Narrow safety net: marks FOR a specific homework /
+        # Narrow safety net: marks FOR a specific titled homework /
         # assignment / worksheet must route to homework_summary,
-        # never assessment_summary. Only applies when BOTH a
-        # homework object word and a marks/result word appear.
+        # never assessment_summary. Only applies when the intent
+        # parser set asks_for_marks AND a specific topic title.
         # ------------------------------------------------------
 
-        if intent == GuardianIntent.ASSESSMENT_SUMMARY.value:
+        if (
+            intent == GuardianIntent.ASSESSMENT_SUMMARY.value
+            and
+            parsed.get(
+                "asks_for_marks",
+                False,
+            )
+            and
+            parsed.get(
+                "topic",
+                None,
+            )
+        ):
 
-            normalized_query = (
-                query
-                .strip()
-                .lower()
+            logger.info(
+                "Reclassifying guardian assessment intent to homework_summary: %r",
+                query,
             )
 
-            homework_words = [
-                "homework",
-                "assignment",
-                "worksheet",
-                "submission",
-            ]
-
-            marks_words = [
-                "marks",
-                "mark",
-                "score",
-                "grade",
-                "result",
-                "did i get",
-            ]
-
-            has_homework_word = any(
-                word in normalized_query
-                for word in homework_words
+            intent = (
+                GuardianIntent.HOMEWORK_SUMMARY.value
             )
-
-            has_marks_word = any(
-                word in normalized_query
-                for word in marks_words
-            )
-
-            if (
-                has_homework_word
-                and
-                has_marks_word
-            ):
-
-                logger.info(
-                    "Reclassifying guardian assessment intent to homework_summary: %r",
-                    query,
-                )
-
-                intent = (
-                    GuardianIntent.HOMEWORK_SUMMARY.value
-                )
 
         parsed["intent"] = intent
 

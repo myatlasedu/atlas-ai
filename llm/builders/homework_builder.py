@@ -44,6 +44,55 @@ def build_homework_llm_context(
     due_tomorrow_count = len(due_tomorrow)
     feedback_count = len(feedback)
 
+    def _itemize(
+        rows: list,
+    ) -> list[dict]:
+
+        return [
+            {
+                "title": row.get(
+                    "title",
+                    "Homework",
+                ),
+                "due_date": (
+                    str(
+                        row["due_date"]
+                    )
+                    if row.get("due_date")
+                    else None
+                ),
+            }
+            for row in rows[:8]
+        ]
+
+    pending_items = _itemize(pending)
+    overdue_items = _itemize(overdue)
+    due_today_items = _itemize(due_today)
+    due_tomorrow_items = _itemize(due_tomorrow)
+
+    feedback_items = [
+        {
+            "title": row.get(
+                "title",
+                "Homework",
+            ),
+            "teacher_note": (
+                row.get(
+                    "teacher_note",
+                    "",
+                )
+                or ""
+            ),
+            "marks_obtained": (
+                row.get(
+                    "marks_obtained",
+                    None,
+                )
+            ),
+        }
+        for row in feedback[:8]
+    ]
+
     # ==========================================
     # STATUS
     # ==========================================
@@ -227,4 +276,14 @@ def build_homework_llm_context(
         "titled_mark": titled_mark,
 
         "titled_lookup": titled_lookup,
+
+        "pending_items": pending_items,
+
+        "overdue_items": overdue_items,
+
+        "due_today_items": due_today_items,
+
+        "due_tomorrow_items": due_tomorrow_items,
+
+        "feedback_items": feedback_items,
     }
