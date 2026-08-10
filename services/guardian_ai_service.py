@@ -1,32 +1,37 @@
 import logging
 
 from intents.guardian.parser import (
-    parse_guardian_intent
+    parse_guardian_intent,
 )
 
 from intents.guardian.enums import (
-    GuardianIntent
+    GuardianIntent,
 )
 
 from routing.guardian_tool_router import (
-    get_tools_for_intent
+    get_tools_for_intent,
 )
 
 from tools.student.registry import (
-    TOOL_REGISTRY
+    TOOL_REGISTRY,
 )
 
 from llm.summarizer import (
-    summarize_response
+    summarize_response,
 )
 
 from services.date_service import (
-    DateService
+    DateService,
 )
 
 from intents.common.prompt_categories import (
     build_unknown_intent_summary,
 )
+
+from services.intent_audit_service import (
+    IntentAuditService,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +41,12 @@ class GuardianAIService:
     async def answer(
         self,
         query: str,
-        context
+        context,
     ):
+
+        # =====================================
+        # INTENT PARSING
+        # =====================================
 
         parsed_intent = (
             await parse_guardian_intent(
@@ -53,7 +62,17 @@ class GuardianAIService:
 
         logger.info(
             "Parsed Guardian Intent: %s",
-            parsed_intent.model_dump()
+            parsed_intent.model_dump(),
+        )
+
+        # =====================================
+        # AI CONVERSATION CATCHER
+        # =====================================
+
+        await IntentAuditService.capture(
+            query=query,
+            context=context,
+            parsed_intent=parsed_intent,
         )
 
         # =====================================
@@ -80,23 +99,31 @@ class GuardianAIService:
                     {},
 
                 "summary":
-                    build_unknown_intent_summary("guardian"),
+                    build_unknown_intent_summary(
+                        "guardian"
+                    ),
             }
 
         # =====================================
         # TOOL SELECTION
         # =====================================
 
-        tools_to_run = get_tools_for_intent(
-            intent=parsed_intent.intent
+        tools_to_run = (
+            get_tools_for_intent(
+                intent=parsed_intent.intent
+            )
         )
 
         logger.info(
             "Guardian tools: %s",
-            tools_to_run
+            tools_to_run,
         )
 
         results = {}
+
+        # =====================================
+        # TOOL EXECUTION
+        # =====================================
 
         for tool_name in tools_to_run:
 
@@ -108,16 +135,14 @@ class GuardianAIService:
 
                 logger.warning(
                     "Tool not found: %s",
-                    tool_name
+                    tool_name,
                 )
 
                 continue
 
             result = await tool.run(
-
                 context=context,
-
-                parsed_intent=parsed_intent
+                parsed_intent=parsed_intent,
             )
 
             results[
@@ -127,7 +152,7 @@ class GuardianAIService:
             logger.info(
                 "Tool result [%s]: %s",
                 tool_name,
-                result
+                result,
             )
 
         # =====================================
@@ -140,7 +165,7 @@ class GuardianAIService:
 
             if not isinstance(
                 tool_result,
-                dict
+                dict,
             ):
                 continue
 
@@ -159,26 +184,26 @@ class GuardianAIService:
         # =====================================
 
         # if direct_answer:
-
+        #
         #     logger.info(
         #         "Using direct answer: %s",
-        #         direct_answer
+        #         direct_answer,
         #     )
-
+        #
         #     summary = direct_answer
-
+        #
         # else:
 
         summary = await summarize_response(
-
             query=query,
-
             data=results,
-
             context=context,
-
-            intent=parsed_intent.intent
+            intent=parsed_intent.intent,
         )
+
+        # =====================================
+        # RESPONSE
+        # =====================================
 
         return {
 
@@ -194,5 +219,5 @@ class GuardianAIService:
                 results,
 
             "summary":
-                summary
+                summary,
         }
