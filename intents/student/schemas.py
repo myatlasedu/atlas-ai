@@ -20,3 +20,9 @@ class ParsedStudentIntent(BaseModel):
     original_query: str
 
     topic: str | None = None
+
+    is_injection: bool = False
+
+    generate_content: bool = False
+
+    asks_for_marks: bool = False

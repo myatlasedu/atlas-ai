@@ -1,5 +1,7 @@
 import logging
 
+from datetime import date
+
 from llm.client import (
     chat_completion,
 )
@@ -96,16 +98,38 @@ def _normalize_dates(
             value,
             "isoformat",
         ):
+            parsed[field] = value.isoformat()
 
-            parsed[field] = (
-                value.isoformat()
-            )
+        elif isinstance(
+            value,
+            str,
+        ):
+
+            #
+            # Defensive: the LLM sometimes returns
+            # non-ISO date strings (e.g. "28 July").
+            # Never let them crash intent validation.
+            #
+
+            try:
+
+                parsed[field] = (
+                    date.fromisoformat(
+                        value
+                    )
+                    .isoformat()
+                )
+
+            except ValueError:
+
+                parsed[field] = None
 
     return parsed
 
 
 async def parse_student_intent(
     query: str,
+    prior_context: str | None = None,
 ) -> ParsedStudentIntent:
 
     try:
@@ -117,7 +141,8 @@ async def parse_student_intent(
 
         classified_intent = (
             await classify_student_intent(
-                query
+                query,
+                prior_context=prior_context,
             )
         )
 
@@ -140,6 +165,19 @@ async def parse_student_intent(
             )
         )
 
+        user_content = query
+
+        if prior_context:
+
+            user_content = (
+                f"PRIOR CONVERSATION\n\n"
+                f"{prior_context}\n\n"
+                f"QUESTION\n\n{query}\n\n"
+                "Use the prior conversation only to "
+                "resolve references (subjects, dates, "
+                "pronouns)."
+            )
+
         response = await chat_completion(
             messages=[
                 {
@@ -148,9 +186,10 @@ async def parse_student_intent(
                 },
                 {
                     "role": "user",
-                    "content": query,
+                    "content": user_content,
                 },
-            ]
+            ],
+            expect_json=True
         )
 
         content = (
@@ -171,21 +210,66 @@ async def parse_student_intent(
             parsed,
         )
 
-        # ==================================================
-        # STEP 3
-        # FORCE CLASSIFIER INTENT
-        #
-        # Never trust the second LLM's intent field.
-        # ==================================================
-
-        parsed["intent"] = (
-            classified_intent.value
+        intent = (
+            str(
+                parsed.get(
+                    "intent",
+                    classified_intent.value,
+                )
+            )
+            .strip()
+            .lower()
         )
 
-        # ==================================================
-        # STEP 4
-        # DEFAULT MODULES
-        # ==================================================
+        intent = (
+            INTENT_ALIASES.get(
+                intent,
+                intent,
+            )
+        )
+
+        if intent not in VALID_INTENTS:
+
+            logger.warning(
+                "Unknown parsed intent '%s'. Falling back to classifier intent.",
+                intent,
+            )
+
+            intent = (
+                classified_intent.value
+            )
+
+        # ------------------------------------------------------
+        # Narrow safety net: marks FOR a specific titled homework /
+        # assignment / worksheet must route to homework_summary,
+        # never assessment_summary. Only applies when the intent
+        # parser set asks_for_marks AND a specific topic title.
+        # ------------------------------------------------------
+
+        if (
+            intent == StudentIntent.ASSESSMENT_SUMMARY.value
+            and
+            parsed.get(
+                "asks_for_marks",
+                False,
+            )
+            and
+            parsed.get(
+                "topic",
+                None,
+            )
+        ):
+
+            logger.info(
+                "Reclassifying assessment intent to homework_summary: %r",
+                query,
+            )
+
+            intent = (
+                StudentIntent.HOMEWORK_SUMMARY.value
+            )
+
+        parsed["intent"] = intent
 
         parsed.setdefault(
             "target_modules",
