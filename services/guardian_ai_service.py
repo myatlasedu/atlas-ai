@@ -29,35 +29,15 @@ from services.date_service import (
 )
 
 from cache.response_cache import (
-    ResponseCache
+    ResponseCache,
 )
 
 from cache.conversation_cache import (
-    ConversationCache
+    ConversationCache,
 )
 
 from schemas.conversation import (
-    ConversationTurn
-)
-
-from services.conversation_manager import (
-    conversation_scope_key,
-    resolve as resolve_conversation,
-    label as conversation_label,
-    build_prior_context,
-    normalize_intent,
-)
-
-from cache.response_cache import (
-    ResponseCache
-)
-
-from cache.conversation_cache import (
-    ConversationCache
-)
-
-from schemas.conversation import (
-    ConversationTurn
+    ConversationTurn,
 )
 
 from services.conversation_manager import (
@@ -87,6 +67,10 @@ class GuardianAIService:
         query: str,
         context,
     ):
+
+        # =====================================
+        # CONVERSATION SESSION LOAD
+        # =====================================
 
         scope_key = conversation_scope_key(context)
 
@@ -125,6 +109,10 @@ class GuardianAIService:
 
             return cached
 
+        # =====================================
+        # INTENT PARSING
+        # =====================================
+
         parsed_intent = (
             await parse_guardian_intent(
                 query,
@@ -156,85 +144,6 @@ class GuardianAIService:
             context=context,
             parsed_intent=parsed_intent,
         )
-
-        # =====================================
-        # GUARDRAIL SHORT CIRCUITS
-        # =====================================
-
-        is_injection = getattr(
-            parsed_intent,
-            "is_injection",
-            False,
-        )
-
-        is_content_gen = getattr(
-            parsed_intent,
-            "generate_content",
-            False,
-        )
-
-        if is_injection:
-
-            logger.warning(
-                "Prompt injection detected. Refusing query: %s",
-                query,
-            )
-
-        if is_content_gen:
-
-            logger.info(
-                "Content-generation request. Refusing query: %s",
-                query,
-            )
-
-        if (
-            is_injection
-            or
-            is_content_gen
-        ):
-
-            parsed_intent.intent = (
-                GuardianIntent.UNKNOWN
-            )
-
-        # =====================================
-        # CONVERSATION CONTEXT RESOLUTION
-        # =====================================
-
-        resolution = await resolve_conversation(
-            context=context,
-            parsed_intent=parsed_intent,
-            query=query,
-            session=session,
-        )
-
-        if resolution.is_continuation:
-
-            parsed_intent.intent = (
-                resolution.session.current_intent
-            )
-
-            logger.info(
-                "Continuation fallback - intent set to %s",
-                parsed_intent.intent,
-            )
-
-        if resolution.is_switch:
-
-            logger.info(
-                "Intent switch detected - answering with switch notice"
-            )
-
-            switch_notice = (
-                f"You switched from "
-                f"{conversation_label(resolution.switched_from)} to "
-                f"{conversation_label(parsed_intent.intent)} topic. "
-                "A new session has started.\n\n"
-            )
-
-        else:
-
-            switch_notice = None
 
         # =====================================
         # GUARDRAIL SHORT CIRCUITS
@@ -383,7 +292,7 @@ class GuardianAIService:
 
                 result = await tool.run(
                     context=context,
-                    parsed_intent=parsed_intent
+                    parsed_intent=parsed_intent,
                 )
 
             except Exception as e:
@@ -442,79 +351,15 @@ class GuardianAIService:
                     tool_name
                 ] = result
 
-            return (
-                tool_name,
-                result,
-            )
-
-        outcomes = await gather(
-            *[
-                _run_tool(
-                    tool_name,
-                )
-                for tool_name in tools_to_run
-            ]
-        )
-
-        results = {}
-
-        for (
-            tool_name,
-            result,
-        ) in outcomes:
-
-            if result is not None:
-
-                results[
-                    tool_name
-                ] = result
-
-        # =====================================
-        # DIRECT ANSWER
-        # =====================================
-
-        direct_answer = None
-
-        for tool_result in results.values():
-
-            if not isinstance(
-                tool_result,
-                dict,
-            ):
-                continue
-
-            answer = tool_result.get(
-                "direct_answer"
-            )
-
-            if answer:
-
-                direct_answer = answer
-
-                break
-
         # =====================================
         # SUMMARY
         # =====================================
-
-        # if direct_answer:
-        #
-        #     logger.info(
-        #         "Using direct answer: %s",
-        #         direct_answer,
-        #     )
-        #
-        #     summary = direct_answer
-        #
-        # else:
 
         summary = await summarize_response(
             query=query,
             data=results,
             context=context,
-
             intent=parsed_intent.intent,
-
             history=resolution.prior_context,
         )
 
@@ -539,7 +384,7 @@ class GuardianAIService:
                 results,
 
             "summary":
-                summary
+                summary,
         }
 
         if switch_notice:

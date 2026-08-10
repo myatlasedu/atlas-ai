@@ -2,16 +2,16 @@ import asyncio
 import logging
 import time
 
+from asyncio import (
+    gather,
+)
+
 from db.repositories.ai_conversation_audit_repository import (
     AIConversationAuditRepository,
 )
 
 from db.session import (
     AsyncSessionLocal,
-)
-
-from asyncio import (
-    gather,
 )
 
 from intents.router import (
@@ -47,35 +47,15 @@ from cache.pending_action_cache import (
 )
 
 from cache.response_cache import (
-    ResponseCache
+    ResponseCache,
 )
 
 from cache.conversation_cache import (
-    ConversationCache
+    ConversationCache,
 )
 
 from schemas.conversation import (
-    ConversationTurn
-)
-
-from services.conversation_manager import (
-    conversation_scope_key,
-    resolve as resolve_conversation,
-    label as conversation_label,
-    build_prior_context,
-    normalize_intent,
-)
-
-from cache.response_cache import (
-    ResponseCache
-)
-
-from cache.conversation_cache import (
-    ConversationCache
-)
-
-from schemas.conversation import (
-    ConversationTurn
+    ConversationTurn,
 )
 
 from services.conversation_manager import (
@@ -208,6 +188,10 @@ class StudentAIService:
     def _audit_task_done(
         task: asyncio.Task,
     ):
+
+        if task.cancelled():
+
+            return
 
         try:
 
@@ -437,11 +421,19 @@ class StudentAIService:
                 }
 
             else:
-                
-                t0 = time.perf_counter()
+
+                intent_start = (
+                    time.perf_counter()
+                )
+
                 parsed_intent = await parse_intent(
                     query=query,
-                    role=context.role
+                    role=context.role,
+                    prior_context=(
+                        build_prior_context(session)
+                        if session
+                        else None
+                    ),
                 )
 
                 parsed_intent = (
@@ -459,10 +451,19 @@ class StudentAIService:
                 )
 
         else:
-            t0 = time.perf_counter()
+
+            intent_start = (
+                time.perf_counter()
+            )
+
             parsed_intent = await parse_intent(
                 query=query,
-                role=context.role
+                role=context.role,
+                prior_context=(
+                    build_prior_context(session)
+                    if session
+                    else None
+                ),
             )
 
             parsed_intent = (
@@ -485,8 +486,97 @@ class StudentAIService:
         )
 
         # =====================================
+        # AI CONVERSATION CATCHER
+        # =====================================
+
+        await IntentAuditService.capture(
+            query=query,
+            context=context,
+            parsed_intent=parsed_intent,
+        )
+
+        # =====================================
+        # GUARDRAIL SHORT CIRCUITS
+        # =====================================
+
+        is_injection = getattr(
+            parsed_intent,
+            "is_injection",
+            False,
+        )
+
+        is_content_gen = getattr(
+            parsed_intent,
+            "generate_content",
+            False,
+        )
+
+        if is_injection:
+
+            logger.warning(
+                "Prompt injection detected. Refusing query: %s",
+                query,
+            )
+
+        if is_content_gen:
+
+            logger.info(
+                "Content-generation request. Refusing query: %s",
+                query,
+            )
+
+        if (
+            is_injection
+            or
+            is_content_gen
+        ):
+
+            parsed_intent.intent = (
+                StudentIntent.UNKNOWN
+            )
+
+        # =====================================
+        # CONVERSATION CONTEXT RESOLUTION
+        # =====================================
+
+        resolution = await resolve_conversation(
+            context=context,
+            parsed_intent=parsed_intent,
+            query=query,
+            session=session,
+        )
+
+        if resolution.is_continuation:
+
+            parsed_intent.intent = (
+                resolution.session.current_intent
+            )
+
+            logger.info(
+                "Continuation fallback - intent set to %s",
+                parsed_intent.intent,
+            )
+
+        if resolution.is_switch:
+
+            logger.info(
+                "Intent switch detected - answering with switch notice"
+            )
+
+            switch_notice = (
+                f"You switched from "
+                f"{conversation_label(resolution.switched_from)} to "
+                f"{conversation_label(parsed_intent.intent)} topic. "
+                "A new session has started.\n\n"
+            )
+
+        else:
+
+            switch_notice = None
+
+        # =====================================
         # UNKNOWN INTENT SHORT CIRCUIT
-        # ==================================================
+        # =====================================
 
         if (
             parsed_intent.intent
@@ -552,24 +642,26 @@ class StudentAIService:
                     summary,
             }
 
-        # ==================================================
-        # SELECT TOOLS
-        # ==================================================
+        # =====================================
+        # TOOL SELECTION
+        # =====================================
 
-        selected_tools = (
+        tools_to_run = (
             get_tools_for_intent(
                 intent=parsed_intent.intent
             )
         )
 
+        selected_tools = tools_to_run
+
         logger.info(
             "Selected Tools: %s",
-            selected_tools
+            tools_to_run,
         )
 
-        results = {}
-
-        for tool_name in tools_to_run:
+        async def _run_tool(
+            tool_name,
+        ):
 
             tool = TOOL_REGISTRY.get(
                 tool_name
@@ -579,29 +671,92 @@ class StudentAIService:
 
                 logger.warning(
                     "Tool not found: %s",
-                    tool_name
+                    tool_name,
                 )
 
-                continue
+                return (
+                    tool_name,
+                    None,
+                )
+
             t0 = time.perf_counter()
-            result = await tool.run(
-                context=context,
-                parsed_intent=parsed_intent
-            )
+
+            try:
+
+                result = await tool.run(
+                    context=context,
+                    parsed_intent=parsed_intent,
+                )
+
+            except Exception as e:
+
+                logger.exception(
+                    "Tool [%s] failed: %s",
+                    tool_name,
+                    e,
+                )
+
+                result = {
+
+                    "module":
+                        tool_name,
+
+                    "error":
+                        str(e),
+
+                    "direct_answer":
+                        (
+                            "Unable to load "
+                            "this information."
+                        ),
+                }
+
             t1 = time.perf_counter()
 
-            print(f"Tool Time: {t1-t0:.2f}s")
-            results[tool_name] = result
+            tool_latency_current = int(
+                (t1 - t0) * 1000
+            )
 
             logger.info(
                 "Tool result [%s]: %s",
                 tool_name,
-                result
+                result,
             )
+
+            return (
+                tool_name,
+                result,
+                tool_latency_current,
+            )
+
+        outcomes = await gather(
+            *[
+                _run_tool(
+                    tool_name,
+                )
+                for tool_name in tools_to_run
+            ]
+        )
+
+        results = {}
+
+        for (
+            tool_name,
+            result,
+            latency,
+        ) in outcomes:
+
+            tool_latency_ms += latency
+
+            if result is not None:
+
+                results[
+                    tool_name
+                ] = result
 
         # =====================================
         # ACTION REQUIRED SHORT CIRCUIT
-        # ==================================================
+        # =====================================
 
         for tool_result in results.values():
 
@@ -691,9 +846,9 @@ class StudentAIService:
                         ),
                 }
 
-        # ==================================================
+        # =====================================
         # SCREEN NAVIGATION SHORT CIRCUIT
-        # ==================================================
+        # =====================================
 
         if (
             parsed_intent.intent
@@ -755,9 +910,9 @@ class StudentAIService:
                     None,
             }
 
-        # ==================================================
+        # =====================================
         # SUMMARIZER
-        # ==================================================
+        # =====================================
 
         summarizer_start = (
             time.perf_counter()
@@ -772,6 +927,8 @@ class StudentAIService:
             context=context,
 
             intent=parsed_intent.intent,
+
+            history=resolution.prior_context,
         )
 
         summarizer_latency_ms = int(
@@ -786,27 +943,14 @@ class StudentAIService:
             "Summarizer completed."
         )
 
-        # ==================================================
-        # FINAL AUDIT
-        # ==================================================
+        if switch_notice:
 
-        total_latency_ms = int(
-            (
-                time.perf_counter()
-                - request_start
+            summary = (
+                switch_notice
+                + (summary or "")
             )
-            * 1000
-        )
 
-        self._schedule_audit(
-
-            context=context,
-            intent=parsed_intent.intent
-        )
-        t1 = time.perf_counter()
-
-        print(f"Summarize Time: {t1-t0:.2f}s")
-        return {
+        response = {
 
             "success": True,
 
@@ -875,6 +1019,49 @@ class StudentAIService:
                 resolution.session.session_id
                 if resolution.session
                 else None
+            ),
+        )
+
+        # =====================================
+        # FINAL AUDIT
+        # =====================================
+
+        total_latency_ms = int(
+            (
+                time.perf_counter()
+                - request_start
+            )
+            * 1000
+        )
+
+        self._schedule_audit(
+
+            context=context,
+
+            query=query,
+
+            parsed_intent=parsed_intent,
+
+            selected_tools=selected_tools,
+
+            tool_results=results,
+
+            summary=summary,
+
+            total_latency_ms=(
+                total_latency_ms
+            ),
+
+            intent_latency_ms=(
+                intent_latency_ms
+            ),
+
+            tool_latency_ms=(
+                tool_latency_ms
+            ),
+
+            summarizer_latency_ms=(
+                summarizer_latency_ms
             ),
         )
 
