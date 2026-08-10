@@ -1,19 +1,19 @@
 import logging
 
 from llm.client import (
-    chat_completion
+    chat_completion,
 )
 
 from intents.base.parser import (
-    parse_llm_json
+    parse_llm_json,
 )
 
 from intents.student.enums import (
-    StudentIntent
+    StudentIntent,
 )
 
 from intents.student.classifier_prompt import (
-    CLASSIFIER_PROMPT
+    CLASSIFIER_PROMPT,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ async def classify_student_intent(
         messages=[
             {
                 "role": "system",
-                "content": CLASSIFIER_PROMPT
+                "content": CLASSIFIER_PROMPT,
             },
             {
                 "role": "user",
@@ -50,19 +50,30 @@ async def classify_student_intent(
         ],
         expect_json=True
     )
-    print("response - ", response)
+
+    logger.debug(
+        "Classifier response: %s",
+        response,
+    )
+
     parsed = parse_llm_json(
         response["message"]["content"]
     )
 
-    intent = parsed.get(
-        "intent",
-        "unknown"
+    intent = (
+        str(
+            parsed.get(
+                "intent",
+                "unknown",
+            )
+        )
+        .strip()
+        .lower()
     )
 
     logger.info(
         "Student intent classified: %s",
-        intent
+        intent,
     )
 
     try:
@@ -71,6 +82,11 @@ async def classify_student_intent(
             intent
         )
 
-    except Exception:
+    except ValueError:
+
+        logger.warning(
+            "Invalid student intent returned by classifier: %s",
+            intent,
+        )
 
         return StudentIntent.UNKNOWN

@@ -1,60 +1,67 @@
-from intents.student.enums import StudentIntent
+from intents.student.enums import (
+    StudentIntent,
+)
 
 from intents.student.prompt_parts.attendance import (
-    ATTENDANCE_PROMPT
+    ATTENDANCE_PROMPT,
 )
 
 from intents.student.prompt_parts.homework import (
-    HOMEWORK_PROMPT
+    HOMEWORK_PROMPT,
 )
 
 from intents.student.prompt_parts.assessment import (
-    ASSESSMENT_PROMPT
+    ASSESSMENT_PROMPT,
 )
 
 from intents.student.prompt_parts.performance import (
-    PERFORMANCE_PROMPT
+    PERFORMANCE_PROMPT,
 )
 
 from intents.student.prompt_parts.atlas import (
-    ATLAS_PROMPT
+    ATLAS_PROMPT,
 )
 
 from intents.student.prompt_parts.subject import (
-    SUBJECT_PROMPT
+    SUBJECT_PROMPT,
 )
 
 from intents.student.prompt_parts.topic import (
-    TOPIC_PROMPT
+    TOPIC_PROMPT,
 )
 
 from intents.student.prompt_parts.announcement import (
-    ANNOUNCEMENT_PROMPT
+    ANNOUNCEMENT_PROMPT,
 )
 
 from intents.student.prompt_parts.forum import (
-    FORUM_PROMPT
+    FORUM_PROMPT,
+)
+
+from intents.student.prompt_parts.calendar import (
+    CALENDAR_PROMPT,
 )
 
 from intents.student.prompt_parts.personal_event import (
-    PERSONAL_EVENT_PROMPT
+    PERSONAL_EVENT_PROMPT,
 )
 
 from intents.student.prompt_parts.journal_prompt import (
-    JOURNAL_PROMPT
+    JOURNAL_PROMPT,
 )
 
 from intents.student.prompt_parts.action_confirmation import (
-    ACTION_CONFIRMATION_PROMPT
+    ACTION_CONFIRMATION_PROMPT,
 )
 
 from intents.student.prompt_parts.screen_navigation import (
-    SCREEN_NAVIGATION_PROMPT
+    SCREEN_NAVIGATION_PROMPT,
 )
 
 from intents.student.prompt_parts.timetable import (
     TIMETABLE_PROMPT,
 )
+
 
 PROMPT_MAP = {
 
@@ -85,6 +92,9 @@ PROMPT_MAP = {
     StudentIntent.FORUM_SUMMARY:
         FORUM_PROMPT,
 
+    StudentIntent.CALENDAR_SUMMARY:
+        CALENDAR_PROMPT,
+
     StudentIntent.PERSONAL_EVENT_SUMMARY:
         PERSONAL_EVENT_PROMPT,
 
@@ -102,25 +112,36 @@ PROMPT_MAP = {
 
     StudentIntent.SCREEN_NAVIGATION:
         SCREEN_NAVIGATION_PROMPT,
+
+    StudentIntent.TIMETABLE_SUMMARY:
+        TIMETABLE_PROMPT,
 }
 
+
 def get_student_intent_prompt(
-    intent: StudentIntent
+    intent: StudentIntent,
 ):
 
     prompt = PROMPT_MAP.get(
         intent,
-        ""
+        "",
     )
 
     return f"""
-You are Atlas AI's student intent parser.
+You are Atlas AI's student intent parameter parser.
 
-The user's intent has ALREADY been classified.
+The user's intent has ALREADY been classified by a separate
+intent classifier.
 
-Intent:
+You MUST TRUST the provided intent.
+
+==================================================
+CLASSIFIED INTENT
+==================================================
 
 {intent.value}
+
+The classified intent is authoritative.
 
 You MUST keep the intent field exactly as:
 
@@ -128,11 +149,26 @@ You MUST keep the intent field exactly as:
 
 Do NOT change it.
 
+Do NOT re-classify the user.
+
 Do NOT invent another intent.
 
-Your only job is to extract:
+Do NOT decide that the user belongs to another intent.
 
-- dates
+Your ONLY job is to extract the parameters required by
+the already-classified intent.
+
+==================================================
+PARAMETERS
+==================================================
+
+Extract only parameters that are actually present or
+required by the user's query.
+
+Possible parameters include:
+
+- start_date
+- end_date
 - subject
 - topic
 - view
@@ -183,13 +219,17 @@ CAMBRIDGE TERMINOLOGY
 
 Atlas AI follows Cambridge terminology.
 
-Understand both Cambridge terminology and common school terminology.
+Understand both Cambridge terminology and common
+school terminology.
 
-Treat these as equivalent:
+Treat these as equivalent where appropriate:
 
 Structure of the Day = Timetable
+
 SOD = Structure of the Day
+
 Lesson = Period
+
 Lessons = Periods
 
 The user may say:
@@ -200,17 +240,21 @@ The user may say:
 - schedule
 - lesson
 - period
+- lessons
+- periods
 
-Interpret them as referring to the same concept where appropriate.
+When the classified intent is:
 
-When this intent is TIMETABLE_SUMMARY:
+timetable_summary
 
-- "Structure of the Day"
-- "SOD"
-- "Timetable"
-- "Schedule"
+interpret:
 
-all refer to the same thing.
+- Structure of the Day
+- SOD
+- Timetable
+- Schedule
+
+as the student's Structure of the Day.
 
 Likewise:
 
@@ -219,13 +263,44 @@ Likewise:
 - Period
 - Periods
 
-refer to the same instructional blocks.
+refer to instructional blocks.
 
-Do not reinterpret requests about the Structure of the Day as calendar events or personal events.
+Do NOT reinterpret the user's query as another intent.
+
+The classifier has already made that decision.
+
+==================================================
+INTENT-SPECIFIC INSTRUCTIONS
+==================================================
 
 {prompt}
 
-Return:
+==================================================
+IMPORTANT
+==================================================
+
+The intent has already been classified.
+
+Trust:
+
+"{intent.value}"
+
+Even if the user's wording appears ambiguous,
+DO NOT change the intent.
+
+Only extract parameters.
+
+Do not return explanations.
+
+Do not return markdown.
+
+Do not return any text outside JSON.
+
+==================================================
+OUTPUT
+==================================================
+
+Return ONLY valid JSON:
 
 {{
     "intent": "{intent.value}",

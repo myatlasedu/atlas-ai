@@ -5,27 +5,47 @@ from asyncio import (
 )
 
 from intents.guardian.parser import (
-    parse_guardian_intent
+    parse_guardian_intent,
 )
 
 from intents.guardian.enums import (
-    GuardianIntent
+    GuardianIntent,
 )
 
 from routing.guardian_tool_router import (
-    get_tools_for_intent
+    get_tools_for_intent,
 )
 
 from tools.student.registry import (
-    TOOL_REGISTRY
+    TOOL_REGISTRY,
 )
 
 from llm.summarizer import (
-    summarize_response
+    summarize_response,
 )
 
 from services.date_service import (
-    DateService
+    DateService,
+)
+
+from cache.response_cache import (
+    ResponseCache
+)
+
+from cache.conversation_cache import (
+    ConversationCache
+)
+
+from schemas.conversation import (
+    ConversationTurn
+)
+
+from services.conversation_manager import (
+    conversation_scope_key,
+    resolve as resolve_conversation,
+    label as conversation_label,
+    build_prior_context,
+    normalize_intent,
 )
 
 from cache.response_cache import (
@@ -52,6 +72,11 @@ from intents.common.prompt_categories import (
     build_unknown_intent_summary,
 )
 
+from services.intent_audit_service import (
+    IntentAuditService,
+)
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -60,7 +85,7 @@ class GuardianAIService:
     async def answer(
         self,
         query: str,
-        context
+        context,
     ):
 
         scope_key = conversation_scope_key(context)
@@ -119,8 +144,97 @@ class GuardianAIService:
 
         logger.info(
             "Parsed Guardian Intent: %s",
-            parsed_intent.model_dump()
+            parsed_intent.model_dump(),
         )
+
+        # =====================================
+        # AI CONVERSATION CATCHER
+        # =====================================
+
+        await IntentAuditService.capture(
+            query=query,
+            context=context,
+            parsed_intent=parsed_intent,
+        )
+
+        # =====================================
+        # GUARDRAIL SHORT CIRCUITS
+        # =====================================
+
+        is_injection = getattr(
+            parsed_intent,
+            "is_injection",
+            False,
+        )
+
+        is_content_gen = getattr(
+            parsed_intent,
+            "generate_content",
+            False,
+        )
+
+        if is_injection:
+
+            logger.warning(
+                "Prompt injection detected. Refusing query: %s",
+                query,
+            )
+
+        if is_content_gen:
+
+            logger.info(
+                "Content-generation request. Refusing query: %s",
+                query,
+            )
+
+        if (
+            is_injection
+            or
+            is_content_gen
+        ):
+
+            parsed_intent.intent = (
+                GuardianIntent.UNKNOWN
+            )
+
+        # =====================================
+        # CONVERSATION CONTEXT RESOLUTION
+        # =====================================
+
+        resolution = await resolve_conversation(
+            context=context,
+            parsed_intent=parsed_intent,
+            query=query,
+            session=session,
+        )
+
+        if resolution.is_continuation:
+
+            parsed_intent.intent = (
+                resolution.session.current_intent
+            )
+
+            logger.info(
+                "Continuation fallback - intent set to %s",
+                parsed_intent.intent,
+            )
+
+        if resolution.is_switch:
+
+            logger.info(
+                "Intent switch detected - answering with switch notice"
+            )
+
+            switch_notice = (
+                f"You switched from "
+                f"{conversation_label(resolution.switched_from)} to "
+                f"{conversation_label(parsed_intent.intent)} topic. "
+                "A new session has started.\n\n"
+            )
+
+        else:
+
+            switch_notice = None
 
         # =====================================
         # GUARDRAIL SHORT CIRCUITS
@@ -225,20 +339,24 @@ class GuardianAIService:
                     {},
 
                 "summary":
-                    build_unknown_intent_summary("guardian"),
+                    build_unknown_intent_summary(
+                        "guardian"
+                    ),
             }
 
         # =====================================
         # TOOL SELECTION
         # =====================================
 
-        tools_to_run = get_tools_for_intent(
-            intent=parsed_intent.intent
+        tools_to_run = (
+            get_tools_for_intent(
+                intent=parsed_intent.intent
+            )
         )
 
         logger.info(
             "Guardian tools: %s",
-            tools_to_run
+            tools_to_run,
         )
 
         async def _run_tool(
@@ -253,7 +371,7 @@ class GuardianAIService:
 
                 logger.warning(
                     "Tool not found: %s",
-                    tool_name
+                    tool_name,
                 )
 
                 return (
@@ -294,8 +412,35 @@ class GuardianAIService:
             logger.info(
                 "Tool result [%s]: %s",
                 tool_name,
-                result
+                result,
             )
+
+            return (
+                tool_name,
+                result,
+            )
+
+        outcomes = await gather(
+            *[
+                _run_tool(
+                    tool_name,
+                )
+                for tool_name in tools_to_run
+            ]
+        )
+
+        results = {}
+
+        for (
+            tool_name,
+            result,
+        ) in outcomes:
+
+            if result is not None:
+
+                results[
+                    tool_name
+                ] = result
 
             return (
                 tool_name,
@@ -334,7 +479,7 @@ class GuardianAIService:
 
             if not isinstance(
                 tool_result,
-                dict
+                dict,
             ):
                 continue
 
@@ -353,22 +498,19 @@ class GuardianAIService:
         # =====================================
 
         # if direct_answer:
-
+        #
         #     logger.info(
         #         "Using direct answer: %s",
-        #         direct_answer
+        #         direct_answer,
         #     )
-
+        #
         #     summary = direct_answer
-
+        #
         # else:
 
         summary = await summarize_response(
-
             query=query,
-
             data=results,
-
             context=context,
 
             intent=parsed_intent.intent,

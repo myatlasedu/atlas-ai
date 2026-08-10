@@ -23,11 +23,14 @@ Return ONLY valid JSON.
 
 Never use markdown.
 
-Return exactly:
+==================================================
+OUTPUT
+==================================================
+
+Return EXACTLY
 
 {
-    "intent": "<allowed_intent>",
-    "confidence": 0.95
+    "intent": "<allowed_intent>"
 }
 
 ==================================================
@@ -135,56 +138,63 @@ Creating journal entries.
 
 calendar_summary
 
-School calendar events only.
-
-ALWAYS use this intent if the user asks about:
-
-- events
-- school events
-- today's events
-- tomorrow's events
-- events this week
-- events next week
-- holiday
-- holidays
-- competitions
-- assemblies
-- celebrations
-- annual day
-- sports day
-- exhibitions
-- PTM
-- functions
-
-The presence of words like "today", "tomorrow", "this week",
-or a date does NOT make it a timetable query.
-
-If the user asks what EVENTS are happening on a date,
-this MUST be calendar_summary.
+Questions about SCHOOL EVENTS.
 
 Examples include:
 
 - holidays
 - school events
+- competitions
+- celebrations
+- annual day
+- sports day
 - exhibitions
 - assemblies
-- competitions
-- trips
+- PTM
+- functions
 - activities
-- celebrations
-- parent meetings
-- sports day
-- annual day
+- trips
+- festivals
+- event schedule
+- exam schedule
 
-This intent is NOT for:
+This includes questions such as:
 
-- Structure of the Day
-- SOD
-- timetable
-- lesson schedule
-- school timetable
-- lessons
-- periods
+- What's my next activity?
+- What's happening today?
+- Any activities this week?
+- What events are tomorrow?
+- Upcoming holidays
+- Next holiday
+- Next exam
+- Upcoming competitions
+
+IMPORTANT
+
+The words
+
+activity
+activities
+event
+events
+competition
+celebration
+holiday
+assembly
+
+refer to SCHOOL EVENTS.
+
+NOT the Structure of the Day.
+
+The presence of:
+
+today
+tomorrow
+this week
+next week
+a date
+
+does NOT make it a timetable query.
 
 --------------------------------------------------
 
@@ -195,25 +205,13 @@ personal appointments,
 personal calendar events,
 personal schedules created by the user.
 
-Examples:
+Examples
 
 - my reminders
 - my appointments
 - remind me tomorrow
 - birthday reminder
 - my personal events
-
-This intent is NOT for:
-
-- Structure of the Day
-- SOD
-- timetable
-- lesson schedule
-- school timetable
-- today's lessons
-- tomorrow's lessons
-- periods
-- lessons
 
 --------------------------------------------------
 
@@ -234,15 +232,12 @@ Atlas AI follows Cambridge terminology.
 Understand BOTH Cambridge terminology
 and common school terminology.
 
-Treat ALL of these as equivalent:
+Treat ALL of these as equivalent.
 
 Cambridge terminology
 
 - Structure of the Day
 - SOD
-- Today's Structure of the Day
-- Tomorrow's Structure of the Day
-- Weekly Structure of the Day
 - Lesson
 - Lessons
 - Current Lesson
@@ -253,38 +248,42 @@ Common terminology
 
 - timetable
 - class timetable
-- school timetable
 - lesson timetable
-- lesson schedule
+- schedule
 - class schedule
-- daily schedule
-- weekly schedule
-- today's timetable
-- tomorrow's timetable
+- lesson schedule
 - today's classes
 - tomorrow's classes
-- current class
-- next class
 - period
 - periods
-- class period
-- teaching period
+- current class
+- next class
 - free period
 
-Use this intent whenever the user asks about:
+Use this intent ONLY when the user is asking about:
 
-- Structure of the Day
-- SOD
-- timetable
-- schedule of lessons
-- today's lessons
-- tomorrow's lessons
-- lesson order
+- lessons
 - lesson timings
+- lesson order
 - current lesson
 - next lesson
 - periods
-- class periods
+- timetable
+- Structure of the Day
+- SOD
+
+The words
+
+lesson
+lessons
+period
+periods
+class
+classes
+
+refer to instructional blocks.
+
+NOT school events.
 
 --------------------------------------------------
 
@@ -292,22 +291,39 @@ screen_navigation
 
 Opening a screen inside Atlas.
 
+Examples
+
+- Open homework
+- Open attendance
+- Open calendar
+- Open timetable
+
 --------------------------------------------------
 
 action_confirmation
 
-Yes,
-No,
-Confirm,
-Cancel,
-Proceed,
-Continue.
+Yes
+
+No
+
+Confirm
+
+Proceed
+
+Continue
+
+Cancel
 
 --------------------------------------------------
 
 unknown
 
-Use only when none of the above apply.
+Use ONLY when none of the above intents clearly match.
+
+Do NOT guess.
+
+If multiple intents seem possible and none is clearly dominates,
+return unknown.
 
 ==================================================
 GUARDRAILS
@@ -356,76 +372,171 @@ words are absent.
 Atlas-related queries ALWAYS take precedence
 over student_performance.
 
-Subject queries ALWAYS take precedence
-over student_performance.
+Creating something always takes precedence over viewing it.
 
-Topic queries ALWAYS take precedence
-over subject_summary.
+2.
 
-Navigation ALWAYS takes precedence
-when the user wants to open or navigate
-to a screen.
+Navigation takes precedence ONLY when the user's primary goal is
+opening a screen.
 
-Creating something ALWAYS takes precedence
-over viewing it.
+Examples
 
-Questions about:
+Open Homework
+
+→ screen_navigation
+
+Open Attendance
+
+→ screen_navigation
+
+Open Calendar
+
+→ screen_navigation
+
+NOT
+
+Show upcoming holidays
+
+NOT
+
+What homework is due?
+
+NOT
+
+What events are tomorrow?
+
+3.
+
+Atlas Score questions ALWAYS take precedence over
+student_performance.
+
+4.
+
+Subject questions ALWAYS take precedence over
+student_performance.
+
+5.
+
+Topic questions ALWAYS take precedence over
+subject_summary.
+
+6.
+
+Questions about
 
 - activity
 - activities
+- event
 - events
-- school events
+- holiday
 - holidays
+- competition
 - competitions
+- celebration
 - celebrations
+- assembly
 - assemblies
+- exhibition
 - exhibitions
-- annual day
 - sports day
+- annual day
 - PTM
+- function
 - functions
 
-MUST ALWAYS be classified as:
+MUST ALWAYS be classified as
 
 calendar_summary
 
-This includes:
+Examples
 
-- next activity
-- upcoming activity
-- activities today
-- activities this week
-- activities next week
+When's my next activity?
 
-Never classify these as timetable_summary.
+→ calendar_summary
 
-Questions about:
+What activities are happening this week?
+
+→ calendar_summary
+
+When is Sports Day?
+
+→ calendar_summary
+
+When is Independence Day?
+
+→ calendar_summary
+
+What events are tomorrow?
+
+→ calendar_summary
+
+What holiday is next?
+
+→ calendar_summary
+
+Never classify these as
+
+- timetable_summary
+- personal_event_summary
+
+7.
+
+Questions about
 
 - Structure of the Day
 - SOD
 - timetable
-- lesson schedule
+- schedule
+- lesson
 - lessons
 - lesson timings
 - lesson order
-- periods
 - current lesson
 - next lesson
+- period
+- periods
+- class
+- classes
 
-MUST ALWAYS be classified as:
+MUST ALWAYS be classified as
 
 timetable_summary
 
-Never classify these as:
+Examples
+
+What is my Structure of the Day?
+
+→ timetable_summary
+
+Show today's timetable.
+
+→ timetable_summary
+
+What lesson do I have now?
+
+→ timetable_summary
+
+What is my next lesson?
+
+→ timetable_summary
+
+What period do I have now?
+
+→ timetable_summary
+
+What classes do I have today?
+
+→ timetable_summary
+
+Never classify these as
 
 - calendar_summary
 - personal_event_summary
 
-==================================================
-EXAMPLES
-==================================================
+8.
 
-"What homework is due?"
+Once an intent clearly matches,
+STOP reasoning and return that intent.
 
 → homework_summary
 
@@ -592,13 +703,12 @@ EXAMPLES
 → action_confirmation
 
 ==================================================
-OUTPUT FORMAT
+OUTPUT
 ==================================================
 
-Return ONLY:
+Return ONLY
 
 {
-    "intent": "<one_of_the_allowed_intents>",
-    "confidence": 0.95
+    "intent": "<one_of_the_allowed_intents>"
 }
 """
