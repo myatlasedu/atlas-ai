@@ -1,6 +1,12 @@
 import json
-from datetime import date, datetime
+
+from datetime import (
+    date,
+    datetime,
+)
+
 from decimal import Decimal
+
 from uuid import UUID
 
 from sqlalchemy import text
@@ -121,6 +127,7 @@ class AIConversationAuditRepository:
 
                 evaluated,
                 evaluation,
+                attention_priority,
                 created_at
 
             )
@@ -143,6 +150,7 @@ class AIConversationAuditRepository:
 
                 FALSE,
                 '{}'::jsonb,
+                'NOT_NEEDED',
                 NOW()
 
             )
