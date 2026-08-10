@@ -32,73 +32,8 @@ from utils import (
     resolve_dates,
 )
 
+
 logger = logging.getLogger(__name__)
-
-
-INTENT_ALIASES = {
-
-    "homework":
-        StudentIntent.HOMEWORK_SUMMARY.value,
-
-    "attendance":
-        StudentIntent.ATTENDANCE_SUMMARY.value,
-
-    "assessment":
-        StudentIntent.ASSESSMENT_SUMMARY.value,
-
-    "atlas":
-        StudentIntent.ATLAS_SCORE_SUMMARY.value,
-
-    "performance":
-        StudentIntent.STUDENT_PERFORMANCE.value,
-
-    "subject":
-        StudentIntent.SUBJECT_SUMMARY.value,
-
-    "topic":
-        StudentIntent.TOPIC_SUMMARY.value,
-
-    "announcement":
-        StudentIntent.ANNOUNCEMENT_SUMMARY.value,
-
-    "forum":
-        StudentIntent.FORUM_SUMMARY.value,
-
-    "journal":
-        StudentIntent.JOURNAL_SUMMARY.value,
-
-    "event":
-        StudentIntent.PERSONAL_EVENT_SUMMARY.value,
-
-    "confirmation":
-        StudentIntent.ACTION_CONFIRMATION.value,
-
-    "navigation":
-        StudentIntent.SCREEN_NAVIGATION.value,
-
-    "calendar":
-        StudentIntent.CALENDAR_SUMMARY.value,
-
-         "timetable":
-        StudentIntent.TIMETABLE_SUMMARY.value,
-
-    "schedule":
-        StudentIntent.TIMETABLE_SUMMARY.value,
-
-    "structure_of_day":
-        StudentIntent.TIMETABLE_SUMMARY.value,
-
-    "structure of the day":
-        StudentIntent.TIMETABLE_SUMMARY.value,
-
-    "sod":
-        StudentIntent.TIMETABLE_SUMMARY.value,
-}
-
-VALID_INTENTS = {
-    item.value
-    for item in StudentIntent
-}
 
 
 def _fallback(
@@ -153,13 +88,18 @@ def _normalize_dates(
         "end_date",
     ):
 
-        value = parsed.get(field)
+        value = parsed.get(
+            field
+        )
 
         if hasattr(
             value,
             "isoformat",
         ):
-            parsed[field] = value.isoformat()
+
+            parsed[field] = (
+                value.isoformat()
+            )
 
     return parsed
 
@@ -169,6 +109,11 @@ async def parse_student_intent(
 ) -> ParsedStudentIntent:
 
     try:
+
+        # ==================================================
+        # STEP 1
+        # CLASSIFY INTENT
+        # ==================================================
 
         classified_intent = (
             await classify_student_intent(
@@ -180,6 +125,14 @@ async def parse_student_intent(
             "Classified intent: %s",
             classified_intent.value,
         )
+
+        # ==================================================
+        # STEP 2
+        # PARAMETER EXTRACTION
+        #
+        # The classifier's intent is authoritative.
+        # The second LLM must NOT re-classify the query.
+        # ==================================================
 
         prompt = (
             get_student_intent_prompt(
@@ -205,7 +158,7 @@ async def parse_student_intent(
         )
 
         logger.info(
-            "RAW MODEL RESPONSE >>> %r",
+            "RAW PARAMETER MODEL RESPONSE >>> %r",
             content,
         )
 
@@ -214,60 +167,60 @@ async def parse_student_intent(
         )
 
         logger.info(
-            "Parsed JSON >>> %s",
+            "Parsed parameters >>> %s",
             parsed,
         )
 
-        intent = (
-            str(
-                parsed.get(
-                    "intent",
-                    classified_intent.value,
-                )
-            )
-            .strip()
-            .lower()
+        # ==================================================
+        # STEP 3
+        # FORCE CLASSIFIER INTENT
+        #
+        # Never trust the second LLM's intent field.
+        # ==================================================
+
+        parsed["intent"] = (
+            classified_intent.value
         )
 
-        intent = (
-            INTENT_ALIASES.get(
-                intent,
-                intent,
-            )
-        )
-
-        if intent not in VALID_INTENTS:
-
-            logger.warning(
-                "Unknown parsed intent '%s'. Falling back to classifier intent.",
-                intent,
-            )
-
-            intent = (
-                classified_intent.value
-            )
-
-        parsed["intent"] = intent
+        # ==================================================
+        # STEP 4
+        # DEFAULT MODULES
+        # ==================================================
 
         parsed.setdefault(
             "target_modules",
             [],
         )
 
-        parsed.setdefault(
-            "confidence",
-            0.95,
-        )
+        # ==================================================
+        # STEP 5
+        # ORIGINAL QUERY
+        # ==================================================
 
         parsed["original_query"] = query
+
+        # ==================================================
+        # STEP 6
+        # NORMALIZE DATES
+        # ==================================================
 
         parsed = _normalize_dates(
             parsed
         )
 
+        # ==================================================
+        # STEP 7
+        # NORMALIZE MODULES
+        # ==================================================
+
         parsed = _normalize_modules(
             parsed
         )
+
+        # ==================================================
+        # STEP 8
+        # BUILD FINAL SCHEMA
+        # ==================================================
 
         return ParsedStudentIntent(
             **parsed
