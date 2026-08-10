@@ -62,4 +62,66 @@ Questions about:
 must be classified as:
 
 homework_summary
+
+==================================================
+SPECIFIC HOMEWORK MARKS - STRICT TITLE EXTRACTION
+==================================================
+
+When the student names a SPECIFIC homework and asks for its marks,
+set "topic" to the FULL homework name EXACTLY as the student wrote it.
+
+- Keep the date EXACTLY as given (e.g. "29 july", "1st August", "28 july").
+- Never drop or shorten the date.
+- Never shorten or reword the name.
+- Never substitute a similar or "closest" homework.
+- If no specific homework is named, leave "topic" as null.
+
+Examples:
+
+Query: marks for homework 'homework worksheet - 29 july'
+topic: "homework worksheet - 29 july"    (NOT "homework worksheet")
+
+Query: what did I get on the worksheet from 1st August
+topic: "worksheet from 1st August"
+
+Query: show marks for homework-worksheet28july
+topic: "homework-worksheet28july"
+
+Query: what marks did I get in homework
+topic: null
+
+==================================================
+ASKS_FOR_MARKS FLAG
+==================================================
+
+Set "asks_for_marks" to true ONLY when the student names a
+SPECIFIC homework / assignment / worksheet / submission AND
+asks for its MARKS / GRADE / SCORE / RESULT.
+
+This flag works together with "topic": set BOTH when a specific
+titled homework's marks are requested.
+
+- If the student asks about marks for a specific titled homework:
+  asks_for_marks: true, topic = full homework name.
+
+- If NO specific homework is named (e.g. "what marks did I get
+  in homework" without a title), set asks_for_marks: false.
+
+- If the student asks about homework status, deadlines, pending,
+  overdue or feedback WITHOUT asking for a specific titled
+  homework's marks, set asks_for_marks: false.
+
+Examples:
+
+Query: what did I get on the worksheet from 1st August
+asks_for_marks: true
+topic: "worksheet from 1st August"
+
+Query: what marks did I get in homework
+asks_for_marks: false
+topic: null
+
+Query: what homework is pending?
+asks_for_marks: false
+topic: null
 """

@@ -88,7 +88,8 @@ Return ONLY valid JSON.
                     "role": "user",
                     "content": prompt
                 }
-            ]
+            ],
+            expect_json=True
         )
 
         content = (

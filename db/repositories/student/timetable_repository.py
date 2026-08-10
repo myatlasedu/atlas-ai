@@ -24,9 +24,24 @@ class TimetableRepository:
 
         weekday = target_date.isoweekday()
 
-        enrollment = await self._get_enrollment(
-            enrollment_id=enrollment_id,
-        )
+        try:
+
+            enrollment = await self._get_enrollment(
+                enrollment_id=enrollment_id,
+            )
+
+        except ValueError:
+
+            return {
+                "date": target_date,
+                "weekday": weekday,
+                "lesson_count": 0,
+                "enrichment_count": 0,
+                "activity_count": 0,
+                "break_count": 0,
+                "has_teaching": False,
+                "entries": [],
+            }
 
         lessons = await self._get_lessons(
             enrollment_id=enrollment_id,

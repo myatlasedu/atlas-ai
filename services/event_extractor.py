@@ -133,7 +133,8 @@ Return JSON only.
                     "role": "user",
                     "content": prompt
                 }
-            ]
+            ],
+            expect_json=True
         )
 
         content = (

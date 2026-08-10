@@ -33,6 +33,129 @@ class HomeworkTool:
                     "Unable to load homework information.",
             }
 
+        # =====================================
+        # SPECIFIC HOMEWORK MARKS LOOKUP
+        # Only when the query asks for marks /
+        # grade on a specific titled homework.
+        # =====================================
+
+        title = getattr(
+            parsed_intent,
+            "topic",
+            None,
+        )
+
+        if title:
+
+            title = (
+                str(title)
+                .strip()
+            )
+
+        asks_for_marks = getattr(
+            parsed_intent,
+            "asks_for_marks",
+            False,
+        )
+
+        if (
+            title
+            and
+            asks_for_marks
+        ):
+
+            async with AsyncSessionLocal() as db:
+
+                repo = HomeworkRepository(
+                    db
+                )
+
+                marks = (
+                    await repo.get_homework_mark_state(
+                        context.enrollment_id,
+                        title,
+                    )
+                )
+
+            if marks.get("state") == "marks":
+
+                marks_obtained = int(
+                    round(
+                        float(
+                            marks["marks_obtained"]
+                        )
+                    )
+                )
+
+                total_marks = int(
+                    round(
+                        float(
+                            marks["total_marks"]
+                        )
+                    )
+                )
+
+                percentage = int(
+                    round(
+                        float(
+                            marks["percentage"]
+                        )
+                    )
+                )
+
+                return {
+                    "module": "homework",
+                    "title": marks["title"],
+                    "marks_obtained": marks_obtained,
+                    "total_marks": total_marks,
+                    "percentage": percentage,
+                    "reviewed_at": marks["reviewed_at"],
+                    "attempt_number": marks["attempt_number"],
+                    "direct_answer": (
+                        f"Your mark for {marks['title']} "
+                        f"is {marks_obtained}/{total_marks} "
+                        f"({percentage}%)."
+                    ),
+                    "llm_context": build_homework_llm_context({
+                        "titled_mark": {
+                            "title": marks["title"],
+                            "marks_obtained": marks_obtained,
+                            "total_marks": total_marks,
+                            "percentage": percentage,
+                            "attempt_number": marks["attempt_number"],
+                        },
+                        "pending": [],
+                        "overdue": [],
+                        "due_today": [],
+                        "due_tomorrow": [],
+                        "recent_feedback": [],
+                    }),
+                }
+
+            if marks.get("state") in (
+                "assigned_not_submitted",
+                "not_assigned",
+                "not_found",
+            ):
+
+                return {
+                    "module": "homework",
+                    "title": marks.get("title", title),
+                    "direct_answer": "",
+                    "llm_context": build_homework_llm_context({
+                        "titled_mark": None,
+                        "titled_lookup": {
+                            "state": marks.get("state"),
+                            "title": marks.get("title", title),
+                        },
+                        "pending": [],
+                        "overdue": [],
+                        "due_today": [],
+                        "due_tomorrow": [],
+                        "recent_feedback": [],
+                    }),
+                }
+
         async with AsyncSessionLocal() as db:
 
             repo = HomeworkRepository(
