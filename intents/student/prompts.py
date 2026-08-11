@@ -62,6 +62,10 @@ from intents.student.prompt_parts.timetable import (
     TIMETABLE_PROMPT,
 )
 
+from intents.student.prompt_parts.resource import (
+    RESOURCE_PROMPT,
+)
+
 
 PROMPT_MAP = {
 
@@ -115,6 +119,9 @@ PROMPT_MAP = {
 
     StudentIntent.TIMETABLE_SUMMARY:
         TIMETABLE_PROMPT,
+
+    StudentIntent.RESOURCE_SUMMARY:
+        RESOURCE_PROMPT,
 }
 
 

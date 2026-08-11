@@ -91,6 +91,47 @@ Query: what marks did I get in homework
 topic: null
 
 ==================================================
+SUBJECT FILTER
+==================================================
+
+When the student names a SUBJECT to scope the homework
+question, set "subject" to the subject name exactly as
+the student wrote it.
+
+Keep the full name (e.g. "Global Perspectives", not
+"global" or "perspectives").
+
+Leave "subject" as null when no subject is named.
+
+Examples:
+
+Query: show all my submitted Math homework
+subject: "Math"
+
+Query: which Science homework is pending?
+subject: "Science"
+
+Query: what homework is pending?
+subject: null
+
+Setting "subject" must not change "topic" or
+"asks_for_marks": those stay null / false unless a
+specific titled homework's marks are named.
+
+Examples:
+
+Query: show all my submitted Math homework with marks
+and feedback
+subject: "Math"
+topic: null
+asks_for_marks: false
+
+Query: what did I get on 'workbook - 29 july'?
+subject: null
+topic: "workbook - 29 july"
+asks_for_marks: true
+
+==================================================
 ASKS_FOR_MARKS FLAG
 ==================================================
 

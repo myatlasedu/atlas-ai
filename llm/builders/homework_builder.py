@@ -38,11 +38,26 @@ def build_homework_llm_context(
         [],
     )
 
+    submitted = payload.get(
+        "submitted",
+        [],
+    )
+
+    feature_subject = payload.get(
+        "subject",
+    )
+
+    subject_resolved = payload.get(
+        "subject_resolved",
+        True,
+    )
+
     pending_count = len(pending)
     overdue_count = len(overdue)
     due_today_count = len(due_today)
     due_tomorrow_count = len(due_tomorrow)
     feedback_count = len(feedback)
+    submitted_count = len(submitted)
 
     def _itemize(
         rows: list,
@@ -93,6 +108,49 @@ def build_homework_llm_context(
         for row in feedback[:8]
     ]
 
+    submitted_items = [
+        {
+            "title": row.get(
+                "title",
+                "Homework",
+            ),
+            "subject_name": (
+                row.get(
+                    "subject_name",
+                    "",
+                )
+                or ""
+            ),
+            "submitted_at": (
+                str(
+                    row["submitted_at"]
+                )
+                if row.get("submitted_at")
+                else None
+            ),
+            "marks_obtained": (
+                row.get(
+                    "marks_obtained",
+                    None,
+                )
+            ),
+            "total_marks": (
+                row.get(
+                    "total_marks",
+                    None,
+                )
+            ),
+            "teacher_note": (
+                row.get(
+                    "teacher_note",
+                    "",
+                )
+                or ""
+            ),
+        }
+        for row in submitted[:10]
+    ]
+
     # ==========================================
     # STATUS
     # ==========================================
@@ -133,6 +191,17 @@ def build_homework_llm_context(
         headline = (
             f"Homework lookup for "
             f"{titled_lookup.get('title')}."
+        )
+
+    elif (
+        feature_subject
+        and
+        not subject_resolved
+    ):
+
+        headline = (
+            f"No homework found for subject "
+            f"{feature_subject}."
         )
 
     elif overdue_count:
@@ -193,6 +262,28 @@ def build_homework_llm_context(
 
         highlights.append(
             f"Teacher feedback available for {feedback_count} assignment(s)."
+        )
+
+    if submitted_count:
+
+        highlights.append(
+            f"{submitted_count} submitted homework assignment(s)."
+        )
+
+    if feature_subject:
+
+        highlights.append(
+            f"Filtered to subject: {feature_subject}."
+        )
+
+    if (
+        feature_subject
+        and
+        not subject_resolved
+    ):
+
+        highlights.append(
+            f"No homework found for subject: {feature_subject}."
         )
 
     # ==========================================
@@ -265,6 +356,8 @@ def build_homework_llm_context(
             "due_tomorrow": due_tomorrow_count,
 
             "feedback": feedback_count,
+
+            "submitted": submitted_count,
         },
 
         "highlights": highlights,
@@ -277,6 +370,10 @@ def build_homework_llm_context(
 
         "titled_lookup": titled_lookup,
 
+        "subject": feature_subject,
+
+        "subject_resolved": subject_resolved,
+
         "pending_items": pending_items,
 
         "overdue_items": overdue_items,
@@ -286,4 +383,6 @@ def build_homework_llm_context(
         "due_tomorrow_items": due_tomorrow_items,
 
         "feedback_items": feedback_items,
+
+        "submitted_items": submitted_items,
     }

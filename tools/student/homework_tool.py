@@ -162,62 +162,153 @@ class HomeworkTool:
                 db
             )
 
-            pending = (
-                await repo.get_pending_homework(
-                    context.enrollment_id
-                )
+            subject = getattr(
+                parsed_intent,
+                "subject",
+                None,
             )
 
-            overdue = (
-                await repo.get_overdue_homework(
-                    context.enrollment_id
+            subject_offering_id = None
+
+            subject_resolved = False
+
+            if subject:
+
+                subject_offering_id = (
+                    await repo._resolve_subject_offering(
+                        context.enrollment_id,
+                        subject,
+                    )
                 )
-            )
 
-            due_today = (
-                await repo.get_due_today(
-                    context.enrollment_id
+                subject_resolved = (
+                    subject_offering_id is not None
                 )
-            )
 
-            due_tomorrow = (
-                await repo.get_due_tomorrow(
-                    context.enrollment_id
+            if (
+                subject
+                and
+                not subject_resolved
+            ):
+
+                payload = {
+
+                    "module":
+                        "homework",
+
+                    "subject":
+                        subject,
+
+                    "subject_resolved":
+                        False,
+
+                    "pending_count":
+                        0,
+
+                    "overdue_count":
+                        0,
+
+                    "submitted_count":
+                        0,
+
+                    "pending":
+                        [],
+
+                    "overdue":
+                        [],
+
+                    "due_today":
+                        [],
+
+                    "due_tomorrow":
+                        [],
+
+                    "recent_feedback":
+                        [],
+
+                    "submitted":
+                        [],
+                }
+
+            else:
+
+                pending = (
+                    await repo.get_pending_homework(
+                        context.enrollment_id,
+                        subject_offering_id,
+                    )
                 )
-            )
 
-            feedback = (
-                await repo.get_recent_feedback(
-                    context.enrollment_id
+                overdue = (
+                    await repo.get_overdue_homework(
+                        context.enrollment_id,
+                        subject_offering_id,
+                    )
                 )
-            )
 
-            payload = {
+                due_today = (
+                    await repo.get_due_today(
+                        context.enrollment_id,
+                        subject_offering_id,
+                    )
+                )
 
-                "module":
-                    "homework",
+                due_tomorrow = (
+                    await repo.get_due_tomorrow(
+                        context.enrollment_id,
+                        subject_offering_id,
+                    )
+                )
 
-                "pending_count":
-                    len(pending),
+                feedback = (
+                    await repo.get_recent_feedback(
+                        context.enrollment_id,
+                        subject_offering_id,
+                    )
+                )
 
-                "overdue_count":
-                    len(overdue),
+                submitted = (
+                    await repo.get_submitted_homework(
+                        context.enrollment_id,
+                        subject_offering_id,
+                    )
+                )
 
-                "pending":
-                    pending,
+                payload = {
 
-                "overdue":
-                    overdue,
+                    "module":
+                        "homework",
 
-                "due_today":
-                    due_today,
+                    "subject":
+                        subject,
 
-                "due_tomorrow":
-                    due_tomorrow,
+                    "pending_count":
+                        len(pending),
 
-                "recent_feedback":
-                    feedback,
-            }
+                    "overdue_count":
+                        len(overdue),
+
+                    "submitted_count":
+                        len(submitted),
+
+                    "pending":
+                        pending,
+
+                    "overdue":
+                        overdue,
+
+                    "due_today":
+                        due_today,
+
+                    "due_tomorrow":
+                        due_tomorrow,
+
+                    "recent_feedback":
+                        feedback,
+
+                    "submitted":
+                        submitted,
+                }
 
         # =====================================
         # LLM CONTEXT
@@ -232,6 +323,36 @@ class HomeworkTool:
         # =====================================
         # DIRECT ANSWER (Temporary)
         # =====================================
+
+        pending = payload.get(
+            "pending",
+            [],
+        )
+
+        overdue = payload.get(
+            "overdue",
+            [],
+        )
+
+        due_today = payload.get(
+            "due_today",
+            [],
+        )
+
+        due_tomorrow = payload.get(
+            "due_tomorrow",
+            [],
+        )
+
+        feedback = payload.get(
+            "recent_feedback",
+            [],
+        )
+
+        submitted = payload.get(
+            "submitted",
+            [],
+        )
 
         lines = []
 
@@ -265,6 +386,12 @@ class HomeworkTool:
                 f"You have feedback on {len(feedback)} homework assignment(s)."
             )
 
+        if submitted:
+
+            lines.append(
+                f"You have submitted {len(submitted)} homework assignment(s)."
+            )
+
         if pending:
 
             lines.append("")
@@ -289,9 +416,24 @@ class HomeworkTool:
 
         if not lines:
 
-            payload["direct_answer"] = (
-                "You currently have no pending homework."
-            )
+            if (
+                subject
+                and
+                not payload.get(
+                    "subject_resolved",
+                    True,
+                )
+            ):
+
+                payload["direct_answer"] = (
+                    f"No homework found for subject: {subject}."
+                )
+
+            else:
+
+                payload["direct_answer"] = (
+                    "You currently have no pending homework."
+                )
 
         else:
 

@@ -107,6 +107,37 @@ lesson topics.
 
 --------------------------------------------------
 
+resource_summary
+
+Questions about whether or where study material
+exists for a subject or topic:
+
+- supplementary sheet
+- supplementary sheets
+- worksheet
+- worksheets
+- notes
+- study notes
+- study material
+- revision sheet
+- revision notes
+- learning resources
+- resources
+- reading material
+- quiz
+- reference link
+
+The query must ask whether such material EXISTS or
+where it is available for a named subject or topic.
+
+Do NOT use this intent for:
+
+- homework marks (homework_summary)
+- subject performance (subject_summary)
+- topic progress (topic_summary)
+
+--------------------------------------------------
+
 announcement_summary
 
 Announcements,
@@ -420,6 +451,19 @@ student_performance.
 Topic questions ALWAYS take precedence over
 subject_summary.
 
+5a.
+
+resource_summary ALWAYS takes precedence over
+subject_summary AND topic_summary, but ONLY when the
+query clearly asks whether or where study material
+exists (supplementary sheet, worksheet, notes, study
+material, revision sheet, resources, quiz, reference
+link) for a named subject or topic.
+
+Without such a material-existence phrase, keep the
+query in its normal intent (subject_summary or
+topic_summary).
+
 6.
 
 Questions about
@@ -587,6 +631,36 @@ STOP reasoning and return that intent.
 "Which topics are weak?"
 
 → topic_summary
+
+--------------------------------------------------
+
+"Is there any supplementary sheet for Spanish?"
+
+→ resource_summary
+
+--------------------------------------------------
+
+"Is there a worksheet for Maths?"
+
+→ resource_summary
+
+--------------------------------------------------
+
+"Revision sheet for Maths?"
+
+→ resource_summary
+
+--------------------------------------------------
+
+"Which topics need revision?"
+
+→ topic_summary
+
+--------------------------------------------------
+
+"Notes on my weakest subject?"
+
+→ subject_summary
 
 --------------------------------------------------
 
