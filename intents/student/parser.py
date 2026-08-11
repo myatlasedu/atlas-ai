@@ -38,6 +38,72 @@ from utils import (
 logger = logging.getLogger(__name__)
 
 
+INTENT_ALIASES = {
+
+    "homework":
+        StudentIntent.HOMEWORK_SUMMARY.value,
+
+    "attendance":
+        StudentIntent.ATTENDANCE_SUMMARY.value,
+
+    "assessment":
+        StudentIntent.ASSESSMENT_SUMMARY.value,
+
+    "atlas":
+        StudentIntent.ATLAS_SCORE_SUMMARY.value,
+
+    "performance":
+        StudentIntent.STUDENT_PERFORMANCE.value,
+
+    "subject":
+        StudentIntent.SUBJECT_SUMMARY.value,
+
+    "topic":
+        StudentIntent.TOPIC_SUMMARY.value,
+
+    "announcement":
+        StudentIntent.ANNOUNCEMENT_SUMMARY.value,
+
+    "forum":
+        StudentIntent.FORUM_SUMMARY.value,
+
+    "journal":
+        StudentIntent.JOURNAL_SUMMARY.value,
+
+    "event":
+        StudentIntent.PERSONAL_EVENT_SUMMARY.value,
+
+    "confirmation":
+        StudentIntent.ACTION_CONFIRMATION.value,
+
+    "navigation":
+        StudentIntent.SCREEN_NAVIGATION.value,
+
+    "calendar":
+        StudentIntent.CALENDAR_SUMMARY.value,
+
+    "timetable":
+        StudentIntent.TIMETABLE_SUMMARY.value,
+
+    "schedule":
+        StudentIntent.TIMETABLE_SUMMARY.value,
+
+    "structure_of_day":
+        StudentIntent.TIMETABLE_SUMMARY.value,
+
+    "structure of the day":
+        StudentIntent.TIMETABLE_SUMMARY.value,
+
+    "sod":
+        StudentIntent.TIMETABLE_SUMMARY.value,
+}
+
+VALID_INTENTS = {
+    item.value
+    for item in StudentIntent
+}
+
+
 def _fallback(
     query: str,
 ) -> ParsedStudentIntent:
