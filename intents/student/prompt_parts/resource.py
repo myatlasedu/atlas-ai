@@ -18,7 +18,6 @@ material exists for a subject or topic:
 - learning resources
 - resources
 - reading material
-- quiz
 - reference link
 
 Examples:
@@ -28,7 +27,6 @@ Examples:
 - Do you have revision notes for Science?
 - Are there any study materials for Geography?
 - Show my resources for English
-- Is there a quiz for this topic?
 
 ==================================================
 RESOURCE RULES

@@ -79,6 +79,28 @@ Atlas Progress,
 Atlas Trend,
 Atlas Calibration.
 
+Which pillar needs improvement,
+Which pillar needs the most attention,
+Which Atlas pillar is weakest,
+Which Atlas pillar is strongest,
+Which pillar should I improve.
+
+IMPORTANT
+
+Any query mentioning a pillar
+is ALWAYS:
+
+atlas_score_summary
+
+even if it also contains improvement,
+focus, weak or attention.
+
+Pillar questions are never:
+
+student_performance
+
+Pillar questions are NEVER student_performance.
+
 --------------------------------------------------
 
 student_performance
@@ -124,7 +146,6 @@ exists for a subject or topic:
 - learning resources
 - resources
 - reading material
-- quiz
 - reference link
 
 The query must ask whether such material EXISTS or
@@ -135,6 +156,7 @@ Do NOT use this intent for:
 - homework marks (homework_summary)
 - subject performance (subject_summary)
 - topic progress (topic_summary)
+- quizzes or exams the student must take (assessment_summary)
 
 --------------------------------------------------
 
@@ -610,11 +632,29 @@ STOP reasoning and return that intent.
 
 --------------------------------------------------
 
-"What is my Atlas score?"
+"Which Atlas pillar needs the most improvement?"
 
 → atlas_score_summary
 
---------------------------------------------------
+-------------------------------------------------
+
+"What is my weakest pillar?"
+
+→ atlas_score_summary
+
+-------------------------------------------------
+
+"What is my strongest pillar?"
+
+→ atlas_score_summary
+
+-------------------------------------------------
+
+"Which pillar should I improve?"
+
+→ atlas_score_summary
+
+-------------------------------------------------
 
 "How am I doing overall?"
 

@@ -771,6 +771,10 @@ title, subject, submission date, marks received
 (if any) and teacher feedback (if any) exactly
 from submitted_items.
 
+Do NOT use markdown in the reply.
+
+Never use "**", "*", backticks.
+
 If the student asked about a specific subject,
 the context "subject" field names it and the
 lists are already filtered to that subject.

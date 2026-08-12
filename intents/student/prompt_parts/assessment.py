@@ -53,6 +53,9 @@ Examples:
 - Show assessment feedback.
 - What exams are coming up?
 - Do I have any tests this week?
+- What quiz do I have to do?
+- Do I have any quizzes this week?
+- What quizzes are coming up?
 
 ==================================================
 DO NOT MATCH
