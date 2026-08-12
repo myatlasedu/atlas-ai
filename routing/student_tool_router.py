@@ -116,9 +116,12 @@ TOOL_MAP = {
 
         "timetable_tool"
     ],
+
+    StudentIntent.RESOURCE_SUMMARY: [
+
+        "resource_tool"
+    ],
 }
-
-
 def get_tools_for_intent(
     intent: StudentIntent
 ) -> list[str]:

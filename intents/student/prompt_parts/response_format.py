@@ -18,6 +18,10 @@ Example:
         "homework"
     ],
 
+    "topic": null,
+
+    "subject": null,
+
     "confidence": 0.95
 }
 

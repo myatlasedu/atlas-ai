@@ -25,6 +25,83 @@ class HomeworkRepository:
             value.lower(),
         )
 
+    SUBJECT_ALIASES = {
+        "math": "maths",
+        "mathematics": "maths",
+        "english": "english",
+        "science": "science",
+        "computing": "computing",
+        "art": "art",
+        "french": "french",
+        "spanish": "spanish",
+        "hindi": "hindi",
+        "humanities": "humanities",
+        "physics": "science",
+        "chemistry": "science",
+        "biology": "science",
+    }
+
+    async def _resolve_subject_offering(
+        self,
+        enrollment_id: int,
+        subject_name: str | None = None,
+    ):
+
+        if not subject_name:
+
+            return None
+
+        subject_name = (
+            str(subject_name)
+            .strip()
+        )
+
+        if not subject_name:
+
+            return None
+
+        normalized = (
+            " ".join(
+                subject_name.lower().split()
+            )
+        )
+
+        normalized = (
+            self.SUBJECT_ALIASES.get(
+                normalized,
+                normalized,
+            )
+        )
+
+        query = text(
+            """
+            SELECT
+                so.id
+            FROM students_studentenrollment se
+            INNER JOIN schools_subjectoffering so
+                ON so.academic_class_id = se.academic_class_id
+            INNER JOIN schools_subjectversion sv
+                ON sv.id = so.subject_version_id
+            INNER JOIN schools_subject s
+                ON s.id = sv.subject_id
+            WHERE
+                se.id = :enrollment_id
+            AND so.is_active = TRUE
+            AND LOWER(s.name) = LOWER(:subject_name)
+            LIMIT 1
+            """
+        )
+
+        result = await self.db.execute(
+            query,
+            {
+                "enrollment_id": enrollment_id,
+                "subject_name": normalized,
+            }
+        )
+
+        return result.scalar_one_or_none()
+
     async def get_homework_mark_state(
         self,
         enrollment_id: int,
@@ -275,7 +352,8 @@ class HomeworkRepository:
 
     async def get_pending_homework(
         self,
-        enrollment_id: int
+        enrollment_id: int,
+        subject_offering_id: int | None = None
     ):
 
         query = text(
@@ -313,13 +391,62 @@ class HomeworkRepository:
             ORDER BY h.due_date ASC
             """
         )
+
+        if subject_offering_id:
+
+            query = text(
+                """
+                SELECT
+
+                    h.id,
+                    h.title,
+                    h.due_date,
+                    h.total_marks
+
+                FROM students_homework h
+
+                INNER JOIN
+                    students_homeworkstudentmap hm
+                ON
+                    hm.homework_id = h.id
+
+                WHERE
+
+                    hm.enrollment_id = :enrollment_id
+
+                AND h.subject_offering_id = :subject_offering_id
+
+                AND NOT EXISTS (
+
+                    SELECT 1
+
+                    FROM students_homeworksubmission hs
+
+                    WHERE
+                        hs.homework_id = h.id
+                    AND
+                        hs.enrollment_id = :enrollment_id
+                )
+
+                ORDER BY h.due_date ASC
+                """
+            )
+
+        params = {
+            "enrollment_id": enrollment_id
+        }
+
+        if subject_offering_id:
+
+            params["subject_offering_id"] = (
+                subject_offering_id
+            )
+
         start = time.perf_counter()
         result = await self.db.execute(
             query,
-            {
-                "enrollment_id": enrollment_id
-            }
-        
+            params
+
         )
         print(
             f"get_pending_homework: {(time.perf_counter()-start)*1000:.2f} ms"
@@ -331,7 +458,8 @@ class HomeworkRepository:
 
     async def get_overdue_homework(
         self,
-        enrollment_id: int
+        enrollment_id: int,
+        subject_offering_id: int | None = None
     ):
 
         query = text(
@@ -370,12 +498,62 @@ class HomeworkRepository:
             ORDER BY h.due_date ASC
             """
         )
+
+        if subject_offering_id:
+
+            query = text(
+                """
+                SELECT
+
+                    h.id,
+                    h.title,
+                    h.due_date
+
+                FROM students_homework h
+
+                INNER JOIN
+                    students_homeworkstudentmap hm
+                ON
+                    hm.homework_id = h.id
+
+                WHERE
+
+                    hm.enrollment_id = :enrollment_id
+
+                AND h.subject_offering_id = :subject_offering_id
+
+                AND h.due_date < NOW()
+
+                AND NOT EXISTS (
+
+                    SELECT 1
+
+                    FROM students_homeworksubmission hs
+
+                    WHERE
+                        hs.homework_id = h.id
+                    AND
+                        hs.enrollment_id = :enrollment_id
+                )
+
+                ORDER BY h.due_date ASC
+                """
+            )
+
+        params = {
+            "enrollment_id": enrollment_id
+        }
+
+        if subject_offering_id:
+
+            params["subject_offering_id"] = (
+                subject_offering_id
+            )
+
         start = time.perf_counter()
         result = await self.db.execute(
             query,
-            {
-                "enrollment_id": enrollment_id
-            }
+            params
         )
         print(
             f"get_overdue_homework: {(time.perf_counter()-start)*1000:.2f} ms"
@@ -387,7 +565,8 @@ class HomeworkRepository:
 
     async def get_due_today(
         self,
-        enrollment_id: int
+        enrollment_id: int,
+        subject_offering_id: int | None = None
     ):
 
         today = ist_today()
@@ -416,13 +595,51 @@ class HomeworkRepository:
             ORDER BY h.due_date ASC
             """
         )
+
+        if subject_offering_id:
+
+            query = text(
+                """
+                SELECT
+
+                    h.id,
+                    h.title,
+                    h.due_date
+
+                FROM students_homework h
+
+                INNER JOIN
+                    students_homeworkstudentmap hm
+                ON
+                    hm.homework_id = h.id
+
+                WHERE
+
+                    hm.enrollment_id = :enrollment_id
+
+                AND h.subject_offering_id = :subject_offering_id
+
+                AND DATE(h.due_date) = :today
+
+                ORDER BY h.due_date ASC
+                """
+            )
+
+        params = {
+            "enrollment_id": enrollment_id,
+            "today": today,
+        }
+
+        if subject_offering_id:
+
+            params["subject_offering_id"] = (
+                subject_offering_id
+            )
+
         start = time.perf_counter()
         result = await self.db.execute(
             query,
-            {
-                "enrollment_id": enrollment_id,
-                "today": today
-            }
+            params
         )
         print(
             f"get_due_today: {(time.perf_counter()-start)*1000:.2f} ms"
@@ -434,7 +651,8 @@ class HomeworkRepository:
 
     async def get_due_tomorrow(
         self,
-        enrollment_id: int
+        enrollment_id: int,
+        subject_offering_id: int | None = None
     ):
 
         tomorrow = (
@@ -467,12 +685,49 @@ class HomeworkRepository:
             """
         )
 
+        if subject_offering_id:
+
+            query = text(
+                """
+                SELECT
+
+                    h.id,
+                    h.title,
+                    h.due_date
+
+                FROM students_homework h
+
+                INNER JOIN
+                    students_homeworkstudentmap hm
+                ON
+                    hm.homework_id = h.id
+
+                WHERE
+
+                    hm.enrollment_id = :enrollment_id
+
+                AND h.subject_offering_id = :subject_offering_id
+
+                AND DATE(h.due_date) = :tomorrow
+
+                ORDER BY h.due_date ASC
+                """
+            )
+
+        params = {
+            "enrollment_id": enrollment_id,
+            "tomorrow": tomorrow,
+        }
+
+        if subject_offering_id:
+
+            params["subject_offering_id"] = (
+                subject_offering_id
+            )
+
         result = await self.db.execute(
             query,
-            {
-                "enrollment_id": enrollment_id,
-                "tomorrow": tomorrow
-            }
+            params
         )
 
         return [
@@ -482,7 +737,8 @@ class HomeworkRepository:
 
     async def get_recent_feedback(
         self,
-        enrollment_id: int
+        enrollment_id: int,
+        subject_offering_id: int | None = None
     ):
 
         query = text(
@@ -515,15 +771,192 @@ class HomeworkRepository:
             LIMIT 5
             """
         )
+
+        if subject_offering_id:
+
+            query = text(
+                """
+                SELECT
+
+                    h.title,
+
+                    hs.teacher_note,
+
+                    hs.marks_obtained,
+
+                    hs.reviewed_at
+
+                FROM students_homeworksubmission hs
+
+                INNER JOIN
+                    students_homework h
+                ON
+                    h.id = hs.homework_id
+
+                WHERE
+
+                    hs.enrollment_id = :enrollment_id
+
+                AND h.subject_offering_id = :subject_offering_id
+
+                AND hs.teacher_note IS NOT NULL
+
+                ORDER BY hs.reviewed_at DESC
+
+                LIMIT 5
+                """
+            )
+
+        params = {
+            "enrollment_id": enrollment_id
+        }
+
+        if subject_offering_id:
+
+            params["subject_offering_id"] = (
+                subject_offering_id
+            )
+
         start = time.perf_counter()
         result = await self.db.execute(
             query,
-            {
-                "enrollment_id": enrollment_id
-            }
+            params
         )
         print(
             f"get_recent_feedback: {(time.perf_counter()-start)*1000:.2f} ms"
+        )
+        return [
+            dict(row)
+            for row in result.mappings()
+        ]
+
+    async def get_submitted_homework(
+        self,
+        enrollment_id: int,
+        subject_offering_id: int | None = None
+    ):
+
+        query = text(
+            """
+            SELECT
+
+                h.id,
+                h.title,
+                h.total_marks,
+
+                s.name AS subject_name,
+
+                hs.created_at AS submitted_at,
+
+                hs.marks_obtained,
+
+                hs.teacher_note,
+
+                hs.reviewed_at,
+
+                hs.status
+
+            FROM students_homeworksubmission hs
+
+            INNER JOIN
+                students_homework h
+            ON
+                h.id = hs.homework_id
+
+            INNER JOIN
+                schools_subjectoffering so
+            ON
+                so.id = h.subject_offering_id
+
+            INNER JOIN
+                schools_subjectversion sv
+            ON
+                sv.id = so.subject_version_id
+
+            INNER JOIN
+                schools_subject s
+            ON
+                s.id = sv.subject_id
+
+            WHERE
+
+                hs.enrollment_id = :enrollment_id
+
+            ORDER BY hs.created_at DESC
+            """
+        )
+
+        if subject_offering_id:
+
+            query = text(
+                """
+                SELECT
+
+                    h.id,
+                    h.title,
+                    h.total_marks,
+
+                    s.name AS subject_name,
+
+                    hs.created_at AS submitted_at,
+
+                    hs.marks_obtained,
+
+                    hs.teacher_note,
+
+                    hs.reviewed_at,
+
+                    hs.status
+
+                FROM students_homeworksubmission hs
+
+                INNER JOIN
+                    students_homework h
+                ON
+                    h.id = hs.homework_id
+
+                INNER JOIN
+                    schools_subjectoffering so
+                ON
+                    so.id = h.subject_offering_id
+
+                INNER JOIN
+                    schools_subjectversion sv
+                ON
+                    sv.id = so.subject_version_id
+
+                INNER JOIN
+                    schools_subject s
+                ON
+                    s.id = sv.subject_id
+
+                WHERE
+
+                    hs.enrollment_id = :enrollment_id
+
+                AND h.subject_offering_id = :subject_offering_id
+
+                ORDER BY hs.created_at DESC
+                """
+            )
+
+        params = {
+            "enrollment_id": enrollment_id
+        }
+
+        if subject_offering_id:
+
+            params["subject_offering_id"] = (
+                subject_offering_id
+            )
+
+        start = time.perf_counter()
+        result = await self.db.execute(
+            query,
+            params
+        )
+        print(
+            f"get_submitted_homework: {(time.perf_counter()-start)*1000:.2f} ms"
         )
         return [
             dict(row)

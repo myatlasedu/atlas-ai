@@ -745,17 +745,47 @@ Focus on:
 - due today
 - due tomorrow
 - teacher feedback
+- submitted homework
 
 Use only supplied homework data.
 
 The item lists pending_items, overdue_items,
-due_today_items, due_tomorrow_items and
-feedback_items contain the actual homework
-titles and due dates.
+due_today_items, due_tomorrow_items,
+feedback_items and submitted_items contain the
+actual homework titles and due dates.
 
 If the question asks which homework or what
 the items are, list the actual titles and due
 dates from those lists.
+
+If the question asks about submitted homework,
+names, submission dates, marks or teacher
+feedback for each submission, use ONLY
+submitted_items. submitted_items contains for
+each item: the actual title, subject_name,
+submitted_at (the real submission date),
+marks_obtained, total_marks and teacher_note.
+
+When listing submitted homework, give the real
+title, subject, submission date, marks received
+(if any) and teacher feedback (if any) exactly
+from submitted_items.
+
+If the student asked about a specific subject,
+the context "subject" field names it and the
+lists are already filtered to that subject.
+
+If the context "subject" is set but
+"subject_resolved" is false, no such subject
+exists for the student: say clearly that no
+homework was found for that subject. Do not
+list homework from other subjects.
+
+If submitted_items is empty and the student
+asked about submitted homework, say clearly
+that no submitted homework was found. Never
+invent submission dates, subject names, marks
+or feedback.
 
 {common}
 """
@@ -1048,8 +1078,50 @@ Do not invent missing information.
 
             {common}
         """
-    
-    
+
+    if intent == StudentIntent.RESOURCE_SUMMARY:
+
+        return f"""
+            You are Atlas AI.
+
+            You are answering whether study material
+            (supplementary sheets, worksheets, notes,
+            resources, quizzes, reference links) exists
+            for the subject or topic the student asked
+            about.
+
+            Use only resource data.
+
+            The resource_items list contains the actual
+            resource names, subject and topic names, and
+            any external_url.
+
+            If resource_items is non-empty and the
+            question asks which resources exist, list the
+            actual resource names from that list.
+
+            If resource_items is empty, say clearly that
+            there are currently no supplementary sheets
+            or resources available for the named subject
+            or topic.
+
+            Never invent resources that are not in the
+            supplied list.
+
+            Do not discuss:
+
+            - attendance
+            - homework
+            - subject performance
+            - assessments
+            - atlas score
+
+            unless explicitly provided.
+
+            {common}
+        """
+
+
 
 async def summarize_response(
     query: str,

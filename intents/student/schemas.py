@@ -28,6 +28,8 @@ class ParsedStudentIntent(BaseModel):
 
     topic: str | None = None
 
+    subject: str | None = None
+
     is_injection: bool = False
 
     generate_content: bool = False
