@@ -33,68 +33,282 @@ class HomeworkTool:
                     "Unable to load homework information.",
             }
 
+        # =====================================
+        # SPECIFIC HOMEWORK MARKS LOOKUP
+        # Only when the query asks for marks /
+        # grade on a specific titled homework.
+        # =====================================
+
+        title = getattr(
+            parsed_intent,
+            "topic",
+            None,
+        )
+
+        if title:
+
+            title = (
+                str(title)
+                .strip()
+            )
+
+        asks_for_marks = getattr(
+            parsed_intent,
+            "asks_for_marks",
+            False,
+        )
+
+        if (
+            title
+            and
+            asks_for_marks
+        ):
+
+            async with AsyncSessionLocal() as db:
+
+                repo = HomeworkRepository(
+                    db
+                )
+
+                marks = (
+                    await repo.get_homework_mark_state(
+                        context.enrollment_id,
+                        title,
+                    )
+                )
+
+            if marks.get("state") == "marks":
+
+                marks_obtained = int(
+                    round(
+                        float(
+                            marks["marks_obtained"]
+                        )
+                    )
+                )
+
+                total_marks = int(
+                    round(
+                        float(
+                            marks["total_marks"]
+                        )
+                    )
+                )
+
+                percentage = int(
+                    round(
+                        float(
+                            marks["percentage"]
+                        )
+                    )
+                )
+
+                return {
+                    "module": "homework",
+                    "title": marks["title"],
+                    "marks_obtained": marks_obtained,
+                    "total_marks": total_marks,
+                    "percentage": percentage,
+                    "reviewed_at": marks["reviewed_at"],
+                    "attempt_number": marks["attempt_number"],
+                    "direct_answer": (
+                        f"Your mark for {marks['title']} "
+                        f"is {marks_obtained}/{total_marks} "
+                        f"({percentage}%)."
+                    ),
+                    "llm_context": build_homework_llm_context({
+                        "titled_mark": {
+                            "title": marks["title"],
+                            "marks_obtained": marks_obtained,
+                            "total_marks": total_marks,
+                            "percentage": percentage,
+                            "attempt_number": marks["attempt_number"],
+                        },
+                        "pending": [],
+                        "overdue": [],
+                        "due_today": [],
+                        "due_tomorrow": [],
+                        "recent_feedback": [],
+                    }),
+                }
+
+            if marks.get("state") in (
+                "assigned_not_submitted",
+                "not_assigned",
+                "not_found",
+            ):
+
+                return {
+                    "module": "homework",
+                    "title": marks.get("title", title),
+                    "direct_answer": "",
+                    "llm_context": build_homework_llm_context({
+                        "titled_mark": None,
+                        "titled_lookup": {
+                            "state": marks.get("state"),
+                            "title": marks.get("title", title),
+                        },
+                        "pending": [],
+                        "overdue": [],
+                        "due_today": [],
+                        "due_tomorrow": [],
+                        "recent_feedback": [],
+                    }),
+                }
+
         async with AsyncSessionLocal() as db:
 
             repo = HomeworkRepository(
                 db
             )
 
-            pending = (
-                await repo.get_pending_homework(
-                    context.enrollment_id
-                )
+            subject = getattr(
+                parsed_intent,
+                "subject",
+                None,
             )
 
-            overdue = (
-                await repo.get_overdue_homework(
-                    context.enrollment_id
+            subject_offering_id = None
+
+            subject_resolved = False
+
+            if subject:
+
+                subject_offering_id = (
+                    await repo._resolve_subject_offering(
+                        context.enrollment_id,
+                        subject,
+                    )
                 )
-            )
 
-            due_today = (
-                await repo.get_due_today(
-                    context.enrollment_id
+                subject_resolved = (
+                    subject_offering_id is not None
                 )
-            )
 
-            due_tomorrow = (
-                await repo.get_due_tomorrow(
-                    context.enrollment_id
+            if (
+                subject
+                and
+                not subject_resolved
+            ):
+
+                payload = {
+
+                    "module":
+                        "homework",
+
+                    "subject":
+                        subject,
+
+                    "subject_resolved":
+                        False,
+
+                    "pending_count":
+                        0,
+
+                    "overdue_count":
+                        0,
+
+                    "submitted_count":
+                        0,
+
+                    "pending":
+                        [],
+
+                    "overdue":
+                        [],
+
+                    "due_today":
+                        [],
+
+                    "due_tomorrow":
+                        [],
+
+                    "recent_feedback":
+                        [],
+
+                    "submitted":
+                        [],
+                }
+
+            else:
+
+                pending = (
+                    await repo.get_pending_homework(
+                        context.enrollment_id,
+                        subject_offering_id,
+                    )
                 )
-            )
 
-            feedback = (
-                await repo.get_recent_feedback(
-                    context.enrollment_id
+                overdue = (
+                    await repo.get_overdue_homework(
+                        context.enrollment_id,
+                        subject_offering_id,
+                    )
                 )
-            )
 
-            payload = {
+                due_today = (
+                    await repo.get_due_today(
+                        context.enrollment_id,
+                        subject_offering_id,
+                    )
+                )
 
-                "module":
-                    "homework",
+                due_tomorrow = (
+                    await repo.get_due_tomorrow(
+                        context.enrollment_id,
+                        subject_offering_id,
+                    )
+                )
 
-                "pending_count":
-                    len(pending),
+                feedback = (
+                    await repo.get_recent_feedback(
+                        context.enrollment_id,
+                        subject_offering_id,
+                    )
+                )
 
-                "overdue_count":
-                    len(overdue),
+                submitted = (
+                    await repo.get_submitted_homework(
+                        context.enrollment_id,
+                        subject_offering_id,
+                    )
+                )
 
-                "pending":
-                    pending,
+                payload = {
 
-                "overdue":
-                    overdue,
+                    "module":
+                        "homework",
 
-                "due_today":
-                    due_today,
+                    "subject":
+                        subject,
 
-                "due_tomorrow":
-                    due_tomorrow,
+                    "pending_count":
+                        len(pending),
 
-                "recent_feedback":
-                    feedback,
-            }
+                    "overdue_count":
+                        len(overdue),
+
+                    "submitted_count":
+                        len(submitted),
+
+                    "pending":
+                        pending,
+
+                    "overdue":
+                        overdue,
+
+                    "due_today":
+                        due_today,
+
+                    "due_tomorrow":
+                        due_tomorrow,
+
+                    "recent_feedback":
+                        feedback,
+
+                    "submitted":
+                        submitted,
+                }
 
         # =====================================
         # LLM CONTEXT
@@ -109,6 +323,36 @@ class HomeworkTool:
         # =====================================
         # DIRECT ANSWER (Temporary)
         # =====================================
+
+        pending = payload.get(
+            "pending",
+            [],
+        )
+
+        overdue = payload.get(
+            "overdue",
+            [],
+        )
+
+        due_today = payload.get(
+            "due_today",
+            [],
+        )
+
+        due_tomorrow = payload.get(
+            "due_tomorrow",
+            [],
+        )
+
+        feedback = payload.get(
+            "recent_feedback",
+            [],
+        )
+
+        submitted = payload.get(
+            "submitted",
+            [],
+        )
 
         lines = []
 
@@ -142,6 +386,12 @@ class HomeworkTool:
                 f"You have feedback on {len(feedback)} homework assignment(s)."
             )
 
+        if submitted:
+
+            lines.append(
+                f"You have submitted {len(submitted)} homework assignment(s)."
+            )
+
         if pending:
 
             lines.append("")
@@ -166,9 +416,24 @@ class HomeworkTool:
 
         if not lines:
 
-            payload["direct_answer"] = (
-                "You currently have no pending homework."
-            )
+            if (
+                subject
+                and
+                not payload.get(
+                    "subject_resolved",
+                    True,
+                )
+            ):
+
+                payload["direct_answer"] = (
+                    f"No homework found for subject: {subject}."
+                )
+
+            else:
+
+                payload["direct_answer"] = (
+                    "You currently have no pending homework."
+                )
 
         else:
 

@@ -25,6 +25,8 @@ class StudentIntent(str, Enum):
 
     TIMETABLE_SUMMARY = "timetable_summary"
 
+    RESOURCE_SUMMARY = "resource_summary"
+
     TOPIC_SUMMARY = "topic_summary"
 
     PERSONAL_EVENT_SUMMARY = "personal_event_summary"

@@ -13,6 +13,12 @@ Do NOT identify filters.
 
 Do NOT determine views.
 
+If a PRIOR CONVERSATION is provided:
+
+Use it only to resolve references (pronouns, subjects, dates) in the question.
+
+The question itself decides the intent.
+
 Return ONLY valid JSON.
 
 Never use markdown.
@@ -120,6 +126,37 @@ Questions about chapters,
 topics,
 learning objectives,
 lesson topics.
+
+--------------------------------------------------
+
+resource_summary
+
+Questions about whether or where study material
+exists for a subject or topic:
+
+- supplementary sheet
+- supplementary sheets
+- worksheet
+- worksheets
+- notes
+- study notes
+- study material
+- revision sheet
+- revision notes
+- learning resources
+- resources
+- reading material
+- reference link
+
+The query must ask whether such material EXISTS or
+where it is available for a named subject or topic.
+
+Do NOT use this intent for:
+
+- homework marks (homework_summary)
+- subject performance (subject_summary)
+- topic progress (topic_summary)
+- quizzes or exams the student must take (assessment_summary)
 
 --------------------------------------------------
 
@@ -342,10 +379,51 @@ If multiple intents seem possible and none is clearly dominates,
 return unknown.
 
 ==================================================
+GUARDRAILS
+==================================================
+
+If the user asks Atlas to write, generate, create or
+produce content (stories, essays, plots, poems, letters,
+scripts, code), classify as:
+
+unknown
+
+A query that mentions "assignment", "homework" or
+"subject" but asks Atlas to WRITE or CREATE content is
+NOT homework_summary, subject_summary or essay help.
+
+Classify it as:
+
+unknown
+
+NEVER provide instructions or assistance on weapons,
+explosives, drugs or anything that could cause harm.
+
+Such requests classify as:
+
+unknown
+
+==================================================
 PRIORITY RULES
 ==================================================
 
-1.
+If a query asks for marks, grades, score or result
+FOR a homework, assignment, worksheet or submission
+(e.g. "marks for homework", "marks for the worksheet",
+"grade on the assignment"), classify it as:
+
+homework_summary
+
+A query about marks WITHOUT any homework, assignment,
+worksheet or submission keyword must remain:
+
+assessment_summary
+
+Do NOT treat other intents as homework when homework
+words are absent.
+
+Atlas-related queries ALWAYS take precedence
+over student_performance.
 
 Creating something always takes precedence over viewing it.
 
@@ -394,6 +472,19 @@ student_performance.
 
 Topic questions ALWAYS take precedence over
 subject_summary.
+
+5a.
+
+resource_summary ALWAYS takes precedence over
+subject_summary AND topic_summary, but ONLY when the
+query clearly asks whether or where study material
+exists (supplementary sheet, worksheet, notes, study
+material, revision sheet, resources, quiz, reference
+link) for a named subject or topic.
+
+Without such a material-existence phrase, keep the
+query in its normal intent (subject_summary or
+topic_summary).
 
 6.
 
@@ -513,11 +604,33 @@ Never classify these as
 Once an intent clearly matches,
 STOP reasoning and return that intent.
 
-Do not continue comparing with other intents.
+→ homework_summary
 
-==================================================
-OUTPUT
-==================================================
+--------------------------------------------------
+
+"What are my marks?"
+
+→ assessment_summary
+
+--------------------------------------------------
+
+"What marks did I get in my homework?"
+
+→ homework_summary
+
+--------------------------------------------------
+
+"Show me my marks for homework 'Worksheet 1'."
+
+→ homework_summary
+
+--------------------------------------------------
+
+"What grade did I get on the worksheet?"
+
+→ homework_summary
+
+--------------------------------------------------
 
 "Which Atlas pillar needs the most improvement?"
 
@@ -542,6 +655,170 @@ OUTPUT
 → atlas_score_summary
 
 -------------------------------------------------
+
+"How am I doing overall?"
+
+→ student_performance
+
+--------------------------------------------------
+
+"Show my maths performance."
+
+→ subject_summary
+
+--------------------------------------------------
+
+"Which topics are weak?"
+
+→ topic_summary
+
+--------------------------------------------------
+
+"Is there any supplementary sheet for Spanish?"
+
+→ resource_summary
+
+--------------------------------------------------
+
+"Is there a worksheet for Maths?"
+
+→ resource_summary
+
+--------------------------------------------------
+
+"Revision sheet for Maths?"
+
+→ resource_summary
+
+--------------------------------------------------
+
+"Which topics need revision?"
+
+→ topic_summary
+
+--------------------------------------------------
+
+"Notes on my weakest subject?"
+
+→ subject_summary
+
+--------------------------------------------------
+
+"Show school announcements."
+
+→ announcement_summary
+
+--------------------------------------------------
+
+"Open the discussion forum."
+
+→ forum_summary
+
+--------------------------------------------------
+
+"Create a reminder."
+
+→ personal_event_create
+
+--------------------------------------------------
+
+"Show my reminders."
+
+→ personal_event_summary
+
+--------------------------------------------------
+
+"What school events are coming up?"
+
+→ calendar_summary
+
+--------------------------------------------------
+
+"What holidays are next?"
+
+→ calendar_summary
+
+--------------------------------------------------
+
+"What is my Structure of the Day?"
+
+→ timetable_summary
+
+--------------------------------------------------
+
+"Show my Structure of the Day."
+
+→ timetable_summary
+
+--------------------------------------------------
+
+"SOD"
+
+→ timetable_summary
+
+--------------------------------------------------
+
+"Show SOD."
+
+→ timetable_summary
+
+--------------------------------------------------
+
+"Show my timetable."
+
+→ timetable_summary
+
+--------------------------------------------------
+
+"Show today's timetable."
+
+→ timetable_summary
+
+--------------------------------------------------
+
+"Show tomorrow's timetable."
+
+→ timetable_summary
+
+--------------------------------------------------
+
+"What lesson do I have now?"
+
+→ timetable_summary
+
+--------------------------------------------------
+
+"What is my next lesson?"
+
+→ timetable_summary
+
+--------------------------------------------------
+
+"What period do I have now?"
+
+→ timetable_summary
+
+--------------------------------------------------
+
+"Do I have a free lesson?"
+
+→ timetable_summary
+
+--------------------------------------------------
+
+"Open homework."
+
+→ screen_navigation
+
+--------------------------------------------------
+
+"Yes."
+
+→ action_confirmation
+
+==================================================
+OUTPUT
+==================================================
 
 Return ONLY
 

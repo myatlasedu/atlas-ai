@@ -313,6 +313,8 @@ class AssessmentRepository:
 
             AND a.total_marks > 0
 
+            AND r.marks_obtained IS NOT NULL
+
             ORDER BY
                 (
                     r.marks_obtained
@@ -381,6 +383,8 @@ class AssessmentRepository:
             AND r.status = 3
 
             AND a.total_marks > 0
+
+            AND r.marks_obtained IS NOT NULL
 
             ORDER BY
                 (
@@ -508,6 +512,8 @@ class AssessmentRepository:
             AND r.status = 3
 
             AND a.total_marks > 0
+
+            AND r.marks_obtained IS NOT NULL
 
             ORDER BY r.graded_at ASC
         """)
@@ -655,6 +661,8 @@ class AssessmentRepository:
 
             AND a.total_marks > 0
 
+            AND r.marks_obtained IS NOT NULL
+
             ORDER BY a.assessment_date DESC
         """)
 
@@ -673,6 +681,10 @@ class AssessmentRepository:
         for row in rows:
 
             row = dict(row)
+
+            if row.get("marks_obtained") is None:
+
+                continue
 
             percentage = round(
                 (

@@ -73,8 +73,6 @@ class AtlasTool:
                     "module":
                         "atlas",
 
-                    "error":
-                        "Atlas data not found."
                     "status":
                         "calibrating",
 
@@ -120,7 +118,6 @@ class AtlasTool:
                         atlas["message"],
 
                     "calibration_end_date":
-                        atlas["calibration_end_date"]
                         atlas["calibration_end_date"],
 
                     "llm_context": {
@@ -171,7 +168,7 @@ class AtlasTool:
 
             payload = {
                 "available": True,
-
+                
                 "atlas_score":
                     atlas_score,
 

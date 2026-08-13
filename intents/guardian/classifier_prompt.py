@@ -13,6 +13,12 @@ Do NOT determine views.
 
 Only determine the high-level intent.
 
+If a PRIOR CONVERSATION is provided:
+
+Use it only to resolve references (pronouns, subjects, dates) in the question.
+
+The question itself decides the intent.
+
 Return VALID JSON ONLY.
 
 Never explain.
@@ -26,6 +32,21 @@ student_performance.
 
 If the query contains Atlas, Band or Pillar,
 classify it as atlas_score_summary.
+
+If the query asks for marks, grades, score or result
+FOR a homework, assignment, worksheet or submission
+(e.g. "marks for homework", "marks for the worksheet",
+"grade on the assignment"), classify it as:
+
+homework_summary
+
+A query about marks WITHOUT any homework, assignment,
+worksheet or submission keyword must remain:
+
+assessment_summary
+
+Do NOT treat other intents as homework when homework
+words are absent.
 
 ==================================================
 ALLOWED INTENTS
@@ -203,6 +224,31 @@ Use when the guardian asks for:
 unknown
 
 Use only when none of the above apply.
+
+==================================================
+GUARDRAILS
+==================================================
+
+If the user asks Atlas to write, generate, create or
+produce content (stories, essays, plots, poems, letters,
+scripts, code), classify as:
+
+unknown
+
+A query that mentions "assignment", "homework" or
+"subject" but asks Atlas to WRITE or CREATE content is
+NOT homework_summary, subject_summary or essay help.
+
+Classify it as:
+
+unknown
+
+NEVER provide instructions or assistance on weapons,
+explosives, drugs or anything that could cause harm.
+
+Such requests classify as:
+
+unknown
 
 ==================================================
 EXAMPLES

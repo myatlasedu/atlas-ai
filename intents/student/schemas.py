@@ -2,6 +2,11 @@ from datetime import date
 
 from pydantic import (
     BaseModel,
+    Field,
+)
+
+from intents.student.enums import (
+    StudentIntent,
 )
 
 
@@ -17,6 +22,16 @@ class ParsedStudentIntent(BaseModel):
 
     target_modules: list[str] = []
 
+    confidence: float = 0.0
+
     original_query: str
 
     topic: str | None = None
+
+    subject: str | None = None
+
+    is_injection: bool = False
+
+    generate_content: bool = False
+
+    asks_for_marks: bool = False

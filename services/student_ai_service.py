@@ -2,6 +2,10 @@ import asyncio
 import logging
 import time
 
+from asyncio import (
+    gather,
+)
+
 from db.repositories.ai_conversation_audit_repository import (
     AIConversationAuditRepository,
 )
@@ -42,8 +46,32 @@ from cache.pending_action_cache import (
     PendingActionCache,
 )
 
+from cache.response_cache import (
+    ResponseCache,
+)
+
+from cache.conversation_cache import (
+    ConversationCache,
+)
+
+from schemas.conversation import (
+    ConversationTurn,
+)
+
+from services.conversation_manager import (
+    conversation_scope_key,
+    resolve as resolve_conversation,
+    label as conversation_label,
+    build_prior_context,
+    normalize_intent,
+)
+
 from intents.common.prompt_categories import (
     build_unknown_intent_summary,
+)
+
+from services.intent_audit_service import (
+    IntentAuditService,
 )
 
 
@@ -161,6 +189,10 @@ class StudentAIService:
         task: asyncio.Task,
     ):
 
+        if task.cancelled():
+
+            return
+
         try:
 
             task.result()
@@ -187,6 +219,26 @@ class StudentAIService:
             query
             .strip()
             .lower()
+        )
+
+        # =====================================
+        # CONVERSATION SESSION LOAD
+        # =====================================
+
+        scope_key = conversation_scope_key(context)
+
+        session = None
+
+        if scope_key:
+
+            session = await ConversationCache.get(
+                scope_key
+            )
+
+        rev = (
+            session.rev
+            if session
+            else 0
         )
 
         # ==================================================
@@ -216,6 +268,33 @@ class StudentAIService:
                 context.user_id
             )
         )
+
+        # =====================================
+        # RESPONSE CACHE CHECK (only when no pending action)
+        # =====================================
+
+        if not pending_action:
+
+            cached = (
+                await ResponseCache.get(
+                    context=context,
+                    query=query,
+                    rev=rev,
+                    session_marker=(
+                        session.session_id
+                        if session
+                        else None
+                    ),
+                )
+            )
+
+            if cached is not None:
+
+                logger.info(
+                    "CACHE HIT - returning cached response"
+                )
+
+                return cached
 
         if pending_action:
 
@@ -343,19 +422,18 @@ class StudentAIService:
 
             else:
 
-                # ==========================================
-                # INTENT PARSING
-                # ==========================================
-
                 intent_start = (
                     time.perf_counter()
                 )
 
-                parsed_intent = (
-                    await parse_intent(
-                        query=query,
-                        role=context.role,
-                    )
+                parsed_intent = await parse_intent(
+                    query=query,
+                    role=context.role,
+                    prior_context=(
+                        build_prior_context(session)
+                        if session
+                        else None
+                    ),
                 )
 
                 parsed_intent = (
@@ -374,19 +452,18 @@ class StudentAIService:
 
         else:
 
-            # ==========================================
-            # INTENT PARSING
-            # ==========================================
-
             intent_start = (
                 time.perf_counter()
             )
 
-            parsed_intent = (
-                await parse_intent(
-                    query=query,
-                    role=context.role,
-                )
+            parsed_intent = await parse_intent(
+                query=query,
+                role=context.role,
+                prior_context=(
+                    build_prior_context(session)
+                    if session
+                    else None
+                ),
             )
 
             parsed_intent = (
@@ -408,9 +485,98 @@ class StudentAIService:
             parsed_intent.model_dump()
         )
 
-        # ==================================================
+        # =====================================
+        # AI CONVERSATION CATCHER
+        # =====================================
+
+        await IntentAuditService.capture(
+            query=query,
+            context=context,
+            parsed_intent=parsed_intent,
+        )
+
+        # =====================================
+        # GUARDRAIL SHORT CIRCUITS
+        # =====================================
+
+        is_injection = getattr(
+            parsed_intent,
+            "is_injection",
+            False,
+        )
+
+        is_content_gen = getattr(
+            parsed_intent,
+            "generate_content",
+            False,
+        )
+
+        if is_injection:
+
+            logger.warning(
+                "Prompt injection detected. Refusing query: %s",
+                query,
+            )
+
+        if is_content_gen:
+
+            logger.info(
+                "Content-generation request. Refusing query: %s",
+                query,
+            )
+
+        if (
+            is_injection
+            or
+            is_content_gen
+        ):
+
+            parsed_intent.intent = (
+                StudentIntent.UNKNOWN
+            )
+
+        # =====================================
+        # CONVERSATION CONTEXT RESOLUTION
+        # =====================================
+
+        resolution = await resolve_conversation(
+            context=context,
+            parsed_intent=parsed_intent,
+            query=query,
+            session=session,
+        )
+
+        if resolution.is_continuation:
+
+            parsed_intent.intent = (
+                resolution.session.current_intent
+            )
+
+            logger.info(
+                "Continuation fallback - intent set to %s",
+                parsed_intent.intent,
+            )
+
+        if resolution.is_switch:
+
+            logger.info(
+                "Intent switch detected - answering with switch notice"
+            )
+
+            switch_notice = (
+                f"You switched from "
+                f"{conversation_label(resolution.switched_from)} to "
+                f"{conversation_label(parsed_intent.intent)} topic. "
+                "A new session has started.\n\n"
+            )
+
+        else:
+
+            switch_notice = None
+
+        # =====================================
         # UNKNOWN INTENT SHORT CIRCUIT
-        # ==================================================
+        # =====================================
 
         if (
             parsed_intent.intent
@@ -476,26 +642,26 @@ class StudentAIService:
                     summary,
             }
 
-        # ==================================================
-        # SELECT TOOLS
-        # ==================================================
+        # =====================================
+        # TOOL SELECTION
+        # =====================================
 
-        selected_tools = (
+        tools_to_run = (
             get_tools_for_intent(
                 intent=parsed_intent.intent
             )
         )
 
+        selected_tools = tools_to_run
+
         logger.info(
             "Selected Tools: %s",
-            selected_tools
+            tools_to_run,
         )
 
-        # ==================================================
-        # TOOL EXECUTION
-        # ==================================================
-
-        for tool_name in selected_tools:
+        async def _run_tool(
+            tool_name,
+        ):
 
             tool = TOOL_REGISTRY.get(
                 tool_name
@@ -505,45 +671,92 @@ class StudentAIService:
 
                 logger.warning(
                     "Tool not found: %s",
-                    tool_name
+                    tool_name,
                 )
 
-                continue
-
-            tool_start = (
-                time.perf_counter()
-            )
-
-            result = await tool.run(
-
-                context=context,
-
-                parsed_intent=parsed_intent,
-            )
-
-            current_tool_latency_ms = int(
-                (
-                    time.perf_counter()
-                    - tool_start
+                return (
+                    tool_name,
+                    None,
                 )
-                * 1000
-            )
 
-            tool_latency_ms += (
-                current_tool_latency_ms
-            )
+            t0 = time.perf_counter()
 
-            results[tool_name] = result
+            try:
+
+                result = await tool.run(
+                    context=context,
+                    parsed_intent=parsed_intent,
+                )
+
+            except Exception as e:
+
+                logger.exception(
+                    "Tool [%s] failed: %s",
+                    tool_name,
+                    e,
+                )
+
+                result = {
+
+                    "module":
+                        tool_name,
+
+                    "error":
+                        str(e),
+
+                    "direct_answer":
+                        (
+                            "Unable to load "
+                            "this information."
+                        ),
+                }
+
+            t1 = time.perf_counter()
+
+            tool_latency_current = int(
+                (t1 - t0) * 1000
+            )
 
             logger.info(
                 "Tool result [%s]: %s",
                 tool_name,
-                result
+                result,
             )
 
-        # ==================================================
+            return (
+                tool_name,
+                result,
+                tool_latency_current,
+            )
+
+        outcomes = await gather(
+            *[
+                _run_tool(
+                    tool_name,
+                )
+                for tool_name in tools_to_run
+            ]
+        )
+
+        results = {}
+
+        for (
+            tool_name,
+            result,
+            latency,
+        ) in outcomes:
+
+            tool_latency_ms += latency
+
+            if result is not None:
+
+                results[
+                    tool_name
+                ] = result
+
+        # =====================================
         # ACTION REQUIRED SHORT CIRCUIT
-        # ==================================================
+        # =====================================
 
         for tool_result in results.values():
 
@@ -633,9 +846,9 @@ class StudentAIService:
                         ),
                 }
 
-        # ==================================================
+        # =====================================
         # SCREEN NAVIGATION SHORT CIRCUIT
-        # ==================================================
+        # =====================================
 
         if (
             parsed_intent.intent
@@ -697,9 +910,9 @@ class StudentAIService:
                     None,
             }
 
-        # ==================================================
+        # =====================================
         # SUMMARIZER
-        # ==================================================
+        # =====================================
 
         summarizer_start = (
             time.perf_counter()
@@ -714,6 +927,8 @@ class StudentAIService:
             context=context,
 
             intent=parsed_intent.intent,
+
+            history=resolution.prior_context,
         )
 
         summarizer_latency_ms = int(
@@ -728,9 +943,88 @@ class StudentAIService:
             "Summarizer completed."
         )
 
-        # ==================================================
+        if switch_notice:
+
+            summary = (
+                switch_notice
+                + (summary or "")
+            )
+
+        response = {
+
+            "success": True,
+
+            "query":
+                query,
+
+            "intent":
+                parsed_intent.model_dump(),
+
+            "data":
+                results,
+
+            "summary":
+                summary,
+        }
+
+        if switch_notice:
+
+            response["intent_switched"] = True
+
+        if (
+            scope_key
+            and
+            resolution.session is not None
+        ):
+
+            turn = ConversationTurn(
+                user_query=query,
+                assistant_summary=summary or "",
+                intent=normalize_intent(
+                    parsed_intent.intent
+                ),
+                target_modules=getattr(
+                    parsed_intent,
+                    "target_modules",
+                    [],
+                ) or [],
+                start_date=getattr(
+                    parsed_intent,
+                    "start_date",
+                    None,
+                ),
+                end_date=getattr(
+                    parsed_intent,
+                    "end_date",
+                    None,
+                ),
+            )
+
+            resolution.session = await ConversationCache.add_turn(
+                scope_key,
+                resolution.session,
+                turn,
+            )
+
+        await ResponseCache.set(
+            context=context,
+            query=query,
+            response=response,
+            rev=(
+                resolution.session.rev
+                if resolution.session
+                else 0
+            ),
+            session_marker=(
+                resolution.session.session_id
+                if resolution.session
+                else None
+            ),
+        )
+
+        # =====================================
         # FINAL AUDIT
-        # ==================================================
+        # =====================================
 
         total_latency_ms = int(
             (
@@ -771,19 +1065,4 @@ class StudentAIService:
             ),
         )
 
-        return {
-
-            "success": True,
-
-            "query":
-                query,
-
-            "intent":
-                parsed_intent.model_dump(),
-
-            "data":
-                results,
-
-            "summary":
-                summary,
-        }
+        return response

@@ -10,6 +10,27 @@ def build_subject_llm_context(
         "building",
     )
 
+    subjects = [
+        {
+            "subject_name": row.get(
+                "subject_name",
+                "Subject",
+            ),
+            "score": row.get(
+                "score",
+                None,
+            ),
+            "final_grade": row.get(
+                "final_grade",
+                None,
+            ),
+        }
+        for row in payload.get(
+            "subjects",
+            [],
+        )[:8]
+    ]
+
     return {
 
         "status":
@@ -81,4 +102,7 @@ def build_subject_llm_context(
                 "recommended_actions",
                 [],
             ),
+
+        "subjects":
+            subjects,
     }

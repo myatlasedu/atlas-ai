@@ -35,3 +35,7 @@ class ParsedMentorIntent(BaseModel):
     confidence: float = 0.95
 
     original_query: str | None = None
+
+    is_injection: bool = False
+
+    generate_content: bool = False

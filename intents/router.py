@@ -13,7 +13,8 @@ from intents.mentor.parser import (
 
 async def parse_intent(
     query: str,
-    role: str
+    role: str,
+    prior_context: str | None = None,
 ):
 
     role = (
@@ -25,7 +26,8 @@ async def parse_intent(
     if role == "student":
 
         return await parse_student_intent(
-            query=query
+            query=query,
+            prior_context=prior_context,
         )
 
     
@@ -38,7 +40,8 @@ async def parse_intent(
     if role == "mentor":
 
         return await parse_mentor_intent(
-            query=query
+            query=query,
+            prior_context=prior_context,
         )
 
     raise ValueError(
