@@ -251,6 +251,8 @@ atlas_score_summary
 - pillar score
 - atlas trend
 - atlas progress
+- which pillar needs improvement
+- which pillar needs the most attention
 
 Examples:
 
@@ -261,6 +263,9 @@ Examples:
 → atlas_score_summary
 
 "What is my weakest pillar?"
+→ atlas_score_summary
+
+"Which Atlas pillar needs the most improvement?"
 → atlas_score_summary
 
 ==================================================

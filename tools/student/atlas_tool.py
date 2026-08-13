@@ -69,14 +69,49 @@ class AtlasTool:
             if not atlas:
 
                 return {
+  
+                    "module":
+                        "atlas",
 
                     "error":
                         "Atlas data not found."
+                    "status":
+                        "calibrating",
+
+                    "message":
+                        "Atlas is currently calibrating. "
+                        "Your Atlas Score and pillar insights "
+                        "will become available after the "
+                        "calibration period ends.",
+
+                    "calibration_end_date":
+                        None,
+
+                    "llm_context": {
+
+                        "status":
+                            "calibrating",
+
+                        "atlas_score": {
+
+                            "status":
+                                "calibrating"
+                        },
+
+                        "message":
+                            "Atlas is currently calibrating. "
+                            "Your Atlas Score and pillar insights "
+                            "will become available after the "
+                            "calibration period ends.",
+                    }
                 }
 
             if atlas["is_calibrating"]:
 
                 return {
+
+                    "module":
+                        "atlas",
 
                     "status":
                         "calibrating",
@@ -86,6 +121,25 @@ class AtlasTool:
 
                     "calibration_end_date":
                         atlas["calibration_end_date"]
+                        atlas["calibration_end_date"],
+
+                    "llm_context": {
+
+                        "status":
+                            "calibrating",
+
+                        "atlas_score": {
+
+                            "status":
+                                "calibrating"
+                        },
+
+                        "message":
+                            atlas["message"],
+
+                        "calibration_end_date":
+                            atlas["calibration_end_date"],
+                    }
                 }
 
             atlas_score = atlas["atlas"]
@@ -117,7 +171,7 @@ class AtlasTool:
 
             payload = {
                 "available": True,
-                
+
                 "atlas_score":
                     atlas_score,
 
@@ -187,5 +241,52 @@ class AtlasTool:
                 payload["direct_answer"] = {
                     "pillar": strongest_pillar
                 }
+
+            payload["module"] = (
+                "atlas"
+            )
+
+            payload["llm_context"] = {
+
+                "status":
+                    "available",
+
+                "atlas_score":
+
+                    payload.get(
+                        "atlas_score"
+                    ),
+
+                "pillars":
+
+                    payload.get(
+                        "pillars"
+                    ),
+
+                "strongest_actionable_pillar":
+
+                    payload.get(
+                        "strongest_pillar"
+                    ),
+
+                "weakest_actionable_pillar":
+
+                    payload.get(
+                        "weakest_pillar"
+                    ),
+
+                "insights":
+
+                    payload.get(
+                        "strengths",
+                        []
+                    ),
+
+                "recommended_focus":
+
+                    payload.get(
+                        "recommended_focus"
+                    ),
+            }
 
             return payload
