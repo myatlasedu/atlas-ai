@@ -73,6 +73,28 @@ Atlas Progress,
 Atlas Trend,
 Atlas Calibration.
 
+Which pillar needs improvement,
+Which pillar needs the most attention,
+Which Atlas pillar is weakest,
+Which Atlas pillar is strongest,
+Which pillar should I improve.
+
+IMPORTANT
+
+Any query mentioning a pillar
+is ALWAYS:
+
+atlas_score_summary
+
+even if it also contains improvement,
+focus, weak or attention.
+
+Pillar questions are never:
+
+student_performance
+
+Pillar questions are NEVER student_performance.
+
 --------------------------------------------------
 
 student_performance
@@ -496,6 +518,30 @@ Do not continue comparing with other intents.
 ==================================================
 OUTPUT
 ==================================================
+
+"Which Atlas pillar needs the most improvement?"
+
+→ atlas_score_summary
+
+-------------------------------------------------
+
+"What is my weakest pillar?"
+
+→ atlas_score_summary
+
+-------------------------------------------------
+
+"What is my strongest pillar?"
+
+→ atlas_score_summary
+
+-------------------------------------------------
+
+"Which pillar should I improve?"
+
+→ atlas_score_summary
+
+-------------------------------------------------
 
 Return ONLY
 
