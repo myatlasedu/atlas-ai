@@ -13,6 +13,12 @@ Do NOT determine views.
 
 Only determine the high-level intent.
 
+If a PRIOR CONVERSATION is provided:
+
+Use it only to resolve references (pronouns, subjects, dates) in the question.
+
+The question itself decides the intent.
+
 Return VALID JSON ONLY.
 
 Never explain.
@@ -26,6 +32,21 @@ student_performance.
 
 If the query contains Atlas, Band or Pillar,
 classify it as atlas_score_summary.
+
+If the query asks for marks, grades, score or result
+FOR a homework, assignment, worksheet or submission
+(e.g. "marks for homework", "marks for the worksheet",
+"grade on the assignment"), classify it as:
+
+homework_summary
+
+A query about marks WITHOUT any homework, assignment,
+worksheet or submission keyword must remain:
+
+assessment_summary
+
+Do NOT treat other intents as homework when homework
+words are absent.
 
 ==================================================
 ALLOWED INTENTS
@@ -42,6 +63,14 @@ Use when the guardian asks about:
 - late arrivals
 - attendance report
 - attendance trend
+- health room / sick bay visits
+- excused lessons
+- which lessons were missed, late, absent or attended
+
+Questions asking WHETHER lessons/periods/classes were
+missed, attended, absent, late or excused are ALWAYS
+attendance_summary, even when they use the words
+lesson, period or class.
 
 --------------------------------------------------
 
@@ -205,6 +234,31 @@ unknown
 Use only when none of the above apply.
 
 ==================================================
+GUARDRAILS
+==================================================
+
+If the user asks Atlas to write, generate, create or
+produce content (stories, essays, plots, poems, letters,
+scripts, code), classify as:
+
+unknown
+
+A query that mentions "assignment", "homework" or
+"subject" but asks Atlas to WRITE or CREATE content is
+NOT homework_summary, subject_summary or essay help.
+
+Classify it as:
+
+unknown
+
+NEVER provide instructions or assistance on weapons,
+explosives, drugs or anything that could cause harm.
+
+Such requests classify as:
+
+unknown
+
+==================================================
 EXAMPLES
 ==================================================
 
@@ -214,7 +268,62 @@ How is my child's attendance?
 Output:
 {
     "intent": "attendance_summary",
-    "confidence": 0.99
+    "confidence": 0.95
+}
+
+--------------------------------------------------
+
+User:
+Did my child visit the health room today?
+
+Output:
+{
+    "intent": "attendance_summary",
+    "confidence": 0.95
+}
+
+--------------------------------------------------
+
+User:
+Which lessons was my child excused from this week?
+
+Output:
+{
+    "intent": "attendance_summary",
+    "confidence": 0.95
+}
+
+--------------------------------------------------
+
+User:
+Did my child miss any class periods today?
+
+Output:
+{
+    "intent": "attendance_summary",
+    "confidence": 0.95
+}
+
+--------------------------------------------------
+
+User:
+Was my child late for school yesterday?
+
+Output:
+{
+    "intent": "attendance_summary",
+    "confidence": 0.95
+}
+
+--------------------------------------------------
+
+User:
+Was my child absent on 5 August?
+
+Output:
+{
+    "intent": "attendance_summary",
+    "confidence": 0.95
 }
 
 --------------------------------------------------
@@ -236,7 +345,7 @@ Show my child's assessment results.
 Output:
 {
     "intent": "assessment_summary",
-    "confidence": 0.99
+    "confidence": 0.95
 }
 
 --------------------------------------------------
@@ -247,7 +356,7 @@ What is my child's Atlas Score?
 Output:
 {
     "intent": "atlas_score_summary",
-    "confidence": 0.99
+    "confidence": 0.95
 }
 
 --------------------------------------------------
@@ -258,7 +367,7 @@ How is my child doing overall?
 Output:
 {
     "intent": "student_performance",
-    "confidence": 0.99
+    "confidence": 0.95
 }
 
 --------------------------------------------------
@@ -269,7 +378,7 @@ Which subject needs improvement?
 Output:
 {
     "intent": "subject_summary",
-    "confidence": 0.99
+    "confidence": 0.95
 }
 
 --------------------------------------------------
@@ -280,7 +389,7 @@ Show school announcements.
 Output:
 {
     "intent": "announcement_summary",
-    "confidence": 0.99
+    "confidence": 0.95
 }
 
 --------------------------------------------------
@@ -291,7 +400,7 @@ Open the discussion forum.
 Output:
 {
     "intent": "forum_summary",
-    "confidence": 0.99
+    "confidence": 0.95
 }
 
 --------------------------------------------------
@@ -302,7 +411,7 @@ Generate my child's report.
 Output:
 {
     "intent": "student_report",
-    "confidence": 0.99
+    "confidence": 0.95
 }
 
 ==================================================
