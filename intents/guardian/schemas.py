@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-
+from datetime import date
 
 class ParsedGuardianIntent(BaseModel):
 
@@ -7,9 +7,9 @@ class ParsedGuardianIntent(BaseModel):
 
     navigation_target: str | None = None
 
-    start_date: str | None = None
+    start_date: date | None = None
 
-    end_date: str | None = None
+    end_date: date | None = None
 
     academic_year: str | None = None
 
@@ -19,7 +19,9 @@ class ParsedGuardianIntent(BaseModel):
 
     subject: str | None = None
 
-    enrichment: bool | None = None
+    topic: str | None = None
+
+    enrichment: str | bool | None = None
 
     view: str | None = None
 
@@ -28,3 +30,9 @@ class ParsedGuardianIntent(BaseModel):
     confidence: float = 0.95
 
     original_query: str = ""
+
+    is_injection: bool = False
+
+    generate_content: bool = False
+
+    asks_for_marks: bool = False

@@ -24,7 +24,7 @@ class ParsedMentorIntent(BaseModel):
 
     subject: str | None = None
 
-    enrichment: bool | None = None
+    enrichment: str | bool | None = None
 
     # Generic View
     view: str | None = None
@@ -35,3 +35,7 @@ class ParsedMentorIntent(BaseModel):
     confidence: float = 0.95
 
     original_query: str | None = None
+
+    is_injection: bool = False
+
+    generate_content: bool = False

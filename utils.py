@@ -21,6 +21,17 @@ def ist_now() -> datetime:
     return datetime.now(IST)
 
 
+def is_guardian_context(context) -> bool:
+    return (
+        getattr(
+            context,
+            "guardian_id",
+            None,
+        )
+        is not None
+    )
+
+
 def ist_today() -> date:
     return ist_now().date()
 
@@ -56,6 +67,12 @@ _WEEKDAY_MAP = {
     "sunday": 6,
 }
 
+_MONTH_NAMES = (
+    "january", "february", "march", "april", "may", "june",
+    "july", "august", "september", "october", "november", "december",
+    "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+)
+
 
 def resolve_dates(
     parsed: dict,
@@ -72,6 +89,16 @@ def resolve_dates(
         .strip()
     )
 
+    has_explicit_month = any(
+        month in query
+        for month in _MONTH_NAMES
+    )
+
+    has_explicit_year = any(
+        len(token) == 4
+        and token.isdigit()
+        for token in query.replace(",", " ").replace(".", " ").replace("?", " ").replace("!", " ").split()
+    )
     # ------------------------------------------------------
     # Explicit dates already parsed by LLM
     # ------------------------------------------------------
@@ -85,13 +112,28 @@ def resolve_dates(
     #
 
     if (
+        has_explicit_month
+        and
         isinstance(start_date, date)
         and
         isinstance(end_date, date)
     ):
+
+        if not has_explicit_year:
+
+            parsed["start_date"] = start_date.replace(
+                year=today.year
+            )
+
+            parsed["end_date"] = end_date.replace(
+                year=today.year
+            )
+
         return parsed
 
     if (
+        has_explicit_month
+        and
         isinstance(start_date, str)
         and
         isinstance(end_date, str)
@@ -106,6 +148,16 @@ def resolve_dates(
             parsed["end_date"] = date.fromisoformat(
                 end_date
             )
+
+            if not has_explicit_year:
+
+                parsed["start_date"] = parsed["start_date"].replace(
+                    year=today.year
+                )
+
+                parsed["end_date"] = parsed["end_date"].replace(
+                    year=today.year
+                )
 
             return parsed
 
