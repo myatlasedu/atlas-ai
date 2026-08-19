@@ -42,6 +42,18 @@ Use when the guardian asks about:
 - late arrivals
 - attendance report
 - attendance trend
+- health room / sick bay visits
+- excused lessons
+- which lessons were missed, late, absent or attended
+
+Questions asking WHETHER lessons/periods/classes were
+missed, attended, absent, late or excused are ALWAYS
+attendance_summary, even when they use the words
+lesson, period or class.
+
+Questions asking whether school was open or whether
+there were classes on a day ("Was school open on 15 August?",
+"Was there school on Sunday?") are ALWAYS attendance_summary.
 
 --------------------------------------------------
 
@@ -210,6 +222,61 @@ EXAMPLES
 
 User:
 How is my child's attendance?
+
+Output:
+{
+    "intent": "attendance_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Did my child visit the health room today?
+
+Output:
+{
+    "intent": "attendance_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Which lessons was my child excused from this week?
+
+Output:
+{
+    "intent": "attendance_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Did my child miss any class periods today?
+
+Output:
+{
+    "intent": "attendance_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Was my child late for school yesterday?
+
+Output:
+{
+    "intent": "attendance_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Was my child absent on 5 August?
 
 Output:
 {

@@ -1,17 +1,88 @@
 from __future__ import annotations
 
+def build_period_breakdown(
+    period_rows: list,
+) -> dict:
+
+    status_to_key = {
+        1: "present",
+        2: "missed",
+        3: "late",
+        4: "excused",
+        5: "healthroom",
+    }
+
+    breakdown = {
+        "present": [],
+        "missed": [],
+        "late": [],
+        "excused": [],
+        "healthroom": [],
+    }
+
+    for row in period_rows:
+
+        key = status_to_key.get(
+            row["status"]
+        )
+
+        if key is None:
+            continue
+
+        breakdown[key].append(
+            {
+                "date": row["date"].isoformat(),
+                "period": row["period_name"],
+                "subject": row["subject_name"],
+                "start_time": row["start_time"].isoformat(),
+                "end_time": row["end_time"].isoformat(),
+            }
+        )
+
+    return {
+        key: {
+            "count": len(lessons),
+            "lessons": lessons,
+        }
+        for key, lessons in breakdown.items()
+    }
 
 def build_attendance_llm_context(
     payload: dict,
 ) -> dict:
 
-    total_marked_days = payload.get(
-        "total_marked_days",
+    present_days = payload.get(
+        "present_days",
         0,
     )
 
-    present_days = payload.get(
-        "present_days",
+    working_days = payload.get(
+        "working_days",
+        0,
+    )
+
+    absent_days = payload.get(
+        "absent_days",
+        0,
+    )
+
+    absent_day_dates = payload.get(
+        "absent_day_dates",
+        [],
+    )
+
+    late_days = payload.get(
+        "late_days",
+        0,
+    )
+
+    late_day_dates = payload.get(
+        "late_day_dates",
+        [],
+    )
+
+    non_working_days = payload.get(
+        "non_working_days",
         0,
     )
 
@@ -50,7 +121,12 @@ def build_attendance_llm_context(
         0,
     )
 
-    if total_marked_days == 0:
+    period_rows = payload.get(
+        "period_rows",
+        [],
+    )
+
+    if working_days == 0:
 
         status = "building"
 
@@ -80,11 +156,26 @@ def build_attendance_llm_context(
             "attendance_percentage":
                 attendance_percentage,
 
-            "total_marked_days":
-                total_marked_days,
-
             "present_days":
                 present_days,
+
+            "working_days":
+                working_days,
+
+            "absent_days":
+                absent_days,
+
+            "absent_day_dates":
+                absent_day_dates,
+
+            "non_working_days":
+                non_working_days,
+
+            "late_days":
+                late_days,
+
+            "late_day_dates":
+                late_day_dates,
 
             "total_periods":
                 total_periods,
@@ -105,23 +196,10 @@ def build_attendance_llm_context(
                 healthroom_periods,
         },
 
-        "period_breakdown": {
-
-            "present":
-                present_periods,
-
-            "missed":
-                missed_periods,
-
-            "late":
-                late_periods,
-
-            "excused":
-                excused_periods,
-
-            "healthroom":
-                healthroom_periods,
-        },
+        "period_breakdown": 
+            build_period_breakdown(
+                period_rows,
+            ),
 
         "highlights":
             payload.get(
