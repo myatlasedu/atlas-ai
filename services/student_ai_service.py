@@ -360,7 +360,8 @@ class StudentAIService:
 
                 parsed_intent = (
                     DateService.validate(
-                        parsed_intent
+                        parsed_intent,
+                        query=query,
                     )
                 )
 
@@ -391,7 +392,8 @@ class StudentAIService:
 
             parsed_intent = (
                 DateService.validate(
-                    parsed_intent
+                    parsed_intent,
+                    query=query,
                 )
             )
 
