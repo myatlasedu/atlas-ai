@@ -18,5 +18,7 @@ class ParsedStudentIntent(BaseModel):
     target_modules: list[str] = []
 
     original_query: str
-
+    
     topic: str | None = None
+
+    subject: str | None = None
