@@ -40,11 +40,11 @@ VALID_INTENTS = {
     in GuardianIntent
 }
 
-def normalize_dates(
+async def normalize_dates(
     parsed: dict,
 ) -> dict:
 
-    parsed = resolve_dates(
+    parsed = await resolve_dates(
         parsed
     )
 
@@ -156,7 +156,7 @@ async def parse_guardian_intent(
         parsed["intent"] = intent
         
         parsed["original_query"] = query
-        parsed = normalize_dates( parsed )
+        parsed = await normalize_dates( parsed )
 
         parsed.setdefault(
             "target_modules",
