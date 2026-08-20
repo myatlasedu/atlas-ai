@@ -1,6 +1,11 @@
 from sqlalchemy import text
 
 
+WEAK_SCORE_THRESHOLD = 60
+
+STRONG_SCORE_THRESHOLD = 75
+
+
 class TopicRepository:
 
     def __init__(
@@ -180,6 +185,9 @@ class TopicRepository:
 
             FROM students_assessmentstudentrecord asr
 
+            INNER JOIN students_studentenrollment se
+                ON se.id = asr.enrollment_id
+
             INNER JOIN students_assessment a
                 ON a.id = asr.assessment_id
 
@@ -203,6 +211,8 @@ class TopicRepository:
                 asr.enrollment_id = :enrollment_id
 
                 {where_subject}
+
+                AND tp.academic_class_id = se.academic_class_id
 
                 AND asr.status = 3
 
@@ -272,6 +282,9 @@ class TopicRepository:
 
             FROM students_homeworksubmission hs
 
+            INNER JOIN students_studentenrollment se
+                ON se.id = hs.enrollment_id
+
             INNER JOIN students_homework h
                 ON h.id = hs.homework_id
 
@@ -295,6 +308,8 @@ class TopicRepository:
                 hs.enrollment_id = :enrollment_id
 
                 {where_subject}
+
+                AND tp.academic_class_id = se.academic_class_id
 
                 AND hs.reviewed_at IS NOT NULL
 
@@ -392,12 +407,32 @@ class TopicRepository:
         self,
         enrollment_id,
         subject_name=None,
+        topic_name=None,
     ):
         
         subject_offering_id = await self._resolve_subject_offering(
             enrollment_id,
             subject_name,
         )
+
+        if subject_name and subject_offering_id is None:
+
+            return {
+
+                "completed_topics": [],
+
+                "in_progress_topics": [],
+
+                "pending_topics": [],
+
+                "weak_topics": [],
+
+                "strong_topics": [],
+
+                "all_topics": [],
+
+                "subject_resolved": False,
+            }
 
         completed_topics = await self._get_completed_topics(
             enrollment_id,
@@ -553,12 +588,32 @@ class TopicRepository:
             )
 
         # ==========================================
+        # TOPIC NAME FILTER
+        # ==========================================
+
+        if topic_name:
+
+            topic_name_lower = (
+                topic_name
+                .strip()
+                .lower()
+            )
+
+            topics = {
+                topic_id: topic
+                for topic_id, topic in topics.items()
+                if topic_name_lower in topic["topic_name"].lower()
+            }
+
+        # ==========================================
         # FINAL SCORE
         # ==========================================
 
         completed = []
+        in_progress = []
         pending = []
         weak = []
+        strong = []
 
         for topic in topics.values():
 
@@ -576,18 +631,57 @@ class TopicRepository:
                 else None
             )
 
-            if topic["completed"]:
+            covered = topic["completed"]
+
+            has_scores = (
+                topic["assessment_attempts"] > 0
+                or topic["homework_attempts"] > 0
+            )
+
+            topic["covered"] = covered
+
+            if topic["average_score"] is not None:
+
+                topic["basis"] = (
+                    "both"
+                    if (
+                        topic["assessment_average"] is not None
+                        and topic["homework_average"] is not None
+                    )
+                    else (
+                        "assessment"
+                        if topic["assessment_average"] is not None
+                        else "homework"
+                    )
+                )
+
+            if covered:
                 completed.append(topic)
+            elif has_scores:
+                in_progress.append(topic)
             else:
                 pending.append(topic)
 
             if (
                 topic["average_score"] is not None
-                and topic["average_score"] < 60
+                and topic["average_score"] < WEAK_SCORE_THRESHOLD
             ):
                 weak.append(topic)
 
+            if (
+                topic["average_score"] is not None
+                and topic["average_score"] >= STRONG_SCORE_THRESHOLD
+            ):
+                strong.append(topic)
+
         completed.sort(
+            key=lambda x: (
+                x["subject_name"],
+                x["topic_name"],
+            )
+        )
+
+        in_progress.sort(
             key=lambda x: (
                 x["subject_name"],
                 x["topic_name"],
@@ -604,6 +698,13 @@ class TopicRepository:
         weak.sort(
             key=lambda x: (
                 x["subject_name"],
+                x["average_score"],
+            )
+        )
+
+        strong.sort(
+            key=lambda x: (
+                x["subject_name"],
                 x["topic_name"],
             )
         )
@@ -613,13 +714,22 @@ class TopicRepository:
             "completed_topics":
                 completed,
 
+            "in_progress_topics":
+                in_progress,
+
             "pending_topics":
                 pending,
 
             "weak_topics":
                 weak,
 
+            "strong_topics":
+                strong,
+
             "all_topics":
-                completed + pending,
+                completed + in_progress + pending,
+
+            "subject_resolved":
+                True,
         }
         

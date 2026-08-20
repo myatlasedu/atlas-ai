@@ -4,13 +4,15 @@ from sqlalchemy.ext.asyncio import (
     AsyncSession
 )
 
+from urllib.parse import quote_plus
+
 from core.config import settings
 
 
 DATABASE_URL = (
     f"postgresql+asyncpg://"
     f"{settings.POSTGRES_USER}:"
-    f"{settings.POSTGRES_PASSWORD}@"
+    f"{quote_plus(settings.POSTGRES_PASSWORD)}@"
     f"{settings.POSTGRES_HOST}:"
     f"{settings.POSTGRES_PORT}/"
     f"{settings.POSTGRES_DB}"
