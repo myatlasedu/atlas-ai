@@ -1,33 +1,64 @@
 import pytz
 import calendar
 
-from datetime import datetime
-from datetime import date
+from datetime import datetime, date, timedelta
 from zoneinfo import ZoneInfo
 
-from datetime import (
-    date,
-    datetime,
-    timedelta,
-)
+from sqlalchemy import text
+from db.session import AsyncSessionLocal
 
 
 IST = ZoneInfo("Asia/Kolkata")
 
 
-# Academic year runs April - March (India).
+# Academic year runs from the month returned by the
+# AcademicYear model (e.g. April) to the following March.
 # Dates in April through December belong to the year
 # that starts on 1 April; January through March belong
 # to the previous year's academic year.
-ACADEMIC_YEAR_START_MONTH = 4
+DEFAULT_ACADEMIC_YEAR_START_MONTH = 4
 
 
-def academic_year_for(day: date) -> int:
+def academic_year_for(
+    day: date,
+    start_month: int = DEFAULT_ACADEMIC_YEAR_START_MONTH,
+) -> int:
 
-    if day.month >= ACADEMIC_YEAR_START_MONTH:
+    if day.month >= start_month:
         return day.year
 
     return day.year - 1
+
+
+async def get_academic_year_start_month() -> int:
+
+    try:
+
+        async with AsyncSessionLocal() as db:
+
+            result = await db.execute(
+                text(
+                    """
+                    SELECT from_date
+                    FROM schools_academicyear
+                    WHERE from_date <= :today
+                      AND to_date >= :today
+                    ORDER BY id
+                    LIMIT 1
+                    """
+                ),
+                {"today": ist_today()},
+            )
+
+            row = result.mappings().first()
+
+            if row and row["from_date"]:
+                return row["from_date"].month
+
+    except Exception:
+        pass
+
+    return DEFAULT_ACADEMIC_YEAR_START_MONTH
 
 
 def ist_now() -> datetime:
@@ -170,6 +201,7 @@ def parse_day_token(
 
 def extract_day_month(
     query: str,
+    start_month: int = DEFAULT_ACADEMIC_YEAR_START_MONTH,
 ):
 
     tokens = query.split()
@@ -209,7 +241,7 @@ def extract_day_month(
             break
 
     if year is None:
-        year = academic_year_for(ist_today())
+        year = academic_year_for(ist_today(), start_month)
 
     days = []
 
@@ -268,6 +300,7 @@ def extract_day_month(
 
 def extract_month_range(
     query: str,
+    start_month: int = DEFAULT_ACADEMIC_YEAR_START_MONTH,
 ):
 
     tokens = query.split()
@@ -306,7 +339,7 @@ def extract_month_range(
             break
 
     if year is None:
-        year = academic_year_for(ist_today())
+        year = academic_year_for(ist_today(), start_month)
 
     first = date(
         year,
@@ -405,12 +438,13 @@ def has_explicit_year(query: str) -> bool:
 def force_current_academic_year(
     parsed: dict,
     query: str,
+    start_month: int = DEFAULT_ACADEMIC_YEAR_START_MONTH,
 ) -> dict:
 
     if has_explicit_year(query):
         return parsed
 
-    target_year = academic_year_for(ist_today())
+    target_year = academic_year_for(ist_today(), start_month)
 
     for field in ("start_date", "end_date"):
 
@@ -425,11 +459,13 @@ def force_current_academic_year(
     return parsed
 
 
-def resolve_dates(
+async def resolve_dates(
     parsed: dict,
 ):
 
     today = ist_today()
+
+    start_month = await get_academic_year_start_month()
 
     query = (
         parsed.get(
@@ -488,7 +524,7 @@ def resolve_dates(
         except ValueError:
             pass
 
-    day_month = extract_day_month(query)
+    day_month = extract_day_month(query, start_month)
 
     if day_month is not None:
 
@@ -509,7 +545,7 @@ def resolve_dates(
 
             return parsed
 
-    month_range = extract_month_range(query)
+    month_range = extract_month_range(query, start_month)
 
     if (
         month_range is not None
@@ -575,6 +611,7 @@ def resolve_dates(
             return force_current_academic_year(
                 parsed,
                 query,
+                start_month,
             )
 
         except ValueError:
@@ -959,7 +996,7 @@ def resolve_dates(
 
     if not parsed.get("start_date") and not parsed.get("end_date"):
 
-        dates = extract_day_month(query)
+        dates = extract_day_month(query, start_month)
 
         if dates:
 
