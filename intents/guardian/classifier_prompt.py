@@ -27,6 +27,21 @@ student_performance.
 If the query contains Atlas, Band or Pillar,
 classify it as atlas_score_summary.
 
+If the query asks for marks, grades, score or result
+FOR a homework, assignment, worksheet or submission
+(e.g. "marks for homework", "marks for the worksheet",
+"grade on the assignment"), classify it as:
+
+homework_summary
+
+A query about marks WITHOUT any homework, assignment,
+worksheet or submission keyword must remain:
+
+assessment_summary
+
+Do NOT treat other intents as homework when homework
+words are absent.
+
 ==================================================
 ALLOWED INTENTS
 ==================================================
