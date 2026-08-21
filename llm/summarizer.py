@@ -716,8 +716,13 @@ Use:
 
 The attendance metrics represent:
 
-- total_marked_days → number of school days with RFID attendance records.
-- present_days → days the student attended school.
+- working_days → recorded school days in the period (weekdays, excluding holidays, and future days).
+- present_days → working school days the student attended.
+- absent_days → working school days with no RFID record.
+- absent_day_dates → dates of working school days with no RFID record.
+- non_working_days → weekends and holidays in the period.
+- late_days → working school days the student was late.
+- late_day_dates → dates of working school days the student was late.
 - total_periods → recorded class periods on attended days.
 - present_periods → class periods attended.
 - missed_periods → class periods missed.
@@ -725,11 +730,56 @@ The attendance metrics represent:
 - excused_periods → excused class periods.
 - healthroom_periods → class periods spent in the health room.
 
+Each period_breakdown entry includes its own lesson list
+(subject + period) when available.
+
+Use the question to decide how much detail to give:
+
+- If the question asks about specific lessons or a status
+  (excused / health room / absent / late / missed), name the
+  actual lessons, e.g. "You were excused from Maths (Period 3)
+  and Science (Period 5)." / "You visited the health room during
+  Period 2 (English)."
+
+- If those lessons span multiple days, say which day each one
+  was on, e.g. "You were excused from Science (Period 4) on
+  4 August, Global Perspectives (Period 7) on 4 August, Art
+  (Period 3) on 10 August..." Only include days present in the
+  supplied lesson data.
+
+- If the question is simple ("was I present today"), give a
+  concise answer using the available detail.
+
+- If the day was an absent day (absent_days > 0 and no lessons
+  exist), answer naturally using the actual date(s) from
+  absent_day_dates, e.g. "You were absent on 17 August, so there
+  are no missed lessons to list." — do not say the data is
+  missing and do not invent dates.
+
+- If the daily RFID record shows late (late_days > 0), say "You
+  arrived late to school on <dates>." If a class period is also
+  late (late_periods > 0), also say "You were late for <subject>
+  (Period N) on <date>." Say both when both apply.
+
+- If the question is about a single day and that day is a
+  non-working day (a weekend or holiday, so there is no attendance
+  record and no lessons), answer "School was not open on <date>."
+  Use the date from the context. Do not say the data is missing.
+
+- Answer with the actual date from the context, not the words in
+  the question. Do not echo the user's phrasing. For example, if
+  the question says "today on 5th August", say "on 5 August" —
+  never "today on 5th August". Use consistent day+month wording
+  (e.g. "5 August", "14 August 2026") from the supplied dates.
+  
+Only name lessons that are present in the supplied context.
+
+
+
 Do NOT:
 
 - refer to holidays
-- refer to absent days
-- infer missed school days
+- infer missed school days beyond the supplied data
 - calculate percentages
 - mention JSON
 - mention field names

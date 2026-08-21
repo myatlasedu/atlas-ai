@@ -68,6 +68,19 @@ Your only job is to extract:
 - enrichment
 - view
 
+enrichment is a boolean flag.
+
+Set it to true ONLY when the question is about
+enrichment / enrichment classes / enrichment sessions
+(enrichment lessons, enrichment attendance,
+enrichment marks, enrichment activities).
+
+Set it to null for every other question.
+
+Never put status words such as "late", "present",
+"absent", "missed", "excused" or any other text
+into enrichment.
+
 {prompt}
 
 Return:

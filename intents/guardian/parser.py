@@ -1,7 +1,5 @@
 import logging
-
-from datetime import date 
-
+from datetime import datetime, date
 from llm.client import (
     chat_completion
 )
@@ -42,11 +40,11 @@ VALID_INTENTS = {
     in GuardianIntent
 }
 
-def normalize_dates(
+async def normalize_dates(
     parsed: dict,
 ) -> dict:
 
-    parsed = resolve_dates(
+    parsed = await resolve_dates(
         parsed
     )
 
@@ -82,7 +80,6 @@ def normalize_dates(
                 parsed[field] = None
 
     return parsed
-
 
 async def parse_guardian_intent(
     query: str
@@ -190,10 +187,9 @@ async def parse_guardian_intent(
             )
 
         parsed["intent"] = intent
-
-        parsed = normalize_dates(
-            parsed
-        )
+        
+        parsed["original_query"] = query
+        parsed = await normalize_dates( parsed )
 
         parsed.setdefault(
             "target_modules",
@@ -205,7 +201,6 @@ async def parse_guardian_intent(
             0.95
         )
 
-        parsed["original_query"] = query
 
         return ParsedGuardianIntent(
             **parsed
