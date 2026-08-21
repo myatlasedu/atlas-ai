@@ -179,6 +179,28 @@ Do not invent values.
 Use null when a value is not present.
 
 ==================================================
+ASKS FOR MARKS FLAG
+==================================================
+
+Set "asks_for_marks" to true ONLY when the user names
+a SPECIFIC homework / assignment / worksheet / submission
+and asks for its MARKS / GRADE / SCORE / RESULT.
+
+Casual phrasings count as asking for marks, for example
+"what did I get in X", "how much did I get", "what did
+I score", "my result for X".
+
+When true, also set "topic" to the FULL homework name
+exactly as written (keep the date, do not shorten).
+
+If no specific titled homework is named, set
+"asks_for_marks" to false.
+
+This applies to any intent, so a specific titled
+homework marks question must set both "asks_for_marks"
+and "topic" even if the overall intent is assessment-like.
+
+==================================================
 CAMBRIDGE TERMINOLOGY
 ==================================================
 
@@ -274,6 +296,7 @@ Return ONLY valid JSON:
     "subject": null,
     "topic": null,
     "view": null,
-    "target_modules": []
+    "target_modules": [],
+    "asks_for_marks": false,
 }}
 """
