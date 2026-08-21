@@ -34,6 +34,40 @@ class HomeworkRepository:
             if character.isalnum()
         )
 
+    def build_title_pattern(
+        self,
+        value: str,
+    ) -> str:
+
+        pattern_chars = []
+
+        for character in value.lower():
+
+            if character == "\\":
+
+                pattern_chars.append("\\\\")
+
+            elif character == "%":
+
+                pattern_chars.append("\\%")
+
+            elif character in (
+                "_",
+                " ",
+                "-",
+                ".",
+                ",",
+                "'",
+            ):
+
+                pattern_chars.append("%")
+
+            else:
+
+                pattern_chars.append(character)
+
+        return "".join(pattern_chars)
+
     async def get_homework_mark_state(
         self,
         enrollment_id: int,
@@ -55,123 +89,15 @@ class HomeworkRepository:
             }
 
         # --------------------------------------------------
-        # 2. Find matching homework by EXACT (case-insensitive)
-        #    title, or by separator-stripped equality. No LIKE,
-        #    no regex - plain equality checks only.
+        # 2. Single query: candidate homework rows joined
+        #    with this enrollment's graded submissions and
+        #    assignment map. Exact titles outrank fuzzy ILIKE
+        #    matches; graded rows outrank ungraded ones.
         # --------------------------------------------------
 
-        query = text(
-            """
-            SELECT
-                h.id,
-                h.title,
-                h.total_marks,
-                h.due_date
-            FROM students_homework h
-            WHERE
-                LOWER(h.title) = LOWER(:title)
-                OR REPLACE(
-                    REPLACE(
-                        REPLACE(
-                            REPLACE(
-                                REPLACE(
-                                    REPLACE(LOWER(h.title), ' ', ''),
-                                '-', ''),
-                            '_', ''),
-                        '.', ''),
-                    ',', ''),
-                '''', '') = :normalized
-            ORDER BY h.due_date DESC NULLS LAST
-            """
-        )
+        is_relative = normalized in RELATIVE_HOMEWORK_TITLES
 
-        result = await self.db.execute(
-            query,
-            {
-                "title": title,
-                "normalized": normalized,
-            }
-        )
-        matching = [
-            dict(row)
-            for row in result.mappings()
-        ]
-
-        if not matching:
-
-            if normalized in RELATIVE_HOMEWORK_TITLES:
-
-                result = await self.db.execute(
-                    text(
-                        """
-                        SELECT
-                            h.id,
-                            h.title,
-                            h.total_marks,
-                            hs.marks_obtained,
-                            hs.reviewed_at,
-                            hs.attempt_number
-                        FROM students_homeworksubmission hs
-                        JOIN students_homework h
-                            ON h.id = hs.homework_id
-                        WHERE
-                            hs.enrollment_id = :enrollment_id
-                        AND hs.marks_obtained IS NOT NULL
-                        ORDER BY
-                            hs.reviewed_at DESC NULLS LAST
-                        LIMIT 1
-                        """
-                    ),
-                    {
-                        "enrollment_id": enrollment_id,
-                    }
-                )
-                latest = (
-                    result.mappings().first()
-                )
-
-                if not latest:
-
-                    return {
-                        "state": "not_found",
-                        "title": title,
-                    }
-
-                latest = dict(latest)
-
-                if latest["total_marks"]:
-
-                    latest["percentage"] = round(
-                        (
-                            latest["marks_obtained"]
-                            / latest["total_marks"]
-                        ) * 100,
-                        2
-                    )
-
-                else:
-
-                    latest["percentage"] = 0
-
-                latest["state"] = "marks"
-
-                return latest
-
-            return {
-                "state": "not_found",
-                "title": title,
-            }
-
-        matching_ids = [
-            hw["id"]
-            for hw in matching
-        ]
-
-        # --------------------------------------------------
-        # 3. Single query: latest graded mark for this
-        #    enrollment across all matches; otherwise whether
-        #    any match was assigned but not submitted.
-        # --------------------------------------------------
+        title_pattern = self.build_title_pattern(title)
 
         result = await self.db.execute(
             text(
@@ -180,10 +106,10 @@ class HomeworkRepository:
                     h.id,
                     h.title,
                     h.total_marks,
+                    h.due_date,
                     hs.marks_obtained,
                     hs.reviewed_at,
                     hs.attempt_number,
-                    hs.status,
                     CASE
                         WHEN hm.enrollment_id IS NOT NULL THEN TRUE
                         ELSE FALSE
@@ -197,57 +123,100 @@ class HomeworkRepository:
                     ON hm.homework_id = h.id
                     AND hm.enrollment_id = :enrollment_id
                 WHERE
-                    h.id = ANY(:homework_ids)
+                    (:is_relative OR h.title ILIKE :title_pattern)
                 ORDER BY
+                    (h.title ILIKE :exact_title) DESC,
                     (hs.reviewed_at IS NOT NULL) DESC,
                     hs.reviewed_at DESC NULLS LAST
-                LIMIT 1
                 """
             ),
             {
-                "homework_ids": matching_ids,
+                "is_relative": is_relative,
+                "title_pattern": title_pattern,
+                "exact_title": title,
                 "enrollment_id": enrollment_id,
             }
         )
-        row = result.mappings().first()
 
-        if not row:
+        rows = [
+            dict(row)
+            for row in result.mappings()
+        ]
+
+        if not rows:
+
             return {
                 "state": "not_found",
                 "title": title,
             }
 
-        row = dict(row)
+        # --------------------------------------------------
+        # 3. Extract the answer from the joined rows.
+        # --------------------------------------------------
 
-        if row["marks_obtained"] is not None:
+        mark_row = None
 
-            if row["total_marks"]:
-                row["percentage"] = round(
-                    (
-                        row["marks_obtained"]
-                        / row["total_marks"]
-                    ) * 100,
-                    2
-                )
-            else:
-                row["percentage"] = 0
+        assigned_row = None
 
-            row["state"] = "marks"
+        for row in rows:
 
-            return row
+            if (
+                mark_row is None
+                and
+                row["marks_obtained"] is not None
+            ):
 
-        if row["is_assigned"]:
+                mark_row = row
+
+            if (
+                assigned_row is None
+                and
+                row["is_assigned"]
+            ):
+
+                assigned_row = row
+
+            if (
+                mark_row is not None
+                and
+                assigned_row is not None
+            ):
+
+                break
+
+        if mark_row:
+
+            mark_row["percentage"] = round(
+                (
+                    mark_row["marks_obtained"]
+                    / mark_row["total_marks"]
+                ) * 100,
+                2
+            ) if mark_row["total_marks"] else 0
+
+            mark_row["state"] = "marks"
+
+            return mark_row
+
+        if assigned_row and not is_relative:
 
             return {
                 "state": "assigned_not_submitted",
-                "id": row["id"],
-                "title": row["title"],
+                "id": assigned_row["id"],
+                "title": assigned_row["title"],
+            }
+
+        if not is_relative:
+
+            return {
+                "state": "not_assigned",
+                "id": rows[0]["id"],
+                "title": rows[0]["title"],
             }
 
         return {
-            "state": "not_assigned",
-            "id": row["id"],
-            "title": row["title"],
+            "state": "not_found",
+            "title": title,
         }
 
     async def get_pending_homework(

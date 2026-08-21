@@ -543,6 +543,12 @@ Explain that Atlas Score is still calibrating.
                     "the student to strive harder next time."
                 )
 
+            owner = (
+                "Your child's latest homework score"
+                if role == "guardian"
+                else "Your latest homework score"
+            )
+
             return f"""
 You are Atlas AI.
 
@@ -556,7 +562,7 @@ Use ONLY these supplied facts:
 - percentage: {titled_mark.get('percentage')}%
 
 Start with exactly this fact:
-"Your latest homework score for <title> is <marks_obtained> out of <total_marks> (<percentage>%)."
+"{owner} for <title> is <marks_obtained> out of <total_marks> (<percentage>%)."
 
 {encouragement}
 
