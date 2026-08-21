@@ -1,5 +1,7 @@
 import logging
 
+from datetime import date 
+
 from llm.client import (
     chat_completion
 )
@@ -40,6 +42,47 @@ VALID_INTENTS = {
     in GuardianIntent
 }
 
+def normalize_dates(
+    parsed: dict,
+) -> dict:
+
+    parsed = resolve_dates(
+        parsed
+    )
+
+    for field in (
+        "start_date",
+        "end_date",
+    ):
+
+        value = parsed.get(field)
+
+        if hasattr(
+            value,
+            "isoformat",
+        ):
+            parsed[field] = value.isoformat()
+
+        elif isinstance(
+            value,
+            str,
+        ):
+
+            try:
+
+                parsed[field] = (
+                    date.fromisoformat(
+                        value
+                    )
+                    .isoformat()
+                )
+
+            except ValueError:
+
+                parsed[field] = None
+
+    return parsed
+
 
 async def parse_guardian_intent(
     query: str
@@ -70,7 +113,8 @@ async def parse_guardian_intent(
                     "role": "user",
                     "content": query
                 }
-            ]
+            ],
+            expect_json=True
         )
 
         content = (
@@ -113,9 +157,41 @@ async def parse_guardian_intent(
                 classified_intent.value
             )
 
+        # ------------------------------------------------------
+        # Narrow safety net: marks FOR a specific homework /
+        # assignment / worksheet must route to homework_summary,
+        # never assessment_summary. Only applies when the
+        # parser set asks_for_marks AND a specific topic title.
+        # ------------------------------------------------------
+
+        if (
+            intent
+            ==
+            GuardianIntent.ASSESSMENT_SUMMARY.value
+            and
+            parsed.get(
+                "asks_for_marks",
+                False,
+            )
+            and
+            parsed.get(
+                "topic",
+                None,
+            )
+        ):
+
+            logger.info(
+                "Reclassifying guardian assessment intent to homework_summary: %r",
+                query,
+            )
+
+            intent = (
+                GuardianIntent.HOMEWORK_SUMMARY.value
+            )
+
         parsed["intent"] = intent
 
-        parsed = resolve_dates(
+        parsed = normalize_dates(
             parsed
         )
 

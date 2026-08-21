@@ -17,6 +17,12 @@ class ParsedStudentIntent(BaseModel):
 
     target_modules: list[str] = []
 
+    confidence: float = 0.95
+
     original_query: str
 
     topic: str | None = None
+
+    subject: str | None = None
+
+    asks_for_marks: bool = False
