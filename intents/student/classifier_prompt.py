@@ -43,6 +43,15 @@ attendance percentage or attendance trends.
 missed, attended, absent, late or excused are ALWAYS
 attendance_summary, even when they use the words
 lesson, period or class.
+- Questions asking whether lessons were marked (as present,
+absent, late or excused) are ALWAYS attendance_summary,
+even when the word "marked" is used.
+Examples:
+- "Were all my lessons marked on 20 July?" → attendance_summary
+- "Were all my lessons marked on 20 Jul?" → attendance_summary
+- "Were all my lessons marked on 20/7?" → attendance_summary
+- "Were all my lessons marked on 20-07?" → attendance_summary
+- "Were my lessons marked present on 20 July?" → attendance_summary
 - Questions asking whether school was open or whether
 there were classes on a day ("Was school open on 15 August?",
 "Was there school on Sunday?") are ALWAYS attendance_summary.

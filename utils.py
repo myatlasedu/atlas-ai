@@ -113,6 +113,32 @@ MONTH_NAMES = {
     "october": 10,
     "november": 11,
     "december": 12,
+    "jan": 1,
+    "feb": 2,
+    "mar": 3,
+    "apr": 4,
+    "jun": 6,
+    "jul": 7,
+    "aug": 8,
+    "sep": 9,
+    "oct": 10,
+    "nov": 11,
+    "dec": 12,
+}
+
+MONTH_NUMBER_NAMES = {
+    1: "january",
+    2: "february",
+    3: "march",
+    4: "april",
+    5: "may",
+    6: "june",
+    7: "july",
+    8: "august",
+    9: "september",
+    10: "october",
+    11: "november",
+    12: "december",
 }
 
 ORDINAL_SUFFIXES = (
@@ -135,9 +161,91 @@ def month_number(name):
     return MONTH_NAMES.get(clean)
 
 
+def tokenize_query(query):
+
+    tokens = query.split()
+
+    result = []
+
+    for token in tokens:
+
+        clean = token.strip(".,;:!?()[]\"")
+
+        lower = clean.lower()
+
+        split = None
+
+        for name in MONTH_NAMES:
+
+            if lower.startswith(name) and len(clean) == len(name) + 4:
+
+                tail = clean[len(name):]
+
+                if tail.isdigit() and 1900 <= int(tail) <= 2099:
+
+                    split = (clean[:len(name)], tail)
+
+                    break
+
+            if lower.endswith(name) and len(clean) == len(name) + 4:
+
+                head = clean[:len(clean) - len(name)]
+
+                if head.isdigit() and 1900 <= int(head) <= 2099:
+
+                    split = (head, clean[len(clean) - len(name):])
+
+                    break
+
+        if split is not None:
+
+            result.extend(split)
+
+        else:
+
+            day_month = None
+
+            for separator in ("-", "/"):
+
+                parts = clean.split(separator)
+
+                if len(parts) != 2:
+
+                    continue
+
+                first, second = parts
+
+                if (
+                    first.isdigit()
+                    and
+                    second.isdigit()
+                    and
+                    1 <= int(first) <= 31
+                    and
+                    1 <= int(second) <= 12
+                ):
+
+                    day_month = (
+                        str(int(first)),
+                        MONTH_NUMBER_NAMES[int(second)],
+                    )
+
+                    break
+
+            if day_month is not None:
+
+                result.extend(day_month)
+
+            else:
+
+                result.append(token)
+
+    return result
+
+
 def has_month_name(query):
 
-    for token in query.split():
+    for token in tokenize_query(query):
 
         if month_number(token) is not None:
             return True
@@ -204,7 +312,7 @@ def extract_day_month(
     start_month: int = DEFAULT_ACADEMIC_YEAR_START_MONTH,
 ):
 
-    tokens = query.split()
+    tokens = tokenize_query(query)
 
     month_index = None
 
@@ -303,7 +411,7 @@ def extract_month_range(
     start_month: int = DEFAULT_ACADEMIC_YEAR_START_MONTH,
 ):
 
-    tokens = query.split()
+    tokens = tokenize_query(query)
 
     months = []
 
@@ -419,7 +527,7 @@ def next_days_count(
 
 def has_explicit_year(query: str) -> bool:
 
-    for token in query.split():
+    for token in tokenize_query(query):
 
         clean = token.strip(".,;:!?()[]\"")
 
