@@ -132,6 +132,22 @@ Never put status words such as "late", "present",
 "absent", "missed", "excused" or any other text
 into enrichment.
 
+ASKS FOR MARKS FLAG
+
+Set "asks_for_marks" to true ONLY when the user names
+a SPECIFIC homework / assignment / worksheet / submission
+and asks for its MARKS / GRADE / SCORE / RESULT.
+
+When true, also set "topic" to the FULL homework name
+exactly as written (keep the date, do not shorten).
+
+If no specific titled homework is named, set
+"asks_for_marks" to false.
+
+This applies to any intent, so a specific titled
+homework marks question must set both "asks_for_marks"
+and "topic" even if the overall intent is assessment-like.
+
 {prompt}
 
 Return:
@@ -144,9 +160,11 @@ Return:
     "grade": null,
     "section": null,
     "subject": null,
+    "topic": null,
     "enrichment": null,
     "view": null,
     "target_modules": [],
-    "confidence": 0.95
+    "confidence": 0.95,
+    "asks_for_marks": false
 }}
 """

@@ -1,5 +1,6 @@
 import logging
 
+from datetime import date
 from llm.client import (
     chat_completion,
 )
@@ -101,6 +102,30 @@ async def _normalize_dates(
                 value.isoformat()
             )
 
+        elif isinstance(
+            value,
+            str,
+        ):
+
+            #
+            # Defensive: the LLM sometimes returns
+            # non-ISO date strings (e.g. "28 July").
+            # Never let them crash intent validation.
+            #
+
+            try:
+
+                parsed[field] = (
+                    date.fromisoformat(
+                        value
+                    )
+                    .isoformat()
+                )
+
+            except ValueError:
+
+                parsed[field] = None
+
     return parsed
 
 
@@ -150,7 +175,8 @@ async def parse_student_intent(
                     "role": "user",
                     "content": query,
                 },
-            ]
+            ],
+            expect_json=True,
         )
 
         content = (
@@ -181,6 +207,39 @@ async def parse_student_intent(
         parsed["intent"] = (
             classified_intent.value
         )
+
+        # ------------------------------------------------------
+        # Narrow safety net: marks FOR a specific homework /
+        # assignment / worksheet must route to homework_summary,
+        # never assessment_summary. Only applies when the
+        # parser set asks_for_marks AND a specific topic title.
+        # ------------------------------------------------------
+
+        if (
+            parsed["intent"]
+            ==
+            StudentIntent.ASSESSMENT_SUMMARY.value
+            and
+            parsed.get(
+                "asks_for_marks",
+                False,
+            )
+            and
+            parsed.get(
+                "topic",
+                None,
+            )
+        ):
+
+            logger.info(
+                "Reclassifying assessment intent to homework_summary: %r",
+                query,
+            )
+
+            parsed["intent"] = (
+                StudentIntent.HOMEWORK_SUMMARY.value
+            )
+
 
         # ==================================================
         # STEP 4

@@ -111,6 +111,7 @@ async def parse_guardian_intent(
                     "content": query
                 }
             ],
+            expect_json=True
         )
 
         content = (
@@ -151,6 +152,38 @@ async def parse_guardian_intent(
 
             intent = (
                 classified_intent.value
+            )
+
+        # ------------------------------------------------------
+        # Narrow safety net: marks FOR a specific homework /
+        # assignment / worksheet must route to homework_summary,
+        # never assessment_summary. Only applies when the
+        # parser set asks_for_marks AND a specific topic title.
+        # ------------------------------------------------------
+
+        if (
+            intent
+            ==
+            GuardianIntent.ASSESSMENT_SUMMARY.value
+            and
+            parsed.get(
+                "asks_for_marks",
+                False,
+            )
+            and
+            parsed.get(
+                "topic",
+                None,
+            )
+        ):
+
+            logger.info(
+                "Reclassifying guardian assessment intent to homework_summary: %r",
+                query,
+            )
+
+            intent = (
+                GuardianIntent.HOMEWORK_SUMMARY.value
             )
 
         parsed["intent"] = intent

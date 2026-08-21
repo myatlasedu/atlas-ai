@@ -64,12 +64,20 @@ def build_prompt(
     intent    
 ):
 
+    is_titled_mark = (
+        intent == StudentIntent.HOMEWORK_SUMMARY
+        and isinstance(
+            (data.get("homework") or {}).get("titled_mark"),
+            dict
+        )
+    )
+
     audience = (
         "Speak directly to the guardian. \
         Use 'your child' or the student's name to refer to the student.\
         Do not tell the guardian to speak to the guardian.\
         Do not address the student directly."
-        if role == "guardian"
+        if role == "guardian" and not is_titled_mark
         else
         "Speak directly to the student. Use 'you' to refer to the student."
     )
@@ -495,6 +503,118 @@ Explain that Atlas Score is still calibrating.
 
     if intent == StudentIntent.HOMEWORK_SUMMARY:
 
+        homework_context = (
+            data.get("homework")
+            or {}
+        )
+
+        titled_mark = homework_context.get(
+            "titled_mark"
+        )
+
+        titled_lookup = homework_context.get(
+            "titled_lookup"
+        )
+
+        if isinstance(titled_mark, dict):
+
+            percentage = titled_mark.get("percentage") or 0
+
+            if percentage >= 80:
+
+                encouragement = (
+                    "End with one short sentence praising "
+                    "the result and encouraging the student "
+                    "to keep up the good work."
+                )
+
+            elif percentage >= 60:
+
+                encouragement = (
+                    "End with one short sentence acknowledging "
+                    "the decent result and encouraging the "
+                    "student to keep pushing."
+                )
+
+            else:
+
+                encouragement = (
+                    "End with one short sentence encouraging "
+                    "the student to strive harder next time."
+                )
+
+            owner = (
+                "Your child's latest homework score"
+                if role == "guardian"
+                else "Your latest homework score"
+            )
+
+            return f"""
+You are Atlas AI.
+
+The user asked for their mark on one specific homework.
+
+Use ONLY these supplied facts:
+
+- title: {titled_mark.get('title')}
+- marks obtained: {titled_mark.get('marks_obtained')}
+- total marks: {titled_mark.get('total_marks')}
+- percentage: {titled_mark.get('percentage')}%
+
+Start with exactly this fact:
+"{owner} for <title> is <marks_obtained> out of <total_marks> (<percentage>%)."
+
+{encouragement}
+
+Never invent or change any number.
+
+Keep the whole response under 100 words.
+
+{common}
+"""
+
+        if isinstance(titled_lookup, dict):
+
+            state = titled_lookup.get("state")
+
+            if state == "assigned_not_submitted":
+
+                reply = (
+                    "The homework was assigned to the student, but "
+                    "no graded submission exists yet. Say the homework "
+                    "has been assigned but there is no mark yet."
+                )
+
+            elif state == "not_assigned":
+
+                reply = (
+                    "This homework was never assigned to this student. "
+                    "Say you could not find this homework in the "
+                    "student's records."
+                )
+
+            else:
+
+                reply = (
+                    "No homework with this exact title was found. "
+                    "Say you could not find a homework with that title."
+                )
+
+            return f"""
+You are Atlas AI.
+
+The user asked for their mark on one specific homework,
+but no mark is available.
+
+{reply}
+
+Do NOT invent any score.
+
+Keep the response under 50 words.
+
+{common}
+"""
+
         return f"""
 You are Atlas AI.
 
@@ -516,6 +636,35 @@ Focus on:
 - teacher feedback
 
 Use only supplied homework data.
+
+==================================================
+LIST PRESENTATION RULES
+==================================================
+
+The context may include itemized lists: pending,
+overdue, due_today, due_tomorrow and recent_feedback.
+
+When the user explicitly asks to show or list homework,
+or names one category (pending, overdue, due today,
+due tomorrow):
+
+- Enumerate ONLY the requested category.
+- If the user asks about homework generally
+  (for example "show my homework"), list every
+  category under short headings:
+  Pending, Overdue, Due today, Due tomorrow.
+- One line per item in this format:
+  Title - due <date>
+- Write dates naturally, for example "due 30 July 2026".
+- Include teacher feedback items only when listing all
+  homework or when the user asks about feedback.
+
+When the question is general (for example "how did I do",
+"how is it going", "how is my child doing"), reply with
+counts and advice only. Do not enumerate items.
+
+Never invent items. Use only items present in the
+supplied lists.
 
 {common}
 """
@@ -910,9 +1059,23 @@ async def summarize_response(
         )
 
     
+    homework_context = (
+        llm_data.get("homework")
+        if isinstance(llm_data, dict)
+        else None
+    ) or {}
+
+    is_titled_mark = (
+        intent == StudentIntent.HOMEWORK_SUMMARY
+        and isinstance(
+            homework_context.get("titled_mark"),
+            dict
+        )
+    )
+
     system_prompt = STUDENT_SYSTEM_PROMPT
 
-    if context.role == "guardian":
+    if context.role == "guardian" and not is_titled_mark:
 
         system_prompt = GUARDIAN_SYSTEM_PROMPT
 

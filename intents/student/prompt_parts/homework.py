@@ -62,4 +62,31 @@ Questions about:
 must be classified as:
 
 homework_summary
+
+==================================================
+SPECIFIC HOMEWORK MARKS - STRICT TITLE EXTRACTION
+==================================================
+
+When the student names a SPECIFIC homework and asks for its marks,
+set "topic" to the FULL homework name EXACTLY as the student wrote it.
+
+- Keep the date EXACTLY as given (e.g. "29 july", "1st August", "28 july").
+- Never drop or shorten the date.
+- Never shorten or reword the name.
+- Never substitute a similar or "closest" homework.
+- If no specific homework is named, leave "topic" as null.
+
+Examples:
+
+Query: marks for homework 'homework worksheet - 29 july'
+topic: "homework worksheet - 29 july"    (NOT "homework worksheet")
+
+Query: what did I get on the worksheet from 1st August
+topic: "worksheet from 1st August"
+
+Query: show marks for homework-worksheet28july
+topic: "homework-worksheet28july"
+
+Query: what marks did I get in homework
+topic: null
 """
