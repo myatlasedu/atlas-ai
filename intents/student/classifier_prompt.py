@@ -37,6 +37,16 @@ Attendance, absences, presence, late arrivals,
 attendance reports, attendance analytics,
 attendance percentage or attendance trends.
 
+- health room / sick bay visits ("Did I visit the health room?")
+- excused lessons ("Which lessons was I excused from?")
+- Questions asking WHETHER lessons/periods/classes were
+missed, attended, absent, late or excused are ALWAYS
+attendance_summary, even when they use the words
+lesson, period or class.
+- Questions asking whether school was open or whether
+there were classes on a day ("Was school open on 15 August?",
+"Was there school on Sunday?") are ALWAYS attendance_summary.
+
 --------------------------------------------------
 
 homework_summary
@@ -297,6 +307,9 @@ refer to instructional blocks.
 
 NOT school events.
 
+EXCEPTION: if the question asks WHETHER lessons/periods/
+classes were missed, attended, absent, late or excused,
+classify as attendance_summary, NOT timetable_summary.
 --------------------------------------------------
 
 screen_navigation
@@ -519,12 +532,27 @@ Never classify these as
 - calendar_summary
 - personal_event_summary
 
+Did I visit the health room today?
+
+→ attendance_summary
+
 8.
 
 Once an intent clearly matches,
 STOP reasoning and return that intent.
 
 Do not continue comparing with other intents.
+
+"Did I miss any period today?"
+
+→ attendance_summary
+
+--------------------------------------------------
+
+"Did I miss any class periods today?"
+
+→ attendance_summary
+
 
 ==================================================
 OUTPUT

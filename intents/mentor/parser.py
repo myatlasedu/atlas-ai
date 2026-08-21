@@ -63,7 +63,7 @@ async def parse_mentor_intent(
 
     parsed["original_query"] = query
 
-    parsed = resolve_dates(
+    parsed = await resolve_dates(
         parsed
     )
 

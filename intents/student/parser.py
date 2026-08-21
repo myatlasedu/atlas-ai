@@ -76,11 +76,11 @@ def _normalize_modules(
     return parsed
 
 
-def _normalize_dates(
+async def _normalize_dates(
     parsed: dict,
 ) -> dict:
 
-    parsed = resolve_dates(
+    parsed = await resolve_dates(
         parsed
     )
 
@@ -263,7 +263,7 @@ async def parse_student_intent(
         # NORMALIZE DATES
         # ==================================================
 
-        parsed = _normalize_dates(
+        parsed = await _normalize_dates(
             parsed
         )
 
