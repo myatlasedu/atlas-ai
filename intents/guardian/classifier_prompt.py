@@ -69,6 +69,8 @@ Use when the guardian asks about:
 - pending homework
 - overdue homework
 - submitted homework
+- whether a specific homework was submitted or handed in
+- when a specific homework was submitted or handed in
 - homework feedback
 - homework review
 - homework due today
@@ -236,6 +238,28 @@ Output:
 
 User:
 Does my child have pending homework?
+
+Output:
+{
+    "intent": "homework_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+When did my child submit Son muy famosos?
+
+Output:
+{
+    "intent": "homework_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Did my child hand in the english chapter 2 homework?
 
 Output:
 {

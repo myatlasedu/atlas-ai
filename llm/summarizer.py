@@ -549,24 +549,75 @@ Explain that Atlas Score is still calibrating.
                 else "Your latest homework score"
             )
 
-            return f"""
-You are Atlas AI.
+            subject_line = (
+                f"- subject: {titled_mark.get('subject')}"
+                if titled_mark.get("subject")
+                else None
+            )
 
-The user asked for their mark on one specific homework.
+            teacher_line = (
+                f"- teacher: {titled_mark.get('teacher')}"
+                if titled_mark.get("teacher")
+                else None
+            )
 
-Use ONLY these supplied facts:
+            due_line = (
+                f"- due date: {titled_mark.get('due_date')}"
+                if titled_mark.get("due_date")
+                else None
+            )
 
+            submitted_line = (
+                f"- submitted at: {titled_mark.get('submitted_at')}"
+                if titled_mark.get("submitted_at")
+                else None
+            )
+
+            extra_facts = "\n".join(
+                line
+                for line in (
+                    subject_line,
+                    teacher_line,
+                    due_line,
+                    submitted_line,
+                )
+                if line
+            )
+
+            fact_block = (
+                f"""
 - title: {titled_mark.get('title')}
 - marks obtained: {titled_mark.get('marks_obtained')}
 - total marks: {titled_mark.get('total_marks')}
-- percentage: {titled_mark.get('percentage')}%
+- percentage: {titled_mark.get('percentage')}%"""
+                + ("\n" + extra_facts if extra_facts else "")
+            )
+
+            detail_note = (
+                "When mentioning the homework, you may also "
+                "state its subject, teacher, due date and "
+                "submission time, but ONLY using the facts "
+                "above."
+                if extra_facts
+                else ""
+            )
+
+            return f"""
+You are Atlas AI.
+
+The user asked about one specific homework.
+
+Use ONLY these supplied facts:
+{fact_block}
 
 Start with exactly this fact:
 "{owner} for <title> is <marks_obtained> out of <total_marks> (<percentage>%)."
 
 {encouragement}
 
-Never invent or change any number.
+{detail_note}
+
+Never invent or change any number, name or date.
 
 Keep the whole response under 100 words.
 
@@ -577,7 +628,26 @@ Keep the whole response under 100 words.
 
             state = titled_lookup.get("state")
 
-            if state == "assigned_not_submitted":
+            if state == "submitted_not_graded":
+
+                reply = (
+                    "This homework has been submitted and is "
+                    "waiting for the teacher to review it. Say "
+                    "clearly it has been handed in and is "
+                    "awaiting review - there is no mark yet."
+                )
+
+            elif state == "resubmit_requested":
+
+                reply = (
+                    "The teacher returned this homework asking "
+                    "for a redo. Say the teacher has asked the "
+                    "student to resubmit it, so the latest "
+                    "attempt needs attention. There is no "
+                    "final mark yet."
+                )
+
+            elif state == "assigned_not_submitted":
 
                 reply = (
                     "The homework was assigned to the student, but "
@@ -600,20 +670,216 @@ Keep the whole response under 100 words.
                     "Say you could not find a homework with that title."
                 )
 
+            facts = []
+
+            if titled_lookup.get("subject"):
+
+                facts.append(
+                    f"subject: {titled_lookup.get('subject')}"
+                )
+
+            if titled_lookup.get("teacher"):
+
+                facts.append(
+                    f"teacher: {titled_lookup.get('teacher')}"
+                )
+
+            if titled_lookup.get("due_date"):
+
+                facts.append(
+                    f"due date: {titled_lookup.get('due_date')}"
+                )
+
+            if titled_lookup.get("submitted_at"):
+
+                facts.append(
+                    f"submitted at: {titled_lookup.get('submitted_at')}"
+                )
+
+            facts_block = (
+                "\nYou may also mention these details, but only "
+                "these:\n- "
+                + "\n- ".join(facts)
+                if facts
+                else ""
+            )
+
             return f"""
 You are Atlas AI.
 
-The user asked for their mark on one specific homework,
-but no mark is available.
+The user asked about one specific homework.
 
 {reply}
+{facts_block}
 
-Do NOT invent any score.
+Do NOT invent any score, name or date.
 
-Keep the response under 50 words.
+Keep the response under 60 words.
 
 {common}
 """
+
+        focus = homework_context.get(
+            "focus"
+        )
+
+        if focus == "pending":
+
+            scope = (
+                "SCOPE - PENDING HOMEWORK.\n"
+                "Start with one short sentence stating the "
+                "total number of pending assignments.\n"
+                "Then list EVERY item in the pending and overdue "
+                "lists exactly once each, in this format:\n"
+                "Title - due <date>(overdue)\n"
+                "Add \"(overdue)\" ONLY to items tagged overdue.\n"
+                "Do NOT create a separate overdue section and "
+                "repeat the same items twice.\n"
+                "If both lists are empty, say clearly there is "
+                "no pending homework."
+            )
+
+        elif focus == "overdue":
+
+            scope = (
+                "SCOPE - OVERDUE HOMEWORK ONLY.\n"
+                "List ONLY the items in the overdue list, one per "
+                "line:\nTitle - due <date>\n"
+                "Do not include pending, submitted or graded items.\n"
+                "If the overdue list is empty, say clearly that "
+                "nothing is overdue."
+            )
+
+        elif focus == "submitted":
+
+            scope = (
+                "SCOPE - HANDED-IN HOMEWORK ONLY.\n"
+                "List ONLY items in the submitted list, one per "
+                "line:\nTitle - submitted <date/time>\n"
+                "Never include pending or overdue items.\n"
+                "If the submitted list is empty, say no matching "
+                "submissions were found."
+            )
+
+        elif focus == "graded":
+
+            scope = (
+                "SCOPE - GRADED HOMEWORK ONLY.\n"
+                "List ONLY items in the graded list, one per "
+                "line:\nTitle - <marks_obtained>/<total_marks> "
+                "(<percentage>%)\n"
+                "Use marks ONLY for graded items; never guess a "
+                "score.\n"
+                "If the graded list is empty, say no graded "
+                "homework was found."
+            )
+
+        elif focus == "feedback":
+
+            scope = (
+                "SCOPE - TEACHER FEEDBACK ONLY.\n"
+                "Present ONLY the recent_feedback items: title "
+                "plus the teacher's note, quoted faithfully.\n"
+                "If feedback is empty, say the teachers haven't "
+                "left any homework feedback yet."
+            )
+
+        elif focus == "due_range":
+
+            window = (
+                homework_context.get("due_window")
+                or {}
+            )
+
+            scope = (
+                f"SCOPE - DUE-WINDOW QUESTION.\n"
+                f"The user asked about homework due between "
+                f"{window.get('start')} and {window.get('end')}.\n"
+                "First state how many unfinished items fall in "
+                "that window (overdue tagged with \"(overdue)\"), "
+                "then list them once each.\n"
+                "Then, if a submitted list exists, mention how "
+                "many were handed in during the question's frame "
+                "- but do not re-list them unless asked.\n"
+                "If nothing matches, say clearly that no homework "
+                "was due in that period."
+            )
+
+        elif focus == "next_up":
+
+            nxt = homework_context.get("next_up")
+
+            if isinstance(nxt, dict) and nxt.get("title"):
+
+                scope = (
+                    "SCOPE - WHAT'S DUE FIRST.\n"
+                    f"Answer with exactly one assignment: "
+                    f"{nxt.get('title')}, due "
+                    f"{str(nxt.get('due_date'))[:10]}.\n"
+                    "Mention it briefly and stop. Do not list "
+                    "other homework."
+                )
+
+            else:
+
+                scope = (
+                    "SCOPE - WHAT'S DUE FIRST.\n"
+                    "There is genuinely nothing due ahead. Say "
+                    "the student is all caught up with nothing "
+                    "coming due. Do not invent an assignment."
+                )
+
+        elif focus in (
+            "due_today",
+            "due_tomorrow",
+        ):
+
+            day_label = (
+                "today" if focus == "due_today" else "tomorrow"
+            )
+
+            rows_key = (
+                "due_today"
+                if focus == "due_today"
+                else "due_tomorrow"
+            )
+
+            count = len(
+                homework_context.get(rows_key) or []
+            )
+
+            if count:
+
+                scope = (
+                    f"SCOPE - DUE {day_label.upper()} ONLY.\n"
+                    f"{count} item(s) are due {day_label}. List "
+                    "only those items with their due dates."
+                )
+
+            else:
+
+                scope = (
+                    f"SCOPE - DUE {day_label.upper()} ONLY.\n"
+                    f"Nothing is due {day_label}. Say so plainly "
+                    "and do not mention other days' work."
+                )
+
+        else:
+
+            scope = (
+                "SCOPE - GENERAL OVERVIEW.\n"
+                "When the user explicitly asks to see homework, "
+                "start with one short sentence giving the total "
+                "count of open assignments, then give every open "
+                "item exactly once under two short headings - "
+                "Overdue first, then Upcoming - in the format:\n"
+                "Title - due <date>(overdue)\n"
+                "Then add one closing line noting how many were "
+                "handed in / graded, using counts only.\n"
+                "When the query is conversational (\"how is my "
+                "homework going?\"), reply with counts and advice "
+                "only - no enumeration."
+            )
 
         return f"""
 You are Atlas AI.
@@ -627,41 +893,37 @@ Never discuss:
 - Attendance
 - Announcements
 
-Focus on:
+{scope}
 
-- pending homework
-- overdue homework
-- due today
-- due tomorrow
-- teacher feedback
+==================================================
+HARD TRUTH RULES
+==================================================
 
-Use only supplied homework data.
+- Use ONLY titles, dates, subjects, teachers and
+  numbers present in the supplied data.
+- Never invent, complete or "fix" a homework title.
+- Never invent dates, marks or submission times.
+- Never claim homework exists when its list is empty.
+- If data is missing, say so honestly.
 
 ==================================================
 LIST PRESENTATION RULES
 ==================================================
 
 The context may include itemized lists: pending,
-overdue, due_today, due_tomorrow and recent_feedback.
+overdue, due_today, due_tomorrow, submitted,
+graded, next_up and recent_feedback.
 
-When the user explicitly asks to show or list homework,
-or names one category (pending, overdue, due today,
-due tomorrow):
+One line per item:
 
-- Enumerate ONLY the requested category.
-- If the user asks about homework generally
-  (for example "show my homework"), list every
-  category under short headings:
-  Pending, Overdue, Due today, Due tomorrow.
-- One line per item in this format:
-  Title - due <date>
-- Write dates naturally, for example "due 30 July 2026".
-- Include teacher feedback items only when listing all
-  homework or when the user asks about feedback.
+Title - due <date>(overdue)
 
-When the question is general (for example "how did I do",
-"how is it going", "how is my child doing"), reply with
-counts and advice only. Do not enumerate items.
+Write dates naturally, for example "due 30 July 2026".
+Only tag "(overdue)" items that are tagged overdue.
+
+When listing ALL homework, cover Overdue then Upcoming,
+then close with one line about handed-in/graded counts.
+Each item appears exactly ONCE in the whole reply.
 
 Never invent items. Use only items present in the
 supplied lists.
@@ -945,6 +1207,187 @@ Do not invent missing information.
     
     
 
+LISTING_FOCUS_ROWS = {
+    "pending": "pending",
+    "overdue": "overdue",
+    "submitted": "submitted",
+    "graded": "graded",
+    "due_today": "due_today",
+    "due_tomorrow": "due_tomorrow",
+}
+
+
+def format_listing_line(item):
+    """
+    One deterministic bullet for a homework listing.
+    Mirrors the tool's own direct-answer style so the
+    reply never depends on the summarizer LLM's mood.
+    """
+
+    line = "• " + item.get("title", "Homework")
+
+    if (
+        item.get("status_tag") == "overdue"
+        or item.get("is_overdue")
+    ):
+
+        return line + " (overdue)"
+
+    if (
+        item.get("marks_obtained") is not None
+        and item.get("total_marks")
+    ):
+
+        obtained = int(round(float(item["marks_obtained"])))
+
+        total = int(round(float(item["total_marks"])))
+
+        pct = int(round(float(item["marks_obtained"]) / float(item["total_marks"]) * 100))
+
+        return f"{line} - {obtained}/{total} ({pct}%)"
+
+    if item.get("submitted_at"):
+
+        return f"{line} - submitted {str(item['submitted_at'])[:16]}"
+
+    return line
+
+
+def listing_header(focus, count, role):
+    """
+    Count-first header. Guardian replies always speak in
+    'your child' voice, student replies in 'you' voice.
+    """
+
+    subject = (
+        "Your child has"
+        if role == "guardian"
+        else "You have"
+    )
+
+    headers = {
+        "pending":
+            f"{subject} {count} pending homework assignment(s):",
+        "overdue":
+            f"{subject} {count} overdue homework assignment(s):",
+        "submitted":
+            f"{subject} handed in {count} homework assignment(s):",
+        "graded":
+            f"{subject} {count} graded homework assignment(s):",
+        "due_today":
+            f"{subject} {count} homework assignment(s) due today:",
+        "due_tomorrow":
+            f"{subject} {count} homework assignment(s) due tomorrow:",
+    }
+
+    return headers[focus]
+
+
+def build_listing_passthrough(role, hw):
+    """
+    FIX for silent truncation: when a homework listing holds
+    MORE than 10 rows, skip the second LLM entirely and emit
+    the list deterministically - every count stated, no item
+    ever dropped, and roughly 20 seconds of latency saved.
+    Small lists keep the natural LLM prose.
+    """
+
+    focus = hw.get("focus")
+
+    key = LISTING_FOCUS_ROWS.get(focus)
+
+    if not key:
+
+        return None
+
+    rows = hw.get(key) or []
+
+    total = len(rows)
+
+    if total <= 10:
+
+        return None
+
+    lines = [
+        listing_header(focus, total, role)
+    ]
+
+    shown = rows[:12]
+
+    for item in shown:
+
+        lines.append(
+            make_json_safe(format_listing_line(item))
+        )
+
+    extra = total - len(shown)
+
+    if extra > 0:
+
+        lines.append(f"...and {extra} more.")
+
+    return "\n".join(lines)
+
+def line_contradicts_empty_counts(line):
+    """
+    True when a reply line claims homework was handed in or graded
+    while the database says nothing was submitted or graded. Only
+    used when both counts are zero, so any matching line is the
+    self-contradicting closing sentence.
+    """
+
+    lowered = line.lower()
+
+    claims_activity = (
+        "handed in" in lowered
+        or "graded" in lowered
+    )
+
+    claims_zero = (
+        "0 submitted" in lowered
+        or "0 graded" in lowered
+    )
+
+    return claims_activity and claims_zero
+
+
+def number_already_stated(text, number):
+    """
+    True when the given whole number already appears standalone in
+    the text (never as part of a longer number). Plain string search,
+    no regex.
+    """
+
+    needle = str(number)
+
+    start = 0
+
+    while True:
+
+        index = text.find(needle, start)
+
+        if index == -1:
+
+            return False
+
+        before_is_digit = (
+            index > 0
+            and text[index - 1].isdigit()
+        )
+
+        end = index + len(needle)
+
+        after_is_digit = (
+            end < len(text)
+            and text[end].isdigit()
+        )
+
+        if not before_is_digit and not after_is_digit:
+
+            return True
+
+        start = index + 1
+
 async def summarize_response(
     query: str,
     data: dict,
@@ -1023,6 +1466,46 @@ async def summarize_response(
         )
     )
 
+    #
+    # Full-list homework answers enumerate every item,
+    # so they need a larger output budget than the
+    # 500-token default. Titled lookups stay small.
+    #
+
+    homework_full_list = (
+        intent == StudentIntent.HOMEWORK_SUMMARY
+        and not is_titled_mark
+        and not isinstance(
+            homework_context.get("titled_lookup"),
+            dict
+        )
+    )
+
+    response_budget = (
+        1500 if homework_full_list else 500
+    )
+
+    #
+    # Big listings never go through the second LLM.
+    # Deterministic passthrough: full count, no silent
+    # truncation, guardian voice preserved.
+    #
+
+    if homework_full_list:
+
+        passthrough = build_listing_passthrough(
+            context.role,
+            homework_context,
+        )
+
+        if passthrough:
+
+            logger.info(
+                "Homework listing passthrough used (deterministic)."
+            )
+
+            return passthrough
+
     system_prompt = STUDENT_SYSTEM_PROMPT
 
     if context.role == "guardian" and not is_titled_mark:
@@ -1039,7 +1522,8 @@ async def summarize_response(
                 "role": "user",
                 "content": prompt
             }
-        ]
+        ],
+        max_tokens=response_budget
     )
 
     logger.info(
@@ -1047,4 +1531,75 @@ async def summarize_response(
         response
     )
 
-    return response["message"]["content"]
+    content = response["message"]["content"]
+
+    #
+    # Contradiction guard: when nothing has been handed in
+    # or graded, the LLM sometimes still appends a closing
+    # line like "All assignments have been handed in and
+    # graded: 0 submitted, 0 graded." Strip exactly that
+    # self-contradicting sentence (only when it contains
+    # explicit zero counts) - true closing lines survive.
+    #
+
+    if homework_full_list:
+
+        metrics = (
+            homework_context.get("metrics")
+            or {}
+        )
+
+        if (
+            not metrics.get("submitted")
+            and
+            not metrics.get("graded")
+        ):
+
+            kept_lines = [
+                line
+                for line in content.splitlines()
+                if not line_contradicts_empty_counts(line)
+            ]
+
+            cleaned = "\n".join(kept_lines).strip()
+
+            if cleaned:
+
+                content = cleaned
+
+        #
+        # Count guarantee for small listings (1..10 rows):
+        # the LLM keeps its natural prose but must state
+        # HOW MANY items exist. If the number is missing
+        # from the reply, prepend the deterministic count
+        # sentence.
+        #
+
+        list_key = LISTING_FOCUS_ROWS.get(
+            homework_context.get("focus")
+        )
+
+        if list_key:
+
+            listed_rows = (
+                homework_context.get(list_key)
+                or []
+            )
+
+            listed_total = len(listed_rows)
+
+            if 1 <= listed_total <= 10:
+
+                if not number_already_stated(content, listed_total):
+
+                    statement = listing_header(
+                        homework_context.get("focus"),
+                        listed_total,
+                        context.role,
+                    ).rstrip(":") + "."
+
+                    content = (
+                        f"{statement}\n\n{content}"
+                    )
+
+    return content

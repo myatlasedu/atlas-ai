@@ -26,3 +26,5 @@ class ParsedStudentIntent(BaseModel):
     subject: str | None = None
 
     asks_for_marks: bool = False
+
+    homework_focus: str | None = None

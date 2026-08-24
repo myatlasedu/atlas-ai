@@ -38,11 +38,38 @@ def build_homework_llm_context(
         [],
     )
 
+    submitted = payload.get(
+        "submitted",
+        [],
+    )
+
+    graded = payload.get(
+        "graded",
+    [],
+    )
+
+    next_up = payload.get(
+        "next_up",
+        None,
+    )
+
+    focus = payload.get(
+        "focus",
+        None,
+    )
+
+    due_window = payload.get(
+        "due_window",
+        None,
+    )
+
     pending_count = len(pending)
     overdue_count = len(overdue)
     due_today_count = len(due_today)
     due_tomorrow_count = len(due_tomorrow)
     feedback_count = len(feedback)
+    submitted_count = len(submitted)
+    graded_count = len(graded)
 
     # ==========================================
     # STATUS
@@ -84,6 +111,29 @@ def build_homework_llm_context(
         headline = (
             f"Homework lookup for "
             f"{titled_lookup.get('title')}."
+        )
+
+    elif focus == "graded" and not overdue_count:
+
+        headline = (
+            f"{graded_count} homework assignment(s) "
+            f"have been graded."
+        )
+
+    elif focus == "submitted" and not overdue_count:
+
+        headline = (
+            f"You have handed in "
+            f"{submitted_count} homework assignment(s)."
+        )
+
+    elif focus == "feedback":
+
+        headline = (
+            f"Teacher feedback is available on "
+            f"{feedback_count} assignment(s)."
+        ) if feedback_count else (
+            "No teacher feedback yet."
         )
 
     elif overdue_count:
@@ -205,6 +255,8 @@ def build_homework_llm_context(
 
         "headline": headline,
 
+        "focus": focus,
+
         "metrics": {
 
             "pending": pending_count,
@@ -216,6 +268,10 @@ def build_homework_llm_context(
             "due_tomorrow": due_tomorrow_count,
 
             "feedback": feedback_count,
+
+            "submitted": submitted_count,
+
+            "graded": graded_count,
         },
 
         "highlights": highlights,
@@ -237,4 +293,12 @@ def build_homework_llm_context(
         "due_tomorrow": due_tomorrow,
 
         "recent_feedback": feedback,
+
+        "submitted": submitted,
+
+        "graded": graded,
+
+        "next_up": next_up,
+
+        "due_window": due_window,
     }
