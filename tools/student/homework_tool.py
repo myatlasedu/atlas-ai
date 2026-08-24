@@ -9,6 +9,7 @@ from db.session import (
 
 from db.repositories.student.homework_repository import (
     HomeworkRepository,
+    RELATIVE_HOMEWORK_TITLES,
 )
 
 from llm.builders.homework_builder import (
@@ -79,58 +80,69 @@ class HomeworkTool:
         # database fact, never an invention.
         #
 
-        marks = (
-            await repo.get_homework_mark_state(
-                enrollment_id,
-                title,
-            )
-        )
+        #
+        # Relative titles (latesthomework, lasthomework, etc.)
+        # skip difflib — they search ALL homework by date, not
+        # by name. Non-relative titles fetch the full title list
+        # and let difflib pick the closest match, catching typos
+        # in any character position.
+        #
 
-        #
-        # Typo safety net: when the exact title misses,
-        # compare the student's words against the real
-        # homework titles deterministically (letter
-        # similarity, never an AI guess). A strong match
-        # is answered transparently; a miss falls through
-        # to an honest acknowledgment.
-        #
+        normalized_title = repo.normalize_title(title)
+
+        is_relative = normalized_title in RELATIVE_HOMEWORK_TITLES
 
         close_match_note = ""
 
-        if marks.get("state") == "not_found":
+        if not is_relative:
 
-            candidates = marks.get("candidates") or []
+            all_titles = await repo.list_enrollment_homework_titles(
+                enrollment_id,
+            )
+
+            title_list = [
+                t["title"]
+                for t in all_titles
+            ]
 
             close_match = difflib.get_close_matches(
                 title.lower(),
                 [
-                    candidate.lower()
-                    for candidate in candidates
+                    t.lower()
+                    for t in title_list
                 ],
                 n=1,
                 cutoff=0.85,
-            ) if candidates else []
+            )
 
             if close_match:
 
                 canonical = next(
-                    candidate
-                    for candidate in candidates
-                    if candidate.lower() == close_match[0]
+                    t
+                    for t in title_list
+                    if t.lower() == close_match[0]
                 )
 
-                retry = await repo.get_homework_mark_state(
+                close_match_note = (
+                    f"Showing closest match '{canonical}'. "
+                )
+
+            else:
+
+                return await self.build_not_found_overview_reply(
+                    repo,
                     enrollment_id,
-                    canonical,
+                    title,
                 )
 
-                if retry.get("state") != "not_found":
+        else:
 
-                    marks = retry
+            canonical = title
 
-                    close_match_note = (
-                        f"Showing closest match '{canonical}'. "
-                    )
+        marks = await repo.get_homework_mark_state(
+            enrollment_id,
+            canonical,
+        )
 
         state = marks.get("state")
 

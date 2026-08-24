@@ -74,39 +74,19 @@ class HomeworkRepository:
             if character.isalnum()
         )
 
-    def build_title_pattern(
-        self,
-        value: str,
-    ) -> str:
+    async def list_enrollment_homework_titles(self, enrollment_id: int):
+        result = await self.db.execute(
+            text("""
+                SELECT DISTINCT h.id, h.title
+                FROM students_homeworkstudentmap hm
+                JOIN students_homework h ON h.id = hm.homework_id
+                WHERE hm.enrollment_id = :enrollment_id
+                ORDER BY h.title
+            """),
+            {"enrollment_id": enrollment_id}
+        )
+        return [dict(row) for row in result.mappings()]
 
-        pattern_chars = []
-
-        for character in value.lower():
-
-            if character == "\\":
-
-                pattern_chars.append("\\\\")
-
-            elif character == "%":
-
-                pattern_chars.append("\\%")
-
-            elif character in (
-                "_",
-                " ",
-                "-",
-                ".",
-                ",",
-                "'",
-            ):
-
-                pattern_chars.append("%")
-
-            else:
-
-                pattern_chars.append(character)
-
-        return "".join(pattern_chars)
 
     async def get_homework_mark_state(
         self,
@@ -138,8 +118,6 @@ class HomeworkRepository:
 
         is_relative = normalized in RELATIVE_HOMEWORK_TITLES
 
-        title_pattern = self.build_title_pattern(title)
-
         result = await self.db.execute(
             text(
                 f"""
@@ -170,9 +148,8 @@ class HomeworkRepository:
                         OR hm.enrollment_id IS NOT NULL
                     )
                 AND
-                    (:is_relative OR h.title ILIKE :title_pattern)
+                    (:is_relative OR h.title = :title)
                 ORDER BY
-                    (h.title ILIKE :exact_title) DESC,
                     (hm.enrollment_id IS NOT NULL) DESC,
                     ((hs.status = 2) IS TRUE) DESC,
                     hs.reviewed_at DESC NULLS LAST,
@@ -181,8 +158,7 @@ class HomeworkRepository:
             ),
             {
                 "is_relative": is_relative,
-                "title_pattern": title_pattern,
-                "exact_title": title,
+                "title": title,
                 "enrollment_id": enrollment_id,
             }
         )
@@ -194,41 +170,13 @@ class HomeworkRepository:
 
         if not rows:
 
-            #
-            # No title matched. Hand back the enrollment's
-            # real homework titles so the tool layer can
-            # offer a deterministic closest-match instead
-            # of a dead end on typos.
-            #
-
-            candidates_result = await self.db.execute(
-                text(
-                    """
-                    SELECT DISTINCT h.title
-                    FROM students_homeworkstudentmap hm
-                    JOIN students_homework h
-                        ON h.id = hm.homework_id
-                    WHERE hm.enrollment_id = :enrollment_id
-                    ORDER BY h.title
-                    LIMIT 200
-                    """
-                ),
-                {
-                    "enrollment_id": enrollment_id,
-                }
-            )
-
             return {
                 "state": "not_found",
                 "title": title,
-                "candidates": [
-                    candidate_row["title"]
-                    for candidate_row in candidates_result.mappings()
-                ],
             }
 
         # --------------------------------------------------
-        # 3. Decide the state from the LATEST attempt only:
+        # 2. Decide the state from the LATEST attempt only:
         #    graded -> real marks, submitted -> awaiting
         #    review, resubmit -> teacher asked for a redo,
         #    otherwise assigned / not-assigned.
