@@ -23,6 +23,8 @@ class ParsedGuardianIntent(BaseModel):
 
     asks_for_marks: bool = False
 
+    homework_focus: str | None = None
+
     enrichment: bool | None = None
 
     view: str | None = None
