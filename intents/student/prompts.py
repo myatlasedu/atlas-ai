@@ -2,6 +2,8 @@ from intents.student.enums import (
     StudentIntent,
 )
 
+from utils import ist_today
+
 from intents.student.prompt_parts.attendance import (
     ATTENDANCE_PROMPT,
 )
@@ -136,6 +138,14 @@ intent classifier.
 You MUST TRUST the provided intent.
 
 ==================================================
+TODAY
+==================================================
+
+Today's date is {ist_today().isoformat()}.
+Use this year for any relative date ("this week",
+"last month", "tomorrow"). Never invent another year.
+
+==================================================
 CLASSIFIED INTENT
 ==================================================
 
@@ -199,6 +209,25 @@ If no specific titled homework is named, set
 This applies to any intent, so a specific titled
 homework marks question must set both "asks_for_marks"
 and "topic" even if the overall intent is assessment-like.
+
+==================================================
+HOMEWORK FOCUS FLAG
+==================================================
+
+For homework_summary intents also set "homework_focus"
+to exactly ONE value:
+
+topic_status | pending | overdue | due_today |
+due_tomorrow | submitted | graded | feedback |
+due_range | next_up | general
+
+A specific titled homework ALWAYS means "topic_status"
+plus the name in "topic". Date-based questions fill
+start_date / end_date. Full rules and examples are in
+the intent-specific instructions below.
+
+If the query is not about homework, leave
+"homework_focus" as null.
 
 ==================================================
 CAMBRIDGE TERMINOLOGY
@@ -298,5 +327,7 @@ Return ONLY valid JSON:
     "view": null,
     "target_modules": [],
     "asks_for_marks": false,
+
+    "homework_focus": null,
 }}
 """

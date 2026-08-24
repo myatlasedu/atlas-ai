@@ -65,6 +65,16 @@ Examples:
 
 --------------------------------------------------
 
+"Tell me about my homework Elements of Art."
+
+"Show details of the assignment Son muy famosos."
+
+"When did I submit my Maths homework?"
+
+→ homework_summary
+
+--------------------------------------------------
+
 assessment_summary
 
 Assessments, exams, tests, quizzes,
