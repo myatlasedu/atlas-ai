@@ -5,14 +5,6 @@ def build_homework_llm_context(
     payload: dict,
 ) -> dict:
 
-    titled_mark = payload.get(
-        "titled_mark"
-    )
-
-    titled_lookup = payload.get(
-        "titled_lookup"
-    )
-
     pending = payload.get(
         "pending",
         [],
@@ -38,48 +30,17 @@ def build_homework_llm_context(
         [],
     )
 
-    submitted = payload.get(
-        "submitted",
-        [],
-    )
-
-    graded = payload.get(
-        "graded",
-    [],
-    )
-
-    next_up = payload.get(
-        "next_up",
-        None,
-    )
-
-    focus = payload.get(
-        "focus",
-        None,
-    )
-
-    due_window = payload.get(
-        "due_window",
-        None,
-    )
-
     pending_count = len(pending)
     overdue_count = len(overdue)
     due_today_count = len(due_today)
     due_tomorrow_count = len(due_tomorrow)
     feedback_count = len(feedback)
-    submitted_count = len(submitted)
-    graded_count = len(graded)
 
     # ==========================================
     # STATUS
     # ==========================================
 
-    if titled_lookup:
-
-        status = "info"
-
-    elif overdue_count:
+    if overdue_count:
 
         status = "critical"
 
@@ -95,48 +56,7 @@ def build_homework_llm_context(
     # HEADLINE
     # ==========================================
 
-    if titled_mark:
-
-        headline = (
-            f"Your mark for "
-            f"{titled_mark.get('title')} "
-            f"is "
-            f"{titled_mark.get('marks_obtained')}/"
-            f"{titled_mark.get('total_marks')} "
-            f"({titled_mark.get('percentage')}%)."
-        )
-
-    elif titled_lookup:
-
-        headline = (
-            f"Homework lookup for "
-            f"{titled_lookup.get('title')}."
-        )
-
-    elif focus == "graded" and not overdue_count:
-
-        headline = (
-            f"{graded_count} homework assignment(s) "
-            f"have been graded."
-        )
-
-    elif focus == "submitted" and not overdue_count:
-
-        headline = (
-            f"You have handed in "
-            f"{submitted_count} homework assignment(s)."
-        )
-
-    elif focus == "feedback":
-
-        headline = (
-            f"Teacher feedback is available on "
-            f"{feedback_count} assignment(s)."
-        ) if feedback_count else (
-            "No teacher feedback yet."
-        )
-
-    elif overdue_count:
+    if overdue_count:
 
         headline = (
             "Some homework requires immediate attention."
@@ -255,8 +175,6 @@ def build_homework_llm_context(
 
         "headline": headline,
 
-        "focus": focus,
-
         "metrics": {
 
             "pending": pending_count,
@@ -268,10 +186,6 @@ def build_homework_llm_context(
             "due_tomorrow": due_tomorrow_count,
 
             "feedback": feedback_count,
-
-            "submitted": submitted_count,
-
-            "graded": graded_count,
         },
 
         "highlights": highlights,
@@ -279,26 +193,4 @@ def build_homework_llm_context(
         "priority_items": priority_items,
 
         "action_items": action_items,
-
-        "titled_mark": titled_mark,
-
-        "titled_lookup": titled_lookup,
-
-        "pending": pending,
-
-        "overdue": overdue,
-
-        "due_today": due_today,
-
-        "due_tomorrow": due_tomorrow,
-
-        "recent_feedback": feedback,
-
-        "submitted": submitted,
-
-        "graded": graded,
-
-        "next_up": next_up,
-
-        "due_window": due_window,
     }
