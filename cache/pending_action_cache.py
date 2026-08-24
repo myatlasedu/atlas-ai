@@ -37,19 +37,34 @@ class PendingActionCache:
                 payload
         }
 
-        await redis_client.set(
+        try:
 
-            key,
+            await redis_client.set(
 
-            json.dumps(value),
+                key,
 
-            ex=cls.TTL_SECONDS
-        )
+                json.dumps(value),
 
-        logger.info(
-            "Pending action saved for user=%s",
-            user_id
-        )
+                ex=cls.TTL_SECONDS
+            )
+
+            logger.info(
+                "Pending action saved for user=%s",
+                user_id
+            )
+
+        except Exception as exc:
+
+            #
+            # Redis unavailable: the conversation must keep
+            # flowing. Only the confirmation round-trip is
+            # lost for this turn.
+            #
+
+            logger.warning(
+                "Pending action save skipped (redis unavailable): %s",
+                exc
+            )
 
     @classmethod
     async def get(
@@ -61,9 +76,20 @@ class PendingActionCache:
             f"{cls.PREFIX}:{user_id}"
         )
 
-        value = await redis_client.get(
-            key
-        )
+        try:
+
+            value = await redis_client.get(
+                key
+            )
+
+        except Exception as exc:
+
+            logger.warning(
+                "Pending action read skipped (redis unavailable): %s",
+                exc
+            )
+
+            return None
 
         if not value:
 
@@ -83,11 +109,20 @@ class PendingActionCache:
             f"{cls.PREFIX}:{user_id}"
         )
 
-        await redis_client.delete(
-            key
-        )
+        try:
 
-        logger.info(
-            "Pending action deleted for user=%s",
-            user_id
-        )
+            await redis_client.delete(
+                key
+            )
+
+            logger.info(
+                "Pending action deleted for user=%s",
+                user_id
+            )
+
+        except Exception as exc:
+
+            logger.warning(
+                "Pending action delete skipped (redis unavailable): %s",
+                exc
+            )

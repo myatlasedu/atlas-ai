@@ -3,13 +3,18 @@ from datetime import date
 from intents.mentor.enums import (
     MentorIntent
 )
-from utils import ist_today
+from utils import (
+    ist_today,
+    has_month_name,
+    has_weekday_name,
+)
 
 class DateService:
 
     @staticmethod
     def validate(
-        parsed_intent
+        parsed_intent,
+        query: str = "",
     ):
 
         if (
@@ -21,10 +26,16 @@ class DateService:
 
         if parsed_intent.intent == MentorIntent.ATTENDANCE_SUMMARY:
 
-            today = ist_today()
+            if (
+                not has_month_name(query)
+                and
+                not has_weekday_name(query)
+            ):
 
-            parsed_intent.start_date = today
+                today = ist_today()
 
-            parsed_intent.end_date = today
+                parsed_intent.start_date = today
+
+                parsed_intent.end_date = today
 
         return parsed_intent
