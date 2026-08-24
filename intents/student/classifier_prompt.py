@@ -37,6 +37,16 @@ Attendance, absences, presence, late arrivals,
 attendance reports, attendance analytics,
 attendance percentage or attendance trends.
 
+- health room / sick bay visits ("Did I visit the health room?")
+- excused lessons ("Which lessons was I excused from?")
+- Questions asking WHETHER lessons/periods/classes were
+missed, attended, absent, late or excused are ALWAYS
+attendance_summary, even when they use the words
+lesson, period or class.
+- Questions asking whether school was open or whether
+there were classes on a day ("Was school open on 15 August?",
+"Was there school on Sunday?") are ALWAYS attendance_summary.
+
 --------------------------------------------------
 
 homework_summary
@@ -44,6 +54,34 @@ homework_summary
 Homework, assignments, submissions,
 deadlines, pending homework,
 overdue homework, homework feedback.
+
+Examples:
+
+"What marks did I get in my homework?"
+
+→ homework_summary
+
+--------------------------------------------------
+
+"Show me my marks for homework 'Worksheet 1'."
+
+→ homework_summary
+
+--------------------------------------------------
+
+"What grade did I get on the worksheet?"
+
+→ homework_summary
+
+--------------------------------------------------
+
+"Tell me about my homework Elements of Art."
+
+"Show details of the assignment Son muy famosos."
+
+"When did I submit my Maths homework?"
+
+→ homework_summary
 
 --------------------------------------------------
 
@@ -279,6 +317,9 @@ refer to instructional blocks.
 
 NOT school events.
 
+EXCEPTION: if the question asks WHETHER lessons/periods/
+classes were missed, attended, absent, late or excused,
+classify as attendance_summary, NOT timetable_summary.
 --------------------------------------------------
 
 screen_navigation
@@ -322,6 +363,21 @@ return unknown.
 ==================================================
 PRIORITY RULES
 ==================================================
+
+If a query asks for marks, grades, score or result
+FOR a homework, assignment, worksheet or submission
+(e.g. "marks for homework", "marks for the worksheet",
+"grade on the assignment"), classify it as:
+
+homework_summary
+
+A query about marks WITHOUT any homework, assignment,
+worksheet or submission keyword must remain:
+
+assessment_summary
+
+Do NOT treat other intents as homework when homework
+words are absent.
 
 1.
 
@@ -486,12 +542,27 @@ Never classify these as
 - calendar_summary
 - personal_event_summary
 
+Did I visit the health room today?
+
+→ attendance_summary
+
 8.
 
 Once an intent clearly matches,
 STOP reasoning and return that intent.
 
 Do not continue comparing with other intents.
+
+"Did I miss any period today?"
+
+→ attendance_summary
+
+--------------------------------------------------
+
+"Did I miss any class periods today?"
+
+→ attendance_summary
+
 
 ==================================================
 OUTPUT

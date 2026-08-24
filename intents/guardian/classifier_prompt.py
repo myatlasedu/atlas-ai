@@ -27,6 +27,21 @@ student_performance.
 If the query contains Atlas, Band or Pillar,
 classify it as atlas_score_summary.
 
+If the query asks for marks, grades, score or result
+FOR a homework, assignment, worksheet or submission
+(e.g. "marks for homework", "marks for the worksheet",
+"grade on the assignment"), classify it as:
+
+homework_summary
+
+A query about marks WITHOUT any homework, assignment,
+worksheet or submission keyword must remain:
+
+assessment_summary
+
+Do NOT treat other intents as homework when homework
+words are absent.
+
 ==================================================
 ALLOWED INTENTS
 ==================================================
@@ -42,6 +57,18 @@ Use when the guardian asks about:
 - late arrivals
 - attendance report
 - attendance trend
+- health room / sick bay visits
+- excused lessons
+- which lessons were missed, late, absent or attended
+
+Questions asking WHETHER lessons/periods/classes were
+missed, attended, absent, late or excused are ALWAYS
+attendance_summary, even when they use the words
+lesson, period or class.
+
+Questions asking whether school was open or whether
+there were classes on a day ("Was school open on 15 August?",
+"Was there school on Sunday?") are ALWAYS attendance_summary.
 
 --------------------------------------------------
 
@@ -54,6 +81,8 @@ Use when the guardian asks about:
 - pending homework
 - overdue homework
 - submitted homework
+- whether a specific homework was submitted or handed in
+- when a specific homework was submitted or handed in
 - homework feedback
 - homework review
 - homework due today
@@ -220,7 +249,84 @@ Output:
 --------------------------------------------------
 
 User:
+Did my child visit the health room today?
+
+Output:
+{
+    "intent": "attendance_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Which lessons was my child excused from this week?
+
+Output:
+{
+    "intent": "attendance_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Did my child miss any class periods today?
+
+Output:
+{
+    "intent": "attendance_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Was my child late for school yesterday?
+
+Output:
+{
+    "intent": "attendance_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Was my child absent on 5 August?
+
+Output:
+{
+    "intent": "attendance_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
 Does my child have pending homework?
+
+Output:
+{
+    "intent": "homework_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+When did my child submit Son muy famosos?
+
+Output:
+{
+    "intent": "homework_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Did my child hand in the english chapter 2 homework?
 
 Output:
 {
