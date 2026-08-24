@@ -14,6 +14,4 @@ Examples:
 - Am I attending classes regularly?
 - Show attendance history
 - Was I absent yesterday?
-- Was school open on 15 August?
-- Was there school on Sunday?
 """
