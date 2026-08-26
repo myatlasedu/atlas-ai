@@ -7,6 +7,49 @@ from db.repositories.student.topic_repository import (
 )
 
 
+def build_grouped_list(
+    topics,
+    header,
+    include_scores=False,
+):
+    if not topics:
+        return None
+
+    by_subject = {}
+
+    for t in topics:
+
+        subj = t["subject_name"]
+
+        if subj not in by_subject:
+            by_subject[subj] = []
+
+        by_subject[subj].append(t)
+
+    lines = [header]
+
+    for subj, items in by_subject.items():
+
+        if include_scores:
+
+            names = ", ".join(
+                f"{t['topic_name']}"
+                f" ({t['average_score']}%)"
+                for t in items
+            )
+
+        else:
+
+            names = ", ".join(
+                t["topic_name"]
+                for t in items
+            )
+
+        lines.append(f"- {subj}: {names}")
+
+    return "\n".join(lines)
+
+
 class TopicTool:
 
     async def run(
@@ -29,7 +72,21 @@ class TopicTool:
                 ""
             )
             .lower()
+            .replace("?", "")
+            .replace(".", "")
             .strip()
+        )
+
+        subject_name = getattr(
+            parsed_intent,
+            "subject",
+            None,
+        )
+
+        topic_name = getattr(
+            parsed_intent,
+            "topic",
+            None,
         )
 
         async with AsyncSessionLocal() as db:
@@ -40,7 +97,9 @@ class TopicTool:
 
             statistics = (
                 await repo.get_topic_statistics(
-                    context.enrollment_id
+                    context.enrollment_id,
+                    subject_name=subject_name,
+                    topic_name=topic_name,
                 )
             )
 
@@ -59,6 +118,12 @@ class TopicTool:
             weak_topics = (
                 statistics[
                     "weak_topics"
+                ]
+            )
+
+            strong_topics = (
+                statistics[
+                    "strong_topics"
                 ]
             )
 
@@ -88,6 +153,11 @@ class TopicTool:
                         weak_topics
                     ),
 
+                "strong_topic_count":
+                    len(
+                        strong_topics
+                    ),
+
                 "total_topic_count":
                     len(
                         all_topics
@@ -101,6 +171,9 @@ class TopicTool:
 
                 "weak_topics":
                     weak_topics,
+
+                "strong_topics":
+                    strong_topics,
 
                 "llm_context": {
 
@@ -133,20 +206,31 @@ class TopicTool:
                             len(
                                 weak_topics
                             ),
+
+                        "strong_topics":
+                            len(
+                                strong_topics
+                            ),
                     },
 
                     "highlights": [
 
                         (
-                            f"You have completed {len(completed_topics)} topic(s)."
+                            f"You have completed "
+                            f"{len(completed_topics)} "
+                            f"topic(s)."
                         ),
 
                         (
-                            f"{len(pending_topics)} topic(s) are still pending."
+                            f"{len(pending_topics)} "
+                            f"topic(s) are still "
+                            f"pending."
                         ),
 
                         (
-                            f"{len(weak_topics)} topic(s) currently need revision."
+                            f"{len(weak_topics)} "
+                            f"topic(s) currently "
+                            f"need revision."
                         ),
                     ],
 
@@ -163,35 +247,111 @@ class TopicTool:
 
                         "Complete pending topics."
                     ],
+                    "weak_topics_detail": [
+                        {
+                            "subject_name":
+                                t["subject_name"],
+                            "topic_name":
+                                t["topic_name"],
+                            "average_score":
+                                t.get(
+                                    "average_score"
+                                ),
+                            "homework_average":
+                                t.get(
+                                    "homework_average"
+                                ),
+                            "assessment_average":
+                                t.get(
+                                    "assessment_average"
+                                ),
+                        }
+                        for t in weak_topics
+                    ],
                 }
             }
+
+            # =====================================
+            # KEYWORD DETECTION
+            # =====================================
+
+            has_topic = any(
+                w in query
+                for w in ["topic", "topics"]
+            )
+
+            has_completed = any(
+                w in query
+                for w in [
+                    "completed", "covered",
+                    "finished", "done",
+                ]
+            )
+
+            has_pending = any(
+                w in query
+                for w in [
+                    "pending", "remaining",
+                    "left", "not yet covered",
+                    "not covered",
+                ]
+            )
+
+            has_weak = any(
+                w in query
+                for w in [
+                    "weak", "struggling",
+                    "difficult", "improve",
+                    "revision", "revise",
+                    "focus",
+                ]
+            )
+
+            has_strong = any(
+                w in query
+                for w in [
+                    "strong", "best",
+                    "good", "doing well",
+                    "performing well",
+                    "strongest",
+                ]
+            )
+
+            has_all = any(
+                w in query
+                for w in [
+                    "all", "every",
+                    "full", "complete",
+                    "list", "show",
+                    "display", "see",
+                    "overview", "summary",
+                    "progress",
+                ]
+            )
 
             # =====================================
             # COMPLETED TOPICS
             # =====================================
 
-            if any(
+            if has_topic and has_completed:
 
-                phrase in query
-
-                for phrase in [
-
-                    "completed topic",
-                    "completed topics",
-                    "covered topics",
-                    "topics covered",
-                    "finished topics",
-                    "what have i completed",
-                ]
-            ):
+                result = build_grouped_list(
+                    completed_topics,
+                    (
+                        f"You have completed "
+                        f"{len(completed_topics)} "
+                        f"topic(s):"
+                    ),
+                )
 
                 payload[
-                    "direct_answer"
+                    "llm_context"
+                ][
+                    "completed_topics_list"
                 ] = (
-
-                    f"You have completed "
-                    f"{len(completed_topics)} "
-                    f"topic(s)."
+                    result
+                    or "No topics have been "
+                       "completed yet."
                 )
 
                 return payload
@@ -200,28 +360,25 @@ class TopicTool:
             # PENDING TOPICS
             # =====================================
 
-            if any(
+            if has_topic and has_pending:
 
-                phrase in query
-
-                for phrase in [
-
-                    "pending topic",
-                    "pending topics",
-                    "remaining topics",
-                    "topics left",
-                    "what topics are left",
-                    "what should i study next",
-                ]
-            ):
+                result = build_grouped_list(
+                    pending_topics,
+                    (
+                        f"You have "
+                        f"{len(pending_topics)} "
+                        f"topic(s) pending:"
+                    ),
+                )
 
                 payload[
-                    "direct_answer"
+                    "llm_context"
+                ][
+                    "pending_topics_list"
                 ] = (
-
-                    f"You still have "
-                    f"{len(pending_topics)} "
-                    f"topic(s) pending."
+                    result
+                    or "No pending topics. "
+                       "All topics are completed."
                 )
 
                 return payload
@@ -230,43 +387,166 @@ class TopicTool:
             # WEAK TOPICS
             # =====================================
 
-            if any(
+            if has_topic and has_weak:
 
-                phrase in query
-
-                for phrase in [
-
-                    "weak topic",
-                    "weak topics",
-                    "revision",
-                    "revise",
-                    "focus on",
-                    "struggling",
-                    "difficult topic",
-                    "improve",
-                ]
-            ):
-
-                if weak_topics:
-
-                    payload[
-                        "direct_answer"
-                    ] = (
-
-                        f"You currently have "
+                result = build_grouped_list(
+                    weak_topics,
+                    (
+                        f"You have "
                         f"{len(weak_topics)} "
                         f"weak topic(s) that "
-                        f"need revision."
+                        f"need revision:"
+                    ),
+                    include_scores=True,
+                )
+
+                payload[
+                    "llm_context"
+                ][
+                    "weak_topics_list"
+                ] = (
+                    result
+                    or "No weak topics "
+                       "were identified."
+                )
+
+                return payload
+
+            # =====================================
+            # STRONG TOPICS
+            # =====================================
+
+            if has_topic and has_strong:
+
+                result = build_grouped_list(
+                    strong_topics,
+                    (
+                        f"You are doing well "
+                        f"in "
+                        f"{len(strong_topics)} "
+                        f"topic(s):"
+                    ),
+                    include_scores=True,
+                )
+
+                payload[
+                    "llm_context"
+                ][
+                    "strong_topics_list"
+                ] = (
+                    result
+                    or "No strong topics "
+                       "were identified."
+                )
+
+                return payload
+
+            # =====================================
+            # SPECIFIC TOPIC
+            # =====================================
+
+            if getattr(
+                parsed_intent,
+                "topic",
+                None,
+            ):
+
+                topic_name_lower = (
+                    getattr(
+                        parsed_intent,
+                        "topic",
+                        "",
+                    )
+                    .lower()
+                )
+
+                all_scored = (
+                    completed_topics
+                    + pending_topics
+                )
+
+                specific = [
+                    t
+                    for t in all_scored
+                    if topic_name_lower
+                    in t["topic_name"].lower()
+                ]
+
+                seen_ids = set()
+                unique = []
+                for t in specific:
+                    if (
+                        t["topic_id"]
+                        not in seen_ids
+                    ):
+                        seen_ids.add(
+                            t["topic_id"]
+                        )
+                        unique.append(t)
+
+                if unique:
+
+                    topic = unique[0]
+
+                    status = (
+                        "completed"
+                        if topic["completed"]
+                        else "pending"
+                    )
+
+                    lines = [
+                        (
+                            f"{topic['topic_name']} "
+                            f"({topic['subject_name']})"
+                        ),
+                        f"Status: {status}",
+                    ]
+
+                    if (
+                        topic["average_score"]
+                        is not None
+                    ):
+                        lines.append(
+                            f"Average score: "
+                            f"{topic['average_score']}%"
+                        )
+
+                    if (
+                        topic["homework_average"]
+                        is not None
+                    ):
+                        lines.append(
+                            f"Homework average: "
+                            f"{topic['homework_average']}%"
+                        )
+
+                    if (
+                        topic["assessment_average"]
+                        is not None
+                    ):
+                        lines.append(
+                            f"Assessment average: "
+                            f"{topic['assessment_average']}%"
+                        )
+
+                    payload[
+                        "llm_context"
+                    ][
+                        "specific_topic"
+                    ] = (
+                        "\n".join(lines)
                     )
 
                 else:
 
                     payload[
-                        "direct_answer"
+                        "llm_context"
+                    ][
+                        "specific_topic"
                     ] = (
-
-                        "No weak topics "
-                        "were identified."
+                        f"Topic "
+                        f"'{topic_name_lower}' "
+                        f"not found."
                     )
 
                 return payload
@@ -275,38 +555,120 @@ class TopicTool:
             # ALL TOPICS
             # =====================================
 
-            if any(
+            if has_topic and has_all:
 
-                phrase in query
+                total_count = len(all_topics)
+                comp_count = len(completed_topics)
+                pend_count = len(pending_topics)
+                weak_count = len(weak_topics)
+                strong_count = len(strong_topics)
 
-                for phrase in [
+                total_word = (
+                    "topic"
+                    if total_count == 1
+                    else "topics"
+                )
 
-                    "topics",
-                    "topic summary",
-                    "topic overview",
-                    "list topics",
-                    "all topics",
-                ]
-            ):
+                comp_word = (
+                    "topic"
+                    if comp_count == 1
+                    else "topics"
+                )
+
+                pend_word = (
+                    "topic"
+                    if pend_count == 1
+                    else "topics"
+                )
+
+                weak_line = (
+                    f"- {weak_count} "
+                    f"needs revision (weak)"
+                    if weak_count == 1
+                    else f"- {weak_count} "
+                    f"need revision (weak)"
+                )
+
+                strong_line = (
+                    f"- {strong_count} "
+                    f"is strong"
+                    if strong_count == 1
+                    else f"- {strong_count} "
+                    f"are strong"
+                )
+
+                topic_summary = (
+                    f"You have "
+                    f"{total_count} "
+                    f"{total_word} total:\n"
+                    f"- {comp_count} "
+                    f"completed\n"
+                    f"- {pend_count} "
+                    f"pending"
+                )
+
+                if weak_count or strong_count:
+                    topic_summary += (
+                        "\n\nOut of "
+                        "scored topics:\n"
+                    )
+                    if weak_count:
+                        topic_summary += (
+                            weak_line + "\n"
+                        )
+                    if strong_count:
+                        topic_summary += (
+                            strong_line
+                        )
 
                 payload[
-                    "direct_answer"
-                ] = (
+                    "llm_context"
+                ][
+                    "topic_summary"
+                ] = topic_summary
 
-                    f"You currently have "
-                    f"{len(all_topics)} topic(s), "
-                    f"of which "
-                    f"{len(completed_topics)} "
-                    f"are completed and "
-                    f"{len(pending_topics)} "
-                    f"are pending."
+                completed_list = (
+                    build_grouped_list(
+                        completed_topics,
+                        "Completed topics:",
+                    )
+                    or "No topics completed yet."
                 )
+
+                pending_list = (
+                    build_grouped_list(
+                        pending_topics,
+                        "Pending topics:",
+                    )
+                    or "No pending topics."
+                )
+
+                payload[
+                    "llm_context"
+                ][
+                    "completed_topics_list"
+                ] = completed_list
+
+                payload[
+                    "llm_context"
+                ][
+                    "pending_topics_list"
+                ] = pending_list
 
                 return payload
 
             # =====================================
             # DEFAULT
             # =====================================
+
+            payload[
+                "llm_context"
+            ][
+                "fallback_note"
+            ] = (
+                "Here is your overall "
+                "topic progress:"
+            )
 
             payload[
                 "topic_analysis"

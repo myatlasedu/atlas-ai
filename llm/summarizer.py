@@ -768,20 +768,45 @@ Do not invent missing information.
 
     if intent == StudentIntent.TOPIC_SUMMARY:
 
+        topic_context = (
+            data.get("topic")
+            or {}
+        )
+
+        weak_list = topic_context.get(
+            "weak_topics_list"
+        )
+
+        strong_list = topic_context.get(
+            "strong_topics_list"
+        )
+
+        completed_list = topic_context.get(
+            "completed_topics_list"
+        )
+
+        pending_list = topic_context.get(
+            "pending_topics_list"
+        )
+
+        specific_topic = topic_context.get(
+            "specific_topic"
+        )
+
+        topic_summary = topic_context.get(
+            "topic_summary"
+        )
+
+        fallback_note = topic_context.get(
+            "fallback_note"
+        )
+
         return f"""
             You are Atlas AI.
 
             You are analyzing topic progress.
 
             Use only topic data.
-
-            Focus on:
-
-            - completed topics
-            - pending topics
-            - completion percentage
-            - strongest areas
-            - weakest areas
 
             Do not discuss:
 
@@ -790,6 +815,86 @@ Do not invent missing information.
             - atlas score
 
             unless explicitly provided.
+
+            Preserve all topic names and scores
+            exactly as given. Never invent scores.
+
+            When weak_topics_list is present,
+            use it as the basis for your response.
+            Add a brief encouraging note.
+
+            Example:
+            You have 2 weak topic(s) that need revision:
+            - Maths: Fractions (25.0%), Decimals (40.0%)
+            Focus on revising these areas.
+
+            When strong_topics_list is present,
+            use it as the basis. Congratulate the student.
+
+            Example:
+            You are doing well in 3 topic(s):
+            - Maths: Algebra (92.0%), Geometry (88.0%)
+            - Science: Biology (85.0%)
+            Keep up the great work!
+
+            When completed_topics_list is present,
+            use it. Highlight progress.
+
+            Example:
+            You have completed 10 topic(s):
+            - Maths: Algebra, Geometry, Trigonometry
+            - Science: Biology, Chemistry
+            Great progress!
+
+            When pending_topics_list is present,
+            use it. Encourage the student to cover them.
+
+            Example:
+            You have 3 topic(s) pending:
+            - Maths: Calculus, Statistics
+            - English: Essay Writing
+            Try to cover these soon.
+
+            When specific_topic is present,
+            use it to answer the specific question.
+
+            Example:
+            Fractions (Maths)
+            Status: completed
+            Average score: 75.0%
+            You have completed this topic with a
+            good average score.
+
+            When topic_summary is present,
+            use it as-is. It is deterministic data.
+
+            When completed_topics_list or
+            pending_topics_list are present,
+            include them in your response.
+
+            Example:
+            You have 16 topics total:
+            - 10 completed
+            - 3 pending
+
+            Out of scored topics:
+            - 3 need revision (weak)
+            - 2 are strong
+
+            Completed topics:
+            - Maths: Algebra, Geometry
+            - Science: Biology, Chemistry
+
+            Pending topics:
+            - Maths: Trigonometry
+
+            When fallback_note is present,
+            provide a general overview using the
+            available data.
+
+            When none of the above are present,
+            use the metrics and highlights to give
+            a brief summary.
 
             {common}
         """

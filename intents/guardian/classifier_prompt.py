@@ -163,6 +163,23 @@ Use when the guardian asks about:
 
 --------------------------------------------------
 
+topic_summary
+
+Use when the guardian asks about:
+
+- topics
+- completed topics
+- pending topics
+- weak topics
+- strong topics
+- topic progress
+- topic overview
+- topic summary
+- which topics to revise
+- which topics need improvement
+
+--------------------------------------------------
+
 announcement_summary
 
 Use when the guardian asks about:
@@ -275,6 +292,39 @@ Output:
 --------------------------------------------------
 
 User:
+Which topics is my child weak in?
+
+Output:
+{
+    "intent": "topic_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Which topics has my child completed?
+
+Output:
+{
+    "intent": "topic_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Was Fractions covered in class?
+
+Output:
+{
+    "intent": "topic_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
 Show school announcements.
 
 Output:
@@ -302,6 +352,39 @@ Generate my child's report.
 Output:
 {
     "intent": "student_report",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Which topics is my child weak in?
+
+Output:
+{
+    "intent": "topic_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Which topics has my child completed?
+
+Output:
+{
+    "intent": "topic_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Was Fractions covered in class?
+
+Output:
+{
+    "intent": "topic_summary",
     "confidence": 0.99
 }
 
