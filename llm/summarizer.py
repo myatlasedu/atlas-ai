@@ -64,20 +64,12 @@ def build_prompt(
     intent    
 ):
 
-    is_titled_mark = (
-        intent == StudentIntent.HOMEWORK_SUMMARY
-        and isinstance(
-            (data.get("homework") or {}).get("titled_mark"),
-            dict
-        )
-    )
-
     audience = (
         "Speak directly to the guardian. \
         Use 'your child' or the student's name to refer to the student.\
         Do not tell the guardian to speak to the guardian.\
         Do not address the student directly."
-        if role == "guardian" and not is_titled_mark
+        if role == "guardian"
         else
         "Speak directly to the student. Use 'you' to refer to the student."
     )
@@ -1711,7 +1703,7 @@ async def summarize_response(
 
     system_prompt = STUDENT_SYSTEM_PROMPT
 
-    if context.role == "guardian" and not is_titled_mark:
+    if context.role == "guardian":
 
         system_prompt = GUARDIAN_SYSTEM_PROMPT
 
@@ -1734,4 +1726,5 @@ async def summarize_response(
         response
     )
 
+    return response["message"]["content"]
     return response["message"]["content"]

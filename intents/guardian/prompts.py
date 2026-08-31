@@ -1,8 +1,6 @@
 from intents.guardian.enums import (
-    GuardianIntent,
+    GuardianIntent
 )
-
-from utils import ist_today
 
 from intents.student.prompt_parts.attendance import (
     ATTENDANCE_PROMPT
@@ -100,10 +98,6 @@ You are Atlas AI's guardian intent parser.
 
 The user's intent has ALREADY been classified.
 
-TODAY: today's date is {ist_today().isoformat()};
-use this year for any relative date and never
-invent another year.
-
 Intent:
 
 {intent.value}
@@ -174,9 +168,6 @@ Return:
     "enrichment": null,
     "view": null,
     "target_modules": [],
-    "confidence": 0.95,
-    "asks_for_marks": false,
-
-    "homework_focus": null
+    "confidence": 0.95
 }}
 """

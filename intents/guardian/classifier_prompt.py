@@ -78,8 +78,6 @@ Use when the guardian asks about:
 - pending homework
 - overdue homework
 - submitted homework
-- whether a specific homework was submitted or handed in
-- when a specific homework was submitted or handed in
 - homework feedback
 - homework review
 - homework due today

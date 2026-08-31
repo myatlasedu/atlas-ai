@@ -600,8 +600,7 @@ async def parse_student_intent(
                     "role": "user",
                     "content": query,
                 },
-            ],
-            expect_json=True,
+            ]
         )
 
         content = (
@@ -761,15 +760,6 @@ async def parse_student_intent(
         # ==================================================
 
         parsed = _normalize_modules(
-            parsed
-        )
-
-        # ==================================================
-        # STEP 7b
-        # NORMALIZE HOMEWORK FOCUS
-        # ==================================================
-
-        parsed = normalize_focus(
             parsed
         )
 
