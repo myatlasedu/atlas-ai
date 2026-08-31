@@ -397,38 +397,21 @@ class HomeworkRepository:
             else "TRUE"
         )
 
+=======
+    async def get_pending_homework(
+        self,
+        enrollment_id: int
+    ):
+
+>>>>>>> ad64f17861d0de87ebe28fcbff7383523e157133
         query = text(
-            f"""
+            """
             SELECT
 
                 h.id,
-
                 h.title,
-
                 h.due_date,
-
-                h.total_marks,
-
-                CASE WHEN h.due_date < date_trunc('day', NOW())
-                     THEN TRUE ELSE FALSE
-                END AS is_overdue,
-
-                {SUBJECT_TEACHER_COLUMNS}
-
-                hs.status AS latest_status,
-
-                hs.marks_obtained,
-
-                hs.submitted_at,
-
-                CASE
-                    WHEN hs.status = 2 THEN 'graded'
-                    WHEN hs.status = 1 THEN 'submitted'
-                    WHEN hs.status = 3 THEN 'resubmit_requested'
-                    WHEN h.due_date < date_trunc('day', NOW())
-                        THEN 'overdue'
-                    ELSE 'pending'
-                END AS status_tag
+                h.total_marks
 
             FROM students_homework h
 
@@ -436,10 +419,6 @@ class HomeworkRepository:
                 students_homeworkstudentmap hm
             ON
                 hm.homework_id = h.id
-
-            {LATEST_ATTEMPT_JOIN}
-
-            {SUBJECT_TEACHER_JOIN}
 
             WHERE
 
@@ -455,8 +434,10 @@ class HomeworkRepository:
         start = time.perf_counter()
         result = await self.db.execute(
             query,
-            params
-
+            {
+                "enrollment_id": enrollment_id
+            }
+        
         )
         print(
             f"get_pending_homework: {(time.perf_counter()-start)*1000:.2f} ms"
@@ -517,24 +498,12 @@ class HomeworkRepository:
             params["window_end"] = end
 
         query = text(
-            f"""
+            """
             SELECT
 
                 h.id,
-
                 h.title,
-
-                h.due_date,
-
-                h.total_marks,
-
-                TRUE AS is_overdue,
-
-                {SUBJECT_TEACHER_COLUMNS}
-
-                hs.status AS latest_status,
-
-                'overdue' AS status_tag
+                h.due_date
 
             FROM students_homework h
 
@@ -542,10 +511,6 @@ class HomeworkRepository:
                 students_homeworkstudentmap hm
             ON
                 hm.homework_id = h.id
-
-            {LATEST_ATTEMPT_JOIN}
-
-            {SUBJECT_TEACHER_JOIN}
 
             WHERE
 
@@ -563,7 +528,9 @@ class HomeworkRepository:
         start = time.perf_counter()
         result = await self.db.execute(
             query,
-            params
+            {
+                "enrollment_id": enrollment_id
+            }
         )
         print(
             f"get_overdue_homework: {(time.perf_counter()-start)*1000:.2f} ms"
@@ -593,18 +560,12 @@ class HomeworkRepository:
         }
 
         query = text(
-            f"""
+            """
             SELECT
 
                 h.id,
-
                 h.title,
-
-                h.due_date,
-
-            {SUBJECT_TEACHER_COLUMNS}
-
-                hs.status AS latest_status
+                h.due_date
 
             FROM students_homework h
 
@@ -612,10 +573,6 @@ class HomeworkRepository:
                 students_homeworkstudentmap hm
             ON
                 hm.homework_id = h.id
-
-            {LATEST_ATTEMPT_JOIN}
-
-            {SUBJECT_TEACHER_JOIN}
 
             WHERE
 
@@ -664,18 +621,12 @@ class HomeworkRepository:
         }
 
         query = text(
-            f"""
+            """
             SELECT
 
                 h.id,
-
                 h.title,
-
-                h.due_date,
-
-            {SUBJECT_TEACHER_COLUMNS}
-
-                hs.status AS latest_status
+                h.due_date
 
             FROM students_homework h
 
@@ -683,10 +634,6 @@ class HomeworkRepository:
                 students_homeworkstudentmap hm
             ON
                 hm.homework_id = h.id
-
-            {LATEST_ATTEMPT_JOIN}
-
-            {SUBJECT_TEACHER_JOIN}
 
             WHERE
 
@@ -728,16 +675,10 @@ class HomeworkRepository:
         }
 
         query = text(
-            f"""
+            """
             SELECT
 
-                h.id,
-
                 h.title,
-
-                h.due_date,
-
-            {SUBJECT_TEACHER_COLUMNS}
 
                 hs.teacher_note,
 
@@ -745,22 +686,16 @@ class HomeworkRepository:
 
                 hs.reviewed_at
 
-            FROM students_homework h
+            FROM students_homeworksubmission hs
 
             INNER JOIN
-                students_homeworkstudentmap hm
+                students_homework h
             ON
-                hm.homework_id = h.id
-            AND
-                hm.enrollment_id = :enrollment_id
-
-            {LATEST_ATTEMPT_JOIN}
-
-            {SUBJECT_TEACHER_JOIN}
+                h.id = hs.homework_id
 
             WHERE
 
-                hm.enrollment_id = :enrollment_id
+                hs.enrollment_id = :enrollment_id
 
             AND hs.teacher_note IS NOT NULL
 

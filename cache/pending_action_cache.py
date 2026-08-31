@@ -37,34 +37,19 @@ class PendingActionCache:
                 payload
         }
 
-        try:
+        await redis_client.set(
 
-            await redis_client.set(
+            key,
 
-                key,
+            json.dumps(value),
 
-                json.dumps(value),
+            ex=cls.TTL_SECONDS
+        )
 
-                ex=cls.TTL_SECONDS
-            )
-
-            logger.info(
-                "Pending action saved for user=%s",
-                user_id
-            )
-
-        except Exception as exc:
-
-            #
-            # Redis unavailable: the conversation must keep
-            # flowing. Only the confirmation round-trip is
-            # lost for this turn.
-            #
-
-            logger.warning(
-                "Pending action save skipped (redis unavailable): %s",
-                exc
-            )
+        logger.info(
+            "Pending action saved for user=%s",
+            user_id
+        )
 
     @classmethod
     async def get(
@@ -76,20 +61,9 @@ class PendingActionCache:
             f"{cls.PREFIX}:{user_id}"
         )
 
-        try:
-
-            value = await redis_client.get(
-                key
-            )
-
-        except Exception as exc:
-
-            logger.warning(
-                "Pending action read skipped (redis unavailable): %s",
-                exc
-            )
-
-            return None
+        value = await redis_client.get(
+            key
+        )
 
         if not value:
 
@@ -109,20 +83,11 @@ class PendingActionCache:
             f"{cls.PREFIX}:{user_id}"
         )
 
-        try:
+        await redis_client.delete(
+            key
+        )
 
-            await redis_client.delete(
-                key
-            )
-
-            logger.info(
-                "Pending action deleted for user=%s",
-                user_id
-            )
-
-        except Exception as exc:
-
-            logger.warning(
-                "Pending action delete skipped (redis unavailable): %s",
-                exc
-            )
+        logger.info(
+            "Pending action deleted for user=%s",
+            user_id
+        )

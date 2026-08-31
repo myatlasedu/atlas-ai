@@ -7,7 +7,6 @@ from db.session import (
 
 from db.repositories.student.homework_repository import (
     HomeworkRepository,
-    RELATIVE_HOMEWORK_TITLES,
 )
 
 from llm.builders.homework_builder import (
@@ -1280,23 +1279,8 @@ class HomeworkTool:
         )
 
         # =====================================
-        # DIRECT ANSWER
+        # DIRECT ANSWER (Temporary)
         # =====================================
-
-        payload["direct_answer"] = (
-            self.build_direct_answer(
-                focus,
-                payload,
-            )
-        )
-
-        return payload
-
-    def build_direct_answer(
-        self,
-        focus,
-        payload,
-    ):
 
         lines = []
 
@@ -1361,7 +1345,7 @@ class HomeworkTool:
 
         if focus == "pending":
 
-            if pending:
+        if pending:
 
                 lines.append(
                     f"You have {len(pending)} pending "
@@ -1382,18 +1366,17 @@ class HomeworkTool:
 
         elif focus == "overdue":
 
-            if overdue:
+        if overdue:
 
-                lines.append(
-                    f"{len(overdue)} homework assignment(s) "
-                    f"are overdue:"
-                )
+            lines.append(
+                f"{len(overdue)} homework assignment(s) are overdue."
+            )
 
                 for item in overdue:
 
-                    lines.append(
-                        self.format_item_line(item)
-                    )
+            lines.append(
+                f"{len(due_today)} homework assignment(s) are due today."
+            )
 
             else:
 
@@ -1802,10 +1785,10 @@ class HomeworkTool:
                     + "."
                 )
 
-                if overdue:
+        if overdue:
 
-                    lines.append("")
-                    lines.append("Overdue:")
+            lines.append("")
+            lines.append("Overdue homework:")
 
                     for item in overdue:
 
@@ -1880,17 +1863,10 @@ class HomeworkTool:
                         "Also: " + ", ".join(extra_note) + "."
                     )
 
-            else:
+        else:
 
-                lines.append(
-                    "You currently have no pending homework."
-                )
+            payload["direct_answer"] = (
+                "\n".join(lines)
+            )
 
-                if payload["graded_count"]:
-
-                    lines.append(
-                        f"{payload['graded_count']} graded "
-                        f"assignment(s) on record."
-                    )
-
-        return "\n".join(lines)
+        return payload
