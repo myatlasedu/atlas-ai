@@ -1,6 +1,9 @@
 import calendar
 import logging
 
+from datetime import date
+from datetime import timedelta
+
 from llm.client import (
     chat_completion
 )
@@ -528,7 +531,8 @@ async def parse_guardian_intent(
                     "role": "user",
                     "content": query
                 }
-            ]
+            ],
+            expect_json=True
         )
 
         content = (
@@ -667,8 +671,13 @@ async def parse_guardian_intent(
 
         parsed["intent"] = intent
 
-        parsed = resolve_dates(
+        parsed = normalize_dates(
             parsed
+        )
+
+        parsed = normalize_homework_focus(
+            parsed,
+            intent
         )
 
         parsed.setdefault(
