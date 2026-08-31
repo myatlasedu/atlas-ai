@@ -2,6 +2,8 @@ from intents.student.enums import (
     StudentIntent,
 )
 
+from utils import ist_today
+
 from intents.student.prompt_parts.attendance import (
     ATTENDANCE_PROMPT,
 )
@@ -134,6 +136,14 @@ The user's intent has ALREADY been classified by a separate
 intent classifier.
 
 You MUST TRUST the provided intent.
+
+==================================================
+TODAY
+==================================================
+
+Today's date is {ist_today().isoformat()}.
+Use this year for any relative date ("this week",
+"last month", "tomorrow"). Never invent another year.
 
 ==================================================
 CLASSIFIED INTENT
@@ -316,6 +326,9 @@ Return ONLY valid JSON:
     "teacher": null,
     "topic": null,
     "view": null,
-    "target_modules": []
+    "target_modules": [],
+    "asks_for_marks": false,
+
+    "homework_focus": null,
 }}
 """
