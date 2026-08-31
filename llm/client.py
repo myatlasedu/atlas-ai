@@ -17,6 +17,7 @@ async def chat_completion(
     messages,
     expect_json: bool = False,
     max_tokens: int = 500,
+    thinking=False,
 ):
 
     kwargs = {
@@ -25,6 +26,12 @@ async def chat_completion(
         "temperature": 0.1,
         "max_tokens": max_tokens,
         "timeout": 60,
+    }
+
+    kwargs["extra_body"] = {
+        "chat_template_kwargs": {
+            "enable_thinking": thinking,
+        }
     }
 
     if expect_json:
