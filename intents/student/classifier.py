@@ -33,7 +33,8 @@ async def classify_student_intent(
                 "role": "user",
                 "content": query,
             },
-        ]
+        ],
+        thinking=False
     )
 
     logger.debug(
