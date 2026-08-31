@@ -42,6 +42,15 @@ assessment_summary
 Do NOT treat other intents as homework when homework
 words are absent.
 
+A query about homework that also names a subject
+(e.g. "science homework") is homework_summary - the
+subject is a filter on the homework, not a subject
+question.
+
+A query that names a specific homework ("tell me about
+X", "details about X") is homework_summary. topic_summary
+is only for topics/chapters that are NOT homework.
+
 ==================================================
 ALLOWED INTENTS
 ==================================================
@@ -75,6 +84,8 @@ Use when the guardian asks about:
 - homework review
 - homework due today
 - homework due tomorrow
+- homework for a specific subject (e.g. "science homework")
+- details about a specific named homework (e.g. "tell me about Blood Chapter")
 
 --------------------------------------------------
 
@@ -260,6 +271,28 @@ Output:
 
 User:
 Did my child hand in the english chapter 2 homework?
+
+Output:
+{
+    "intent": "homework_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Show me my child's science homework.
+
+Output:
+{
+    "intent": "homework_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Tell me about my child's Blood Chapter homework.
 
 Output:
 {

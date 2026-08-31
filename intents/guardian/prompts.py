@@ -148,7 +148,7 @@ to exactly ONE value:
 
 topic_status | pending | overdue | due_today |
 due_tomorrow | submitted | graded | feedback |
-due_range | next_up | general
+due_range | next_up | general | resubmit | upcoming | awaiting_marks
 
 A specific titled homework ALWAYS means "topic_status"
 plus the name in "topic". Date-based questions fill
@@ -169,6 +169,7 @@ Return:
     "grade": null,
     "section": null,
     "subject": null,
+    "teacher": null,
     "topic": null,
     "enrichment": null,
     "view": null,

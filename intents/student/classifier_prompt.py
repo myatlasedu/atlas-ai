@@ -71,6 +71,20 @@ Examples:
 
 "When did I submit my Maths homework?"
 
+"Show me my Science homework."
+
+"Show me science homework."
+
+"What Spanish homework do I have?"
+
+"Tell me about Elements of Art."
+
+"Give me details about Elements of Art."
+
+"Tell me about Blood Chapter."
+
+"Give me details about Unit 1-Rivers."
+
 → homework_summary
 
 --------------------------------------------------
@@ -417,6 +431,19 @@ Topic questions ALWAYS take precedence over
 subject_summary.
 
 6.
+
+A query about homework/assignment that also names a
+subject is homework_summary - the subject is a filter
+on the homework, not a subject question. subject_summary
+is ONLY for questions about a subject itself
+(e.g. "How is my Science?", "Which subject is my
+strongest?").
+
+A query that names a specific homework ("tell me about
+X", "details about X") is homework_summary. topic_summary
+is only for topics/chapters that are NOT homework.
+
+7.
 
 Questions about
 
