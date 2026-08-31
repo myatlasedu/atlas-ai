@@ -1573,7 +1573,8 @@ async def summarize_response(
                 "content": prompt
             }
         ],
-        max_tokens=response_budget
+        max_tokens=response_budget,
+        thinking=True
     )
 
     logger.info(
