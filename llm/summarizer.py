@@ -573,6 +573,12 @@ Explain that Atlas Score is still calibrating.
                 else None
             )
 
+            note_line = (
+                f"- teacher note: {titled_mark.get('teacher_note')}"
+                if titled_mark.get("teacher_note")
+                else None
+            )
+
             extra_facts = "\n".join(
                 line
                 for line in (
@@ -580,6 +586,7 @@ Explain that Atlas Score is still calibrating.
                     teacher_line,
                     due_line,
                     submitted_line,
+                    note_line,
                 )
                 if line
             )
@@ -696,6 +703,12 @@ Keep the whole response under 100 words.
                     f"submitted at: {titled_lookup.get('submitted_at')}"
                 )
 
+            if titled_lookup.get("teacher_note"):
+
+                facts.append(
+                    f"teacher note: {titled_lookup.get('teacher_note')}"
+                )
+
             facts_block = (
                 "\nYou may also mention these details, but only "
                 "these:\n- "
@@ -729,13 +742,14 @@ Keep the response under 60 words.
                 "SCOPE - PENDING HOMEWORK.\n"
                 "Start with one short sentence stating the "
                 "total number of pending assignments.\n"
-                "Then list EVERY item in the pending and overdue "
-                "lists exactly once each, in this format:\n"
+                "Then list EVERY item in the pending, overdue and "
+                "resubmit lists exactly once each, in this format:\n"
                 "Title - due <date>(overdue)\n"
-                "Add \"(overdue)\" ONLY to items tagged overdue.\n"
+                "Add \"(overdue)\" ONLY to items tagged overdue and "
+                "\"(resubmit)\" ONLY to items in the resubmit list.\n"
                 "Do NOT create a separate overdue section and "
                 "repeat the same items twice.\n"
-                "If both lists are empty, say clearly there is "
+                "If all three lists are empty, say clearly there is "
                 "no pending homework."
             )
 
@@ -757,8 +771,26 @@ Keep the response under 60 words.
                 "List ONLY items in the submitted list, one per "
                 "line:\nTitle - submitted <date/time>\n"
                 "Never include pending or overdue items.\n"
+                "Graded items in the submitted list must be shown "
+                "as graded with their marks - never present a "
+                "graded item as merely submitted.\n"
+                "If the context also contains pending/overdue/"
+                "resubmit items, add one closing line noting the "
+                "still-pending work for that subject (do not "
+                "re-list submitted items).\n"
                 "If the submitted list is empty, say no matching "
                 "submissions were found."
+            )
+
+        elif focus == "awaiting_marks":
+
+            scope = (
+                "SCOPE - SUBMITTED, NOT YET GRADED.\n"
+                "List ONLY the items in the awaiting_marks list, "
+                "one per line:\nTitle - submitted <date>\n"
+                "Never include graded, pending or overdue items.\n"
+                "If the list is empty, say no submitted homework "
+                "is awaiting marks."
             )
 
         elif focus == "graded":
@@ -774,6 +806,18 @@ Keep the response under 60 words.
                 "homework was found."
             )
 
+        elif focus == "resubmit":
+
+            scope = (
+                "SCOPE - RESUBMISSION ONLY.\n"
+                "List ONLY the items in the resubmit list, one per "
+                "line:\nTitle - due <date> (resubmit)\n"
+                "Never include pending, overdue, submitted or "
+                "graded items.\n"
+                "If the resubmit list is empty, say no homework "
+                "is waiting for resubmission."
+            )
+
         elif focus == "feedback":
 
             scope = (
@@ -782,6 +826,18 @@ Keep the response under 60 words.
                 "plus the teacher's note, quoted faithfully.\n"
                 "If feedback is empty, say the teachers haven't "
                 "left any homework feedback yet."
+            )
+
+        elif focus == "upcoming":
+
+            scope = (
+                "SCOPE - UPCOMING HOMEWORK ONLY.\n"
+                "List ONLY the items in the upcoming list, one per "
+                "line:\nTitle - due <date>\n"
+                "Never include today's, overdue, submitted or "
+                "resubmit items.\n"
+                "If the upcoming list is empty, say no homework "
+                "is coming up."
             )
 
         elif focus == "due_range":
@@ -796,8 +852,9 @@ Keep the response under 60 words.
                 f"The user asked about homework due between "
                 f"{window.get('start')} and {window.get('end')}.\n"
                 "First state how many unfinished items fall in "
-                "that window (overdue tagged with \"(overdue)\"), "
-                "then list them once each.\n"
+                "that window (overdue tagged with \"(overdue)\", "
+                "resubmit with \"(resubmit)\"), then list them "
+                "once each.\n"
                 "Then, if a submitted list exists, mention how "
                 "many were handed in during the question's frame "
                 "- but do not re-list them unless asked.\n"
@@ -824,9 +881,12 @@ Keep the response under 60 words.
 
                 scope = (
                     "SCOPE - WHAT'S DUE FIRST.\n"
-                    "There is genuinely nothing due ahead. Say "
-                    "the student is all caught up with nothing "
-                    "coming due. Do not invent an assignment."
+                    "There is no homework due ahead. Say there is "
+                    "no upcoming homework; then, if the context "
+                    "contains overdue or resubmit items, briefly "
+                    "mention those counts. Only if both are empty "
+                    "say the student is all caught up. Do not "
+                    "invent an assignment."
                 )
 
         elif focus in (
@@ -871,9 +931,12 @@ Keep the response under 60 words.
                 "When the user explicitly asks to see homework, "
                 "start with one short sentence giving the total "
                 "count of open assignments, then give every open "
-                "item exactly once under two short headings - "
-                "Overdue first, then Upcoming - in the format:\n"
+                "item exactly once under short headings - "
+                "Overdue first, then Upcoming, then Resubmit - "
+                "in the format:\n"
                 "Title - due <date>(overdue)\n"
+                "Tag items in the resubmit list with "
+                "\"(resubmit)\".\n"
                 "Then add one closing line noting how many were "
                 "handed in / graded, using counts only.\n"
                 "When the query is conversational (\"how is my "
@@ -912,7 +975,8 @@ LIST PRESENTATION RULES
 
 The context may include itemized lists: pending,
 overdue, due_today, due_tomorrow, submitted,
-graded, next_up and recent_feedback.
+graded, awaiting_marks, resubmit, upcoming,
+next_up and recent_feedback.
 
 One line per item:
 
@@ -922,7 +986,8 @@ Write dates naturally, for example "due 30 July 2026".
 Only tag "(overdue)" items that are tagged overdue.
 
 When listing ALL homework, cover Overdue then Upcoming,
-then close with one line about handed-in/graded counts.
+then Resubmit, then close with one line about handed-in/
+graded counts.
 Each item appears exactly ONCE in the whole reply.
 
 Never invent items. Use only items present in the
@@ -1212,6 +1277,9 @@ LISTING_FOCUS_ROWS = {
     "overdue": "overdue",
     "submitted": "submitted",
     "graded": "graded",
+    "awaiting_marks": "awaiting_marks",
+    "resubmit": "resubmit",
+    "upcoming": "upcoming",
     "due_today": "due_today",
     "due_tomorrow": "due_tomorrow",
 }
@@ -1226,10 +1294,11 @@ def format_listing_line(item):
 
     line = "• " + item.get("title", "Homework")
 
-    if (
-        item.get("status_tag") == "overdue"
-        or item.get("is_overdue")
-    ):
+    if item.get("status_tag") == "resubmit_requested":
+
+        return line + " (resubmit)"
+
+    if item.get("status_tag") == "overdue":
 
         return line + " (overdue)"
 
@@ -1248,7 +1317,13 @@ def format_listing_line(item):
 
     if item.get("submitted_at"):
 
-        return f"{line} - submitted {str(item['submitted_at'])[:16]}"
+        stamp = item["submitted_at"]
+
+        if not isinstance(stamp, str):
+
+            stamp = str(stamp)[:16]
+
+        return f"{line} - submitted {stamp}"
 
     return line
 
@@ -1265,34 +1340,234 @@ def listing_header(focus, count, role):
         else "You have"
     )
 
+    noun = (
+        "assignment"
+        if count == 1
+        else "assignments"
+    )
+
     headers = {
         "pending":
-            f"{subject} {count} pending homework assignment(s):",
+            f"{subject} {count} pending homework {noun}:",
         "overdue":
-            f"{subject} {count} overdue homework assignment(s):",
+            f"{subject} {count} overdue homework {noun}:",
         "submitted":
-            f"{subject} handed in {count} homework assignment(s):",
+            f"{subject} handed in {count} homework {noun}:",
         "graded":
-            f"{subject} {count} graded homework assignment(s):",
+            f"{subject} {count} graded homework {noun}:",
+        "resubmit":
+            f"{subject} {count} homework {noun} to resubmit:",
+        "upcoming":
+            f"{subject} {count} homework {noun} coming up:",
+        "awaiting_marks":
+            f"{subject} {count} homework {noun} submitted "
+            f"but not yet graded:",
         "due_today":
-            f"{subject} {count} homework assignment(s) due today:",
+            f"{subject} {count} homework {noun} due today:",
         "due_tomorrow":
-            f"{subject} {count} homework assignment(s) due tomorrow:",
+            f"{subject} {count} homework {noun} due tomorrow:",
     }
 
     return headers[focus]
 
 
+EMPTY_FOCUS_PHRASE = {
+    "pending": "no pending homework",
+    "overdue": "no overdue homework",
+    "submitted": "no homework handed in",
+    "graded": "no graded homework",
+    "resubmit": "no homework waiting for resubmission",
+    "upcoming": "no homework coming up",
+    "awaiting_marks": "no submitted homework awaiting marks",
+    "due_today": "no homework due today",
+    "due_tomorrow": "no homework due tomorrow",
+}
+
+
 def build_listing_passthrough(role, hw):
-    """
-    FIX for silent truncation: when a homework listing holds
-    MORE than 10 rows, skip the second LLM entirely and emit
-    the list deterministically - every count stated, no item
-    ever dropped, and roughly 20 seconds of latency saved.
-    Small lists keep the natural LLM prose.
-    """
+    """Deterministic homework listing: exact count, every item, category by category."""
 
     focus = hw.get("focus")
+
+    subject = (
+        "Your child has"
+        if role == "guardian"
+        else "You have"
+    )
+
+    if focus == "due_range":
+
+        window = hw.get("due_window") or {}
+
+        unfinished = (
+            (hw.get("overdue") or [])
+            + (hw.get("pending") or [])
+        )
+
+        total = len(unfinished)
+
+        label = (
+            (window.get("label") or "").lower()
+            or "this period"
+        )
+
+        if not total:
+
+            return (
+                f"{subject} no unfinished homework "
+                f"{label}."
+            )
+
+        noun = (
+            "assignment"
+            if total == 1
+            else "assignments"
+        )
+
+        lines = [
+            f"{subject} {total} unfinished homework "
+            f"{noun} {label}:"
+        ]
+
+        for item in unfinished:
+
+            lines.append(
+                make_json_safe(format_listing_line(item))
+            )
+
+        submitted_count = len(hw.get("submitted") or [])
+
+        if submitted_count:
+
+            noun = (
+                "assignment"
+                if submitted_count == 1
+                else "assignments"
+            )
+
+            lines.append(
+                f"{submitted_count} {noun} were handed in "
+                f"within this period."
+            )
+
+        return "\n".join(lines)
+
+    if focus == "general":
+
+        overdue_rows = hw.get("overdue") or []
+
+        pending_rows = hw.get("pending") or []
+
+        resubmit_rows = hw.get("resubmit") or []
+
+        graded_rows = hw.get("graded") or []
+
+        submitted_rows = hw.get("submitted") or []
+
+        total = (
+            len(overdue_rows)
+            + len(pending_rows)
+            + len(resubmit_rows)
+        )
+
+        if not (
+            overdue_rows
+            or pending_rows
+            or resubmit_rows
+            or graded_rows
+            or submitted_rows
+        ):
+
+            return f"{subject} no open homework right now."
+
+        noun = (
+            "assignment"
+            if total == 1
+            else "assignments"
+        )
+
+        lines = [
+            f"{subject} {total} open homework {noun}:"
+        ]
+
+        if overdue_rows:
+
+            lines.append("")
+
+            lines.append("Overdue:")
+
+            for item in overdue_rows:
+
+                lines.append(
+                    make_json_safe(format_listing_line(item))
+                )
+
+        if pending_rows:
+
+            lines.append("")
+
+            lines.append("Pending:")
+
+            for item in pending_rows:
+
+                lines.append(
+                    make_json_safe(format_listing_line(item))
+                )
+
+        if resubmit_rows:
+
+            lines.append("")
+
+            lines.append("Resubmission requested:")
+
+            for item in resubmit_rows:
+
+                lines.append(
+                    make_json_safe(format_listing_line(item))
+                )
+
+        if graded_rows:
+
+            lines.append("")
+
+            lines.append("Graded:")
+
+            for item in graded_rows:
+
+                lines.append(
+                    make_json_safe(format_listing_line(item))
+                )
+
+        submitted_count = len(submitted_rows)
+
+        if submitted_count:
+
+            noun = (
+                "assignment"
+                if submitted_count == 1
+                else "assignments"
+            )
+
+            lines.append("")
+
+            lines.append(
+                f"{submitted_count} {noun} handed in."
+            )
+
+        return "\n".join(lines)
+
+    if focus == "next_up":
+
+        nxt = hw.get("next_up")
+
+        if not nxt:
+
+            return f"{subject} no homework is due next."
+
+        return (
+            f"{subject} next up: "
+            + make_json_safe(format_listing_line(nxt))
+        )
 
     key = LISTING_FOCUS_ROWS.get(focus)
 
@@ -1304,89 +1579,27 @@ def build_listing_passthrough(role, hw):
 
     total = len(rows)
 
-    if total <= 10:
+    if not total:
 
-        return None
+        phrase = EMPTY_FOCUS_PHRASE.get(
+            focus,
+            f"no {focus} homework",
+        )
+
+        return f"{subject} {phrase} right now."
 
     lines = [
         listing_header(focus, total, role)
     ]
 
-    shown = rows[:12]
-
-    for item in shown:
+    for item in rows:
 
         lines.append(
             make_json_safe(format_listing_line(item))
         )
 
-    extra = total - len(shown)
-
-    if extra > 0:
-
-        lines.append(f"...and {extra} more.")
-
     return "\n".join(lines)
 
-def line_contradicts_empty_counts(line):
-    """
-    True when a reply line claims homework was handed in or graded
-    while the database says nothing was submitted or graded. Only
-    used when both counts are zero, so any matching line is the
-    self-contradicting closing sentence.
-    """
-
-    lowered = line.lower()
-
-    claims_activity = (
-        "handed in" in lowered
-        or "graded" in lowered
-    )
-
-    claims_zero = (
-        "0 submitted" in lowered
-        or "0 graded" in lowered
-    )
-
-    return claims_activity and claims_zero
-
-
-def number_already_stated(text, number):
-    """
-    True when the given whole number already appears standalone in
-    the text (never as part of a longer number). Plain string search,
-    no regex.
-    """
-
-    needle = str(number)
-
-    start = 0
-
-    while True:
-
-        index = text.find(needle, start)
-
-        if index == -1:
-
-            return False
-
-        before_is_digit = (
-            index > 0
-            and text[index - 1].isdigit()
-        )
-
-        end = index + len(needle)
-
-        after_is_digit = (
-            end < len(text)
-            and text[end].isdigit()
-        )
-
-        if not before_is_digit and not after_is_digit:
-
-            return True
-
-        start = index + 1
 
 async def summarize_response(
     query: str,
@@ -1458,6 +1671,14 @@ async def summarize_response(
         else None
     ) or {}
 
+    if (
+        isinstance(homework_context, dict)
+        and homework_context.get("direct_answer") is not None
+        and homework_context.get("focus") is None
+    ):
+
+        return homework_context["direct_answer"]
+
     is_titled_mark = (
         intent == StudentIntent.HOMEWORK_SUMMARY
         and isinstance(
@@ -1466,11 +1687,7 @@ async def summarize_response(
         )
     )
 
-    #
-    # Full-list homework answers enumerate every item,
-    # so they need a larger output budget than the
-    # 500-token default. Titled lookups stay small.
-    #
+    # Full-list homework answers render deterministically: every item, no truncation.
 
     homework_full_list = (
         intent == StudentIntent.HOMEWORK_SUMMARY
@@ -1481,30 +1698,16 @@ async def summarize_response(
         )
     )
 
-    response_budget = (
-        1500 if homework_full_list else 500
-    )
-
-    #
-    # Big listings never go through the second LLM.
-    # Deterministic passthrough: full count, no silent
-    # truncation, guardian voice preserved.
-    #
-
     if homework_full_list:
 
-        passthrough = build_listing_passthrough(
+        listing = build_listing_passthrough(
             context.role,
             homework_context,
         )
 
-        if passthrough:
+        if listing:
 
-            logger.info(
-                "Homework listing passthrough used (deterministic)."
-            )
-
-            return passthrough
+            return listing
 
     system_prompt = STUDENT_SYSTEM_PROMPT
 
@@ -1516,14 +1719,14 @@ async def summarize_response(
         [
             {
                 "role": "system",
-                "content": system_prompt
+                "content": system_prompt,
             },
             {
                 "role": "user",
-                "content": prompt
-            }
+                "content": prompt,
+            },
         ],
-        max_tokens=response_budget
+        max_tokens=500,
     )
 
     logger.info(
@@ -1531,75 +1734,4 @@ async def summarize_response(
         response
     )
 
-    content = response["message"]["content"]
-
-    #
-    # Contradiction guard: when nothing has been handed in
-    # or graded, the LLM sometimes still appends a closing
-    # line like "All assignments have been handed in and
-    # graded: 0 submitted, 0 graded." Strip exactly that
-    # self-contradicting sentence (only when it contains
-    # explicit zero counts) - true closing lines survive.
-    #
-
-    if homework_full_list:
-
-        metrics = (
-            homework_context.get("metrics")
-            or {}
-        )
-
-        if (
-            not metrics.get("submitted")
-            and
-            not metrics.get("graded")
-        ):
-
-            kept_lines = [
-                line
-                for line in content.splitlines()
-                if not line_contradicts_empty_counts(line)
-            ]
-
-            cleaned = "\n".join(kept_lines).strip()
-
-            if cleaned:
-
-                content = cleaned
-
-        #
-        # Count guarantee for small listings (1..10 rows):
-        # the LLM keeps its natural prose but must state
-        # HOW MANY items exist. If the number is missing
-        # from the reply, prepend the deterministic count
-        # sentence.
-        #
-
-        list_key = LISTING_FOCUS_ROWS.get(
-            homework_context.get("focus")
-        )
-
-        if list_key:
-
-            listed_rows = (
-                homework_context.get(list_key)
-                or []
-            )
-
-            listed_total = len(listed_rows)
-
-            if 1 <= listed_total <= 10:
-
-                if not number_already_stated(content, listed_total):
-
-                    statement = listing_header(
-                        homework_context.get("focus"),
-                        listed_total,
-                        context.role,
-                    ).rstrip(":") + "."
-
-                    content = (
-                        f"{statement}\n\n{content}"
-                    )
-
-    return content
+    return response["message"]["content"]

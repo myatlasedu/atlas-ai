@@ -1,5 +1,5 @@
 import logging
-
+import calendar
 from datetime import date
 from datetime import timedelta
 from llm.client import (
@@ -33,6 +33,19 @@ from intents.student.schemas import (
 from utils import (
     resolve_dates,
     ist_today,
+    MARKS_QUERY_KEYWORDS,
+    HOMEWORK_QUERY_KEYWORDS,
+    FEEDBACK_QUERY_KEYWORDS,
+    detect_invalid_date,
+    resolve_canonical_name,
+)
+
+from db.session import (
+    AsyncSessionLocal,
+)
+
+from db.repositories.student.homework_repository import (
+    HomeworkRepository,
 )
 
 
@@ -109,11 +122,7 @@ def _normalize_dates(
             str,
         ):
 
-            #
-            # Defensive: the LLM sometimes returns
-            # non-ISO date strings (e.g. "28 July").
-            # Never let them crash intent validation.
-            #
+            # LLM sometimes returns non-ISO dates ("28 July"); never crash validation.
 
             try:
 
@@ -128,6 +137,21 @@ def _normalize_dates(
 
                 parsed[field] = None
 
+    if detect_invalid_date(
+        str(
+            parsed.get(
+                "original_query",
+                "",
+            )
+        )
+    ):
+
+        parsed["invalid_date"] = True
+
+        parsed["start_date"] = None
+
+        parsed["end_date"] = None
+
     return parsed
 
 
@@ -140,6 +164,9 @@ VALID_HOMEWORK_FOCUS = {
     "submitted",
     "graded",
     "feedback",
+    "resubmit",
+    "upcoming",
+    "awaiting_marks",
     "due_range",
     "next_up",
     "general",
@@ -150,13 +177,7 @@ def clean_topic(
     value: str,
 ) -> str:
 
-    #
-    # Strips surrounding whitespace and trailing
-    # punctuation the student's sentence leaves
-    # behind ("Son muy famosos?" -> "Son muy
-    # famosos") so titled database lookups can
-    # never miss because of sentence grammar.
-    #
+    # Strip whitespace/trailing punctuation so titled lookups never miss on grammar.
 
     trimmed = (
         value
@@ -191,10 +212,7 @@ def normalize_focus(
 
     parsed["homework_focus"] = focus
 
-    #
-    # A named title without an explicit focus is always
-    # a question about THAT homework's status/details.
-    #
+    # A named title with no explicit focus is a question about that homework's status/details.
 
     if (
         parsed.get("intent")
@@ -213,40 +231,318 @@ def normalize_focus(
             "topic_status"
         )
 
-    #
-    # "This week" is deterministic: Monday to Sunday of
-    # the current week. The LLM's window is overridden
-    # so weekend queries can never drift.
-    #
+    # Week/month: force due_range for the full window (homework-only; resolve_dates stays end-at-today).
+
+    query_lower = (
+        parsed.get("original_query", "")
+        .lower()
+    )
+
+    window_phrase = any(
+        phrase in query_lower
+        for phrase in (
+            "this week",
+            "last week",
+            "next week",
+            "this month",
+            "last month",
+            "next month",
+        )
+    )
 
     if (
-        parsed.get("homework_focus")
+        parsed.get("intent")
         ==
-        "due_range"
+        StudentIntent.HOMEWORK_SUMMARY.value
         and
-        "this week" in (
-            parsed.get("original_query", "")
-            .lower()
+        not parsed.get("topic")
+        and
+        window_phrase
+        and
+        focus in (None, "general", "pending", "next_up", "due_range")
+    ):
+
+        parsed["homework_focus"] = "due_range"
+
+        if "this week" in query_lower:
+
+            today = ist_today()
+
+            monday = today - timedelta(
+                days=today.weekday()
+            )
+
+            sunday = monday + timedelta(days=6)
+
+            parsed["start_date"] = monday.isoformat()
+
+            parsed["end_date"] = sunday.isoformat()
+
+        elif "last week" in query_lower:
+
+            today = ist_today()
+
+            monday = (
+                today
+                - timedelta(days=today.weekday())
+                - timedelta(days=7)
+            )
+
+            sunday = monday + timedelta(days=6)
+
+            parsed["start_date"] = monday.isoformat()
+
+            parsed["end_date"] = sunday.isoformat()
+
+        elif "next week" in query_lower:
+
+            today = ist_today()
+
+            monday = (
+                today
+                - timedelta(days=today.weekday())
+                + timedelta(days=7)
+            )
+
+            sunday = monday + timedelta(days=6)
+
+            parsed["start_date"] = monday.isoformat()
+
+            parsed["end_date"] = sunday.isoformat()
+
+        elif "this month" in query_lower:
+
+            today = ist_today()
+
+            last_day = calendar.monthrange(
+                today.year,
+                today.month,
+            )[1]
+
+            parsed["start_date"] = today.replace(
+                day=1,
+            ).isoformat()
+
+            parsed["end_date"] = today.replace(
+                day=last_day,
+            ).isoformat()
+
+        elif "last month" in query_lower:
+
+            today = ist_today()
+
+            year = today.year
+
+            month = today.month - 1
+
+            if month == 0:
+
+                month = 12
+
+                year -= 1
+
+            last_day = calendar.monthrange(
+                year,
+                month,
+            )[1]
+
+            parsed["start_date"] = date(
+                year,
+                month,
+                1,
+            ).isoformat()
+
+            parsed["end_date"] = date(
+                year,
+                month,
+                last_day,
+            ).isoformat()
+
+        elif "next month" in query_lower:
+
+            today = ist_today()
+
+            year = today.year
+
+            month = today.month + 1
+
+            if month == 13:
+
+                month = 1
+
+                year += 1
+
+            last_day = calendar.monthrange(
+                year,
+                month,
+            )[1]
+
+            parsed["start_date"] = date(
+                year,
+                month,
+                1,
+            ).isoformat()
+
+            parsed["end_date"] = date(
+                year,
+                month,
+                last_day,
+            ).isoformat()
+
+    # Late submissions ("late homework submitted last week") = handed in after the due date.
+
+    if (
+        parsed.get("intent")
+        ==
+        StudentIntent.HOMEWORK_SUMMARY.value
+        and
+        not parsed.get("topic")
+        and
+        any(
+            word in query_lower
+            for word in ("late", "delayed")
+        )
+        and
+        any(
+            word in query_lower
+            for word in ("submitted", "submission", "handed", "turned in")
+        )
+        and
+        focus in (None, "general", "overdue", "submitted", "pending", "due_range")
+    ):
+
+        parsed["homework_focus"] = "submitted"
+
+        parsed["late_only"] = True
+
+    # Upcoming/future: force "upcoming" focus (due after today); skipped when a week/month window is set.
+
+    upcoming_phrase = (
+        not window_phrase
+        and any(
+            phrase in query_lower
+            for phrase in (
+                "upcoming",
+                "coming up",
+                "future homework",
+                "future assignment",
+            )
+        )
+    )
+
+    if (
+        parsed.get("intent")
+        ==
+        StudentIntent.HOMEWORK_SUMMARY.value
+        and
+        not parsed.get("topic")
+        and
+        upcoming_phrase
+        and
+        focus in (None, "general", "pending", "overdue", "next_up", "due_range")
+    ):
+
+        parsed["homework_focus"] = "upcoming"
+
+    # "Submitted ... this week/month" must use the deterministic calendar window:
+    # clear the LLM's ISO dates and re-run resolve_dates (backend owns dates).
+
+    if (
+        parsed.get("intent")
+        ==
+        StudentIntent.HOMEWORK_SUMMARY.value
+        and
+        focus == "submitted"
+        and
+        not parsed.get("topic")
+        and
+        window_phrase
+    ):
+
+        parsed["start_date"] = None
+
+        parsed["end_date"] = None
+
+        parsed = resolve_dates(
+            parsed
+        )
+
+    # General marks questions are graded; detect from the query (the LLM only sets it for a named homework).
+
+    if (
+        parsed.get("intent")
+        ==
+        StudentIntent.HOMEWORK_SUMMARY.value
+        and
+        not parsed.get("topic")
+        and
+        focus in (None, "general")
+        and
+        any(
+            keyword in query_lower
+            for keyword in MARKS_QUERY_KEYWORDS
         )
     ):
 
-        today = ist_today()
+        parsed["homework_focus"] = "graded"
 
-        monday = today - timedelta(
-            days=today.weekday()
+    # General feedback questions must reach the feedback branch (the LLM may default them to general).
+
+    if (
+        parsed.get("intent")
+        ==
+        StudentIntent.HOMEWORK_SUMMARY.value
+        and
+        not parsed.get("topic")
+        and
+        focus in (None, "general")
+        and
+        any(
+            keyword in query_lower
+            for keyword in FEEDBACK_QUERY_KEYWORDS
         )
+    ):
 
-        sunday = monday + timedelta(days=6)
+        parsed["homework_focus"] = "feedback"
 
-        parsed["start_date"] = monday.isoformat()
+    # Next/last year is a year-wide window; resolves to an honest (often empty) due_range.
 
-        parsed["end_date"] = sunday.isoformat()
+    if (
+        parsed.get("intent")
+        ==
+        StudentIntent.HOMEWORK_SUMMARY.value
+        and
+        not parsed.get("topic")
+        and
+        focus in (None, "general", "due_range")
+    ):
+
+        if "next year" in query_lower:
+
+            year = ist_today().year + 1
+
+            parsed["homework_focus"] = "due_range"
+
+            parsed["start_date"] = f"{year}-01-01"
+
+            parsed["end_date"] = f"{year}-12-31"
+
+        elif "last year" in query_lower:
+
+            year = ist_today().year - 1
+
+            parsed["homework_focus"] = "due_range"
+
+            parsed["start_date"] = f"{year}-01-01"
+
+            parsed["end_date"] = f"{year}-12-31"
 
     return parsed
 
 
 async def parse_student_intent(
     query: str,
+    enrollment_id: int | None = None,
 ) -> ParsedStudentIntent:
 
     try:
@@ -262,17 +558,30 @@ async def parse_student_intent(
             )
         )
 
+        query_lower = query.lower()
+
+        if (
+            classified_intent == StudentIntent.UNKNOWN
+            and any(
+                word in query_lower
+                for word in HOMEWORK_QUERY_KEYWORDS
+            )
+        ):
+
+            logger.info(
+                "UNKNOWN overridden to homework_summary: %r",
+                query,
+            )
+
+            classified_intent = StudentIntent.HOMEWORK_SUMMARY
+
         logger.info(
             "Classified intent: %s",
             classified_intent.value,
         )
 
         # ==================================================
-        # STEP 2
-        # PARAMETER EXTRACTION
-        #
-        # The classifier's intent is authoritative.
-        # The second LLM must NOT re-classify the query.
+        # STEP 2: PARAMETER EXTRACTION (never re-classify)
         # ==================================================
 
         prompt = (
@@ -314,22 +623,14 @@ async def parse_student_intent(
         )
 
         # ==================================================
-        # STEP 3
-        # FORCE CLASSIFIER INTENT
-        #
-        # Never trust the second LLM's intent field.
+        # STEP 3: FORCE CLASSIFIER INTENT (never trust the second LLM's intent)
         # ==================================================
 
         parsed["intent"] = (
             classified_intent.value
         )
 
-        # ------------------------------------------------------
-        # Narrow safety net: marks FOR a specific homework /
-        # assignment / worksheet must route to homework_summary,
-        # never assessment_summary. Only applies when the
-        # parser set asks_for_marks AND a specific topic title.
-        # ------------------------------------------------------
+        # Safety net: marks for a specific homework must route to homework_summary.
 
         if (
             parsed["intent"]
@@ -356,11 +657,7 @@ async def parse_student_intent(
                 StudentIntent.HOMEWORK_SUMMARY.value
             )
 
-        # ------------------------------------------------------
-        # Clean the extracted title: trailing question marks
-        # or punctuation come from sentence grammar, not the
-        # homework name, and would break exact lookups.
-        # ------------------------------------------------------
+        # Clean the extracted title: trailing punctuation would break exact lookups.
 
         if parsed.get(
             "topic",
@@ -384,6 +681,53 @@ async def parse_student_intent(
                 or None
             )
 
+        # Homework-first: a topic that names a real homework title is homework.
+
+        if (
+            enrollment_id
+            and parsed["intent"]
+            in (
+                StudentIntent.TOPIC_SUMMARY.value,
+                StudentIntent.SUBJECT_SUMMARY.value,
+            )
+            and parsed.get(
+                "topic",
+                None,
+            )
+        ):
+
+            async with AsyncSessionLocal() as db:
+
+                repo = HomeworkRepository(db)
+
+                titles = [
+                    t["title"]
+                    for t in (
+                        await repo.list_enrollment_homework_titles(
+                            enrollment_id
+                        )
+                    )
+                ]
+
+            canonical = resolve_canonical_name(
+                str(parsed["topic"]),
+                titles,
+            )
+
+            if canonical:
+
+                logger.info(
+                    "Reclassifying %s to homework_summary "
+                    "(matches homework title %r).",
+                    parsed["intent"],
+                    canonical,
+                )
+
+                parsed["intent"] = (
+                    StudentIntent.HOMEWORK_SUMMARY.value
+                )
+
+                parsed["topic"] = canonical
 
         # ==================================================
         # STEP 4
