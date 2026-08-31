@@ -150,7 +150,8 @@ async def parse_student_intent(
                     "role": "user",
                     "content": query,
                 },
-            ]
+            ],
+            thinking=True
         )
 
         content = (

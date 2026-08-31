@@ -876,7 +876,8 @@ async def summarize_response(
                 "role": "user",
                 "content": prompt
             }
-        ]
+        ],
+        thinking=True
     )
 
     logger.info(
