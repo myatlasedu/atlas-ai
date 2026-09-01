@@ -1,23 +1,8 @@
 from sqlalchemy import text
+from utils import resolve_canonical_name
 
 WEAK_SCORE_THRESHOLD = 60
 STRONG_SCORE_THRESHOLD = 80
-
-SUBJECT_ALIASES = {
-    "maths": "math",
-    "math": "math",
-    "mathematics": "math",
-    "physics": "science",
-    "chemistry": "science",
-    "biology": "science",
-    "science": "science",
-}
-
-def normalize_subject_name(subject_name):
-    if not subject_name:
-        return subject_name
-    cleaned = subject_name.strip().lower()
-    return SUBJECT_ALIASES.get(cleaned, cleaned)
 
 
 class TopicRepository:
@@ -396,58 +381,49 @@ class TopicRepository:
         enrollment_id: int,
         subject_name: str | None = None,
     ):
-        subject_name = normalize_subject_name(subject_name)
-
         if not subject_name:
-
             return None
 
-        query = text(
-            """
-            SELECT
+        _SUBJECT_SYNONYMS = {
+            "mathematics": "math",
+            "maths": "math",
+            "physics": "science",
+            "chemistry": "science",
+            "biology": "science",
+        }
+        normalized = _SUBJECT_SYNONYMS.get(subject_name.lower().strip(), subject_name)
 
-                so.id
+        query = text("""
+            SELECT DISTINCT s.name, so.id
 
             FROM students_studentenrollment se
-
+            
             INNER JOIN schools_subjectoffering so
-
+            
                 ON so.academic_class_id = se.academic_class_id
-
+            
             INNER JOIN schools_subjectversion sv
-
+            
                 ON sv.id = so.subject_version_id
-
+            
             INNER JOIN schools_subject s
-
+            
                 ON s.id = sv.subject_id
+            
+            WHERE se.id = :enrollment_id AND so.is_active = TRUE
+        """)
 
-            WHERE
+        result = await self.db.execute(query, {"enrollment_id": enrollment_id})
+        
+        subjects = {row[0]: row[1] for row in result.all()}
 
-                se.id = :enrollment_id
+        matched_name = resolve_canonical_name(normalized, list(subjects.keys()))
+        
+        if matched_name:
+            return subjects[matched_name]
+        
+        return None
 
-                AND so.is_active = TRUE
-
-                AND ( LOWER(s.name) = LOWER(:subject_name) OR LOWER(s.name) LIKE LOWER(:subject_name || '%') )
-
-            LIMIT 1
-            """
-        )
-
-        result = await self.db.execute(
-
-            query,
-
-            {
-
-                "enrollment_id": enrollment_id,
-
-                "subject_name": subject_name,
-            }
-        )
-
-        return result.scalar_one_or_none()
-    
     async def get_topic_statistics(
         self,
         enrollment_id,
