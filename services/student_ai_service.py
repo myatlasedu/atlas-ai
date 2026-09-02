@@ -355,6 +355,7 @@ class StudentAIService:
                     await parse_intent(
                         query=query,
                         role=context.role,
+                        enrollment_id=context.enrollment_id,
                     )
                 )
 
@@ -386,6 +387,7 @@ class StudentAIService:
                 await parse_intent(
                     query=query,
                     role=context.role,
+                    enrollment_id=context.enrollment_id,
                 )
             )
 

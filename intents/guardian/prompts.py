@@ -1,6 +1,8 @@
 from intents.guardian.enums import (
-    GuardianIntent
+    GuardianIntent,
 )
+
+from utils import ist_today
 
 from intents.student.prompt_parts.attendance import (
     ATTENDANCE_PROMPT
@@ -105,6 +107,10 @@ You are Atlas AI's guardian intent parser.
 
 The user's intent has ALREADY been classified.
 
+TODAY: today's date is {ist_today().isoformat()};
+use this year for any relative date and never
+invent another year.
+
 Intent:
 
 {intent.value}
@@ -127,6 +133,38 @@ Your only job is to extract:
 - enrichment
 - view
 
+ASKS FOR MARKS FLAG
+
+Set "asks_for_marks" to true ONLY when the user names
+a SPECIFIC homework / assignment / worksheet / submission
+and asks for its MARKS / GRADE / SCORE / RESULT.
+
+When true, also set "topic" to the FULL homework name
+exactly as written (keep the date, do not shorten).
+
+If no specific titled homework is named, set
+"asks_for_marks" to false.
+
+This applies to any intent, so a specific titled
+homework marks question must set both "asks_for_marks"
+and "topic" even if the overall intent is assessment-like.
+
+HOMEWORK FOCUS FLAG
+
+For homework_summary intents also set "homework_focus"
+to exactly ONE value:
+
+topic_status | pending | overdue | due_today |
+due_tomorrow | submitted | graded | feedback |
+due_range | next_up | general | resubmit | upcoming | awaiting_marks
+
+A specific titled homework ALWAYS means "topic_status"
+plus the name in "topic". Date-based questions fill
+start_date / end_date ("this week" = Monday to Sunday).
+Full rules and examples are in the module instructions.
+
+Otherwise leave "homework_focus" as null.
+
 {prompt}
 
 Return:
@@ -139,10 +177,14 @@ Return:
     "grade": null,
     "section": null,
     "subject": null,
+    "teacher": null,
     "topic": null,
     "enrichment": null,
     "view": null,
     "target_modules": [],
-    "confidence": 0.95
+    "confidence": 0.95,
+    "asks_for_marks": false,
+
+    "homework_focus": null
 }}
 """
