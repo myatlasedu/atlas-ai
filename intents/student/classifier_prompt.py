@@ -137,9 +137,52 @@ Questions about one or more school subjects.
 topic_summary
 
 Questions about chapters,
-topics,
-learning objectives,
+topics, learning objectives,
 lesson topics.
+
+This includes questions about:
+
+- completed topics
+- pending topics
+- weak topics
+- strong topics
+- topics to revise
+- topics to focus on
+- topic progress
+- topic overview
+- topic summary
+
+Examples:
+
+"Which topics have I completed?"
+
+"Which topics are pending?"
+
+"Which topics am I weak in?"
+
+"Which topics am I strong in?"
+
+"Which topics should I revise?"
+
+"Show my topic progress."
+
+"What topics are covered in class?"
+
+"Am I weak in any topic?"
+
+"Which topics need more practice?"
+
+"Which topics am I good at?"
+
+"Was Fractions covered in class?"
+
+"How am I doing in Algebra?"
+
+"What is my score in Biology?"
+
+"Am I weak in Fractions in Maths?"
+
+"Which topics am I struggling with in Science?"
 
 --------------------------------------------------
 

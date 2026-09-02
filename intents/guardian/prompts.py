@@ -44,6 +44,10 @@ from intents.student.prompt_parts.timetable import (
     TIMETABLE_PROMPT
 )
 
+from intents.student.prompt_parts.topic import (
+    TOPIC_PROMPT
+)
+
 # from intents.guardian.prompt_parts.student_report import (
 #     STUDENT_REPORT_PROMPT
 # )
@@ -68,6 +72,9 @@ PROMPT_MAP = {
 
     GuardianIntent.SUBJECT_SUMMARY:
         SUBJECT_PROMPT,
+
+    GuardianIntent.TOPIC_SUMMARY:
+        TOPIC_PROMPT,
 
     GuardianIntent.ANNOUNCEMENT_SUMMARY:
         ANNOUNCEMENT_PROMPT,
@@ -122,6 +129,7 @@ Your only job is to extract:
 - grade
 - section
 - subject
+- topic
 - enrichment
 - view
 

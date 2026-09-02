@@ -1,4 +1,8 @@
 from sqlalchemy import text
+from utils import resolve_canonical_name
+
+WEAK_SCORE_THRESHOLD = 60
+STRONG_SCORE_THRESHOLD = 80
 
 
 class TopicRepository:
@@ -141,11 +145,51 @@ class TopicRepository:
             }
         )
 
-        return [
+        period_topics = [
             dict(row)
             for row
             in result.mappings().all()
         ]
+
+        completion_query = text("""
+            SELECT
+                t.id AS topic_id,
+                t.name AS topic_name,
+                s.id AS subject_id,
+                s.name AS subject_name
+            FROM students_studenttopiccompletion stc
+            INNER JOIN schools_topicoffering tp
+                ON tp.id = stc.topic_offering_id
+            INNER JOIN schools_subjectversiontopic svt
+                ON svt.id = tp.subject_version_topic_id
+            INNER JOIN schools_subjectversion sv
+                ON sv.id = svt.subject_version_id
+            INNER JOIN schools_subject s
+                ON s.id = sv.subject_id
+            INNER JOIN schools_topic t
+                ON t.id = svt.topic_id
+            WHERE stc.enrollment_id = :enrollment_id
+                AND stc.is_completed = true
+        """)
+
+        completion_result = await self.db.execute(
+            completion_query,
+            {"enrollment_id": enrollment_id}
+        )
+        self_completed = [
+            dict(row)
+            for row
+            in completion_result.mappings().all()
+        ]
+
+        seen = set()
+        completed = []
+        for topic in period_topics + self_completed:
+            if topic["topic_id"] not in seen:
+                seen.add(topic["topic_id"])
+                completed.append(topic)
+
+        return completed
     
     async def _get_assessment_topic_scores(
         self,
@@ -337,67 +381,70 @@ class TopicRepository:
         enrollment_id: int,
         subject_name: str | None = None,
     ):
-
         if not subject_name:
-
             return None
 
-        query = text(
-            """
-            SELECT
+        _SUBJECT_SYNONYMS = {
+            "mathematics": "math",
+            "maths": "math",
+            "physics": "science",
+            "chemistry": "science",
+            "biology": "science",
+        }
+        normalized = _SUBJECT_SYNONYMS.get(subject_name.lower().strip(), subject_name)
 
-                so.id
+        query = text("""
+            SELECT DISTINCT s.name, so.id
 
             FROM students_studentenrollment se
-
+            
             INNER JOIN schools_subjectoffering so
-
+            
                 ON so.academic_class_id = se.academic_class_id
-
+            
             INNER JOIN schools_subjectversion sv
-
+            
                 ON sv.id = so.subject_version_id
-
+            
             INNER JOIN schools_subject s
-
+            
                 ON s.id = sv.subject_id
+            
+            WHERE se.id = :enrollment_id AND so.is_active = TRUE
+        """)
 
-            WHERE
+        result = await self.db.execute(query, {"enrollment_id": enrollment_id})
+        
+        subjects = {row[0]: row[1] for row in result.all()}
 
-                se.id = :enrollment_id
+        matched_name = resolve_canonical_name(normalized, list(subjects.keys()))
+        
+        if matched_name:
+            return subjects[matched_name]
+        
+        return None
 
-                AND so.is_active = TRUE
-
-                AND LOWER(s.name) = LOWER(:subject_name)
-
-            LIMIT 1
-            """
-        )
-
-        result = await self.db.execute(
-
-            query,
-
-            {
-
-                "enrollment_id": enrollment_id,
-
-                "subject_name": subject_name,
-            }
-        )
-
-        return result.scalar_one_or_none()
-    
     async def get_topic_statistics(
         self,
         enrollment_id,
         subject_name=None,
+        topic_name=None,
     ):
         
         subject_offering_id = await self._resolve_subject_offering(
             enrollment_id,
             subject_name,
         )
+
+        if subject_name and subject_offering_id is None:
+            return {
+                "completed_topics": [],
+                "pending_topics": [],
+                "weak_topics": [],
+                "strong_topics": [],
+                "all_topics": [],
+                "subject_resolved": False,
+            }        
 
         completed_topics = await self._get_completed_topics(
             enrollment_id,
@@ -414,6 +461,33 @@ class TopicRepository:
             subject_offering_id,
         )
 
+        completed_unfiltered = completed_topics
+        assessment_unfiltered = assessment_topics
+        homework_unfiltered = homework_topics
+
+        if topic_name:
+            topic_name_lower = topic_name.lower()
+            completed_topics = [
+                t for t in completed_topics
+                if topic_name_lower in t["topic_name"].lower()
+            ]
+            assessment_topics = [
+                t for t in assessment_topics
+                if topic_name_lower in t["topic_name"].lower()
+            ]
+            homework_topics = [
+                t for t in homework_topics
+                if topic_name_lower in t["topic_name"].lower()
+            ]
+
+            if (
+                not completed_topics
+                and not assessment_topics
+                and not homework_topics
+            ):
+                completed_topics = completed_unfiltered
+                assessment_topics = assessment_unfiltered
+                homework_topics = homework_unfiltered
         topics = {}
 
         # ==========================================
@@ -559,6 +633,7 @@ class TopicRepository:
         completed = []
         pending = []
         weak = []
+        strong = []
 
         for topic in topics.values():
 
@@ -583,30 +658,25 @@ class TopicRepository:
 
             if (
                 topic["average_score"] is not None
-                and topic["average_score"] < 60
+                and topic["average_score"] < WEAK_SCORE_THRESHOLD
             ):
                 weak.append(topic)
 
-        completed.sort(
-            key=lambda x: (
-                x["subject_name"],
-                x["topic_name"],
-            )
+            if (
+                topic["average_score"] is not None
+                and topic["average_score"] >= STRONG_SCORE_THRESHOLD
+            ):
+                strong.append(topic)
+
+        sort_key = lambda x: (
+            x["subject_name"],
+            x["topic_name"],
         )
 
-        pending.sort(
-            key=lambda x: (
-                x["subject_name"],
-                x["topic_name"],
-            )
-        )
-
-        weak.sort(
-            key=lambda x: (
-                x["subject_name"],
-                x["topic_name"],
-            )
-        )
+        completed.sort(key=sort_key)
+        pending.sort(key=sort_key)
+        weak.sort(key=sort_key)
+        strong.sort(key=sort_key)
 
         return {
 
@@ -618,6 +688,9 @@ class TopicRepository:
 
             "weak_topics":
                 weak,
+
+            "strong_topics":
+                strong,
 
             "all_topics":
                 completed + pending,
