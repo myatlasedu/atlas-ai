@@ -1,7 +1,6 @@
 import pytz
 import calendar
 import difflib
-
 from datetime import datetime
 from datetime import date
 from zoneinfo import ZoneInfo
@@ -568,3 +567,14 @@ def format_datetime(
     ).strftime(
         "%d %b %Y at %I:%M %p",
     )
+
+def resolve_canonical_name(raw, names, cutoff=0.6):
+    match = difflib.get_close_matches(
+        str(raw).lower(),
+        [str(n).lower() for n in names],
+        n=1,
+        cutoff=cutoff,
+    )
+    if match:
+        return next(n for n in names if str(n).lower() == match[0])
+    return None

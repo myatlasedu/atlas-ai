@@ -20,7 +20,7 @@ class ParsedStudentIntent(BaseModel):
     confidence: float = 0.95
 
     original_query: str
-
+    
     topic: str | None = None
 
     subject: str | None = None

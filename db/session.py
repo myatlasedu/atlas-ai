@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import (
     AsyncSession
 )
 
+from urllib.parse import quote_plus
+
 from core.config import settings
 
 

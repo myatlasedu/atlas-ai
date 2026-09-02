@@ -65,6 +65,12 @@ TOOL_MAP = {
 
     ],
 
+    GuardianIntent.TOPIC_SUMMARY: [
+
+        "topic_tool"
+
+    ],
+
     GuardianIntent.TIMETABLE_SUMMARY: [
 
         "timetable_tool"
