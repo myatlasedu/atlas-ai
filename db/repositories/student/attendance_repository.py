@@ -189,11 +189,16 @@ class AttendanceRepository:
             for row in record_rows
         }
 
-        late_day_dates = sorted(
-            row["date"]
-            for row in record_rows
-            if row["status"] == 3
-        )
+        statuses_by_date = {}
+
+        for row in record_rows:
+
+            statuses_by_date.setdefault(
+                row["date"],
+                set(),
+            ).add(
+                row["status"]
+            )
 
         total_marked_days = len(record_dates)
 
@@ -240,7 +245,14 @@ class AttendanceRepository:
 
                         working_days += 1
 
-                        if current in record_dates:
+                        if (
+                            current in statuses_by_date
+                            and
+                            any(
+                                status != 2
+                                for status in statuses_by_date[current]
+                            )
+                        ):
 
                             present_days += 1
 
@@ -389,15 +401,6 @@ class AttendanceRepository:
 
             "non_working_days":
                 non_working_days,
-
-            "late_days":
-                len(late_day_dates),
-
-            "late_day_dates":
-                [
-                    date.isoformat()
-                    for date in late_day_dates
-                ],
 
             "attendance_percentage":
                 attendance_percentage,

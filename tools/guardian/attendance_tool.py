@@ -8,6 +8,7 @@ from db.repositories.student.attendance_repository import (
 
 from llm.builders.attendance_builder import (
     build_attendance_llm_context,
+    build_attendance_insights,
 )
 
 
@@ -27,7 +28,10 @@ class AttendanceTool:
                     "attendance",
 
                 "error":
-                    "Enrollment ID missing"
+                    "Enrollment ID missing",
+
+                "direct_answer":
+                    "Unable to load attendance information."
             }
 
         async with AsyncSessionLocal() as db:
@@ -48,6 +52,10 @@ class AttendanceTool:
                     campus_id=context.campus_id,
                 )
             }
+
+            build_attendance_insights(
+                payload
+            )
 
             payload["llm_context"] = (
                 build_attendance_llm_context(

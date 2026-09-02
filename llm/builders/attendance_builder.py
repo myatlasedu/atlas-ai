@@ -71,16 +71,6 @@ def build_attendance_llm_context(
         [],
     )
 
-    late_days = payload.get(
-        "late_days",
-        0,
-    )
-
-    late_day_dates = payload.get(
-        "late_day_dates",
-        [],
-    )
-
     non_working_days = payload.get(
         "non_working_days",
         0,
@@ -171,12 +161,6 @@ def build_attendance_llm_context(
             "non_working_days":
                 non_working_days,
 
-            "late_days":
-                late_days,
-
-            "late_day_dates":
-                late_day_dates,
-
             "total_periods":
                 total_periods,
 
@@ -219,3 +203,159 @@ def build_attendance_llm_context(
                 [],
             ),
     }
+
+def build_attendance_insights(
+    payload: dict,
+) -> dict:
+
+    insights = []
+
+    recommended_focus = []
+
+    recommended_actions = []
+
+    present_days = payload.get(
+        "present_days",
+        0,
+    )
+
+    working_days = payload.get(
+        "working_days",
+        0,
+    )
+
+    absent_days = payload.get(
+        "absent_days",
+        0,
+    )
+
+    non_working_days = payload.get(
+        "non_working_days",
+        0,
+    )
+
+    total_periods = payload.get(
+        "total_periods",
+        0,
+    )
+
+    present_periods = payload.get(
+        "present_periods",
+        0,
+    )
+
+    missed_periods = payload.get(
+        "missed_periods",
+        0,
+    )
+
+    late_periods = payload.get(
+        "late_periods",
+        0,
+    )
+
+    excused_periods = payload.get(
+        "excused_periods",
+        0,
+    )
+
+    healthroom_periods = payload.get(
+        "healthroom_periods",
+        0,
+    )
+
+    if working_days == 0:
+
+        insights.append(
+            "No attendance records are available yet."
+        )
+
+    else:
+
+        days_insight = (
+            f"You attended school on {present_days} of {working_days} working day(s)"
+            f", were absent on {absent_days} day(s)"
+        )
+
+        if non_working_days:
+
+            days_insight += (
+                f", and there were {non_working_days} non-working day(s)"
+                f" (weekends and holidays)"
+            )
+
+        insights.append(
+            days_insight + "."
+        )
+
+        if total_periods:
+
+            insights.append(
+                f"You attended {present_periods} of {total_periods} recorded lessons."
+            )
+
+        if missed_periods:
+
+            insights.append(
+                f"You missed {missed_periods} lesson(s)."
+            )
+
+        if late_periods:
+
+            insights.append(
+                f"You were late for {late_periods} lesson(s)."
+            )
+
+        if excused_periods:
+
+            insights.append(
+                f"{excused_periods} lesson(s) were excused."
+            )
+
+        if healthroom_periods:
+
+            insights.append(
+                f"You visited the health room during {healthroom_periods} lesson(s)."
+            )
+
+    if missed_periods:
+
+        recommended_focus.append(
+            "Attend every scheduled lesson."
+        )
+
+    if missed_periods:
+
+        recommended_actions.append(
+            "Reduce missed lessons."
+        )
+
+    if late_periods:
+
+        recommended_actions.append(
+            "Arrive on time for every class."
+        )
+
+    if (
+        total_periods > 0
+        and
+        (
+            present_periods / total_periods
+        ) < 0.9
+    ):
+
+        recommended_actions.append(
+            "Improve consistency across all scheduled classes."
+        )
+
+    payload["insights"] = insights
+
+    payload["recommended_focus"] = (
+        recommended_focus
+    )
+
+    payload["recommended_actions"] = (
+        recommended_actions
+    )
+
+    return payload
