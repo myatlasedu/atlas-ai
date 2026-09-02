@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from datetime import date
+
 
 class ParsedGuardianIntent(BaseModel):
 
@@ -7,9 +7,9 @@ class ParsedGuardianIntent(BaseModel):
 
     navigation_target: str | None = None
 
-    start_date: date | None = None
+    start_date: str | None = None
 
-    end_date: date | None = None
+    end_date: str | None = None
 
     academic_year: str | None = None
 
@@ -19,9 +19,15 @@ class ParsedGuardianIntent(BaseModel):
 
     subject: str | None = None
 
+    teacher: str | None = None
+
     topic: str | None = None
 
     asks_for_marks: bool = False
+
+    invalid_date: bool = False
+
+    late_only: bool = False
 
     homework_focus: str | None = None
 

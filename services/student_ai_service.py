@@ -355,13 +355,13 @@ class StudentAIService:
                     await parse_intent(
                         query=query,
                         role=context.role,
+                        enrollment_id=context.enrollment_id,
                     )
                 )
 
                 parsed_intent = (
                     DateService.validate(
-                        parsed_intent,
-                        query=query,
+                        parsed_intent
                     )
                 )
 
@@ -387,13 +387,13 @@ class StudentAIService:
                 await parse_intent(
                     query=query,
                     role=context.role,
+                    enrollment_id=context.enrollment_id,
                 )
             )
 
             parsed_intent = (
                 DateService.validate(
-                    parsed_intent,
-                    query=query,
+                    parsed_intent
                 )
             )
 

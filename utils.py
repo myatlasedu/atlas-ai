@@ -1,64 +1,69 @@
 import pytz
 import calendar
+import difflib
 
-from datetime import datetime, date, timedelta
+from datetime import datetime
+from datetime import date
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import text
-from db.session import AsyncSessionLocal
+import re
+
+from datetime import (
+    date,
+    datetime,
+    timedelta,
+)
 
 
 IST = ZoneInfo("Asia/Kolkata")
 
+MARKS_QUERY_KEYWORDS = ("marks", "grade", "score", "result")
 
-# Academic year runs from the month returned by the
-# AcademicYear model (e.g. April) to the following March.
-# Dates in April through December belong to the year
-# that starts on 1 April; January through March belong
-# to the previous year's academic year.
-DEFAULT_ACADEMIC_YEAR_START_MONTH = 4
+HOMEWORK_QUERY_KEYWORDS = ("homework", "assignment", "worksheet", "submission", " hw")
 
+FEEDBACK_QUERY_KEYWORDS = ("feedback", "remarks", "comments", "teacher say", "teacher said")
 
-def academic_year_for(
-    day: date,
-    start_month: int = DEFAULT_ACADEMIC_YEAR_START_MONTH,
-) -> int:
-
-    if day.month >= start_month:
-        return day.year
-
-    return day.year - 1
+MONTH_NAMES = (
+    "january", "february", "march", "april", "may", "june",
+    "july", "august", "september", "october", "november",
+    "december", "jan", "feb", "mar", "apr", "jun", "jul",
+    "aug", "sep", "oct", "nov", "dec",
+)
 
 
-async def get_academic_year_start_month() -> int:
+def detect_invalid_date(query):
+    lower = query.lower()
+    for month in MONTH_NAMES:
+        idx = lower.find(month)
+        if idx == -1:
+            continue
+        tokens = lower[:idx].strip().split()
+        if not tokens:
+            continue
+        token = tokens[-1].rstrip("stndrdth.,")
+        if token.isdigit() and int(token) not in range(1, 32):
+            return True
+    return False
 
-    try:
 
-        async with AsyncSessionLocal() as db:
+MARKS_MANIPULATION_KEYWORDS = (
+    "give me 100", "give me 100%", "100% marks", "100% grade",
+    "100 percent", "change my marks", "set my marks",
+    "update my marks", "increase my marks", "boost my marks",
+    "full marks",
+)
 
-            result = await db.execute(
-                text(
-                    """
-                    SELECT from_date
-                    FROM schools_academicyear
-                    WHERE from_date <= :today
-                      AND to_date >= :today
-                    ORDER BY id
-                    LIMIT 1
-                    """
-                ),
-                {"today": ist_today()},
-            )
 
-            row = result.mappings().first()
-
-            if row and row["from_date"]:
-                return row["from_date"].month
-
-    except Exception:
-        pass
-
-    return DEFAULT_ACADEMIC_YEAR_START_MONTH
+def resolve_canonical_name(raw, names, cutoff=0.6):
+    match = difflib.get_close_matches(
+        str(raw).lower(),
+        [str(n).lower() for n in names],
+        n=1,
+        cutoff=cutoff,
+    )
+    if match:
+        return next(n for n in names if str(n).lower() == match[0])
+    return None
 
 
 def ist_now() -> datetime:
@@ -100,372 +105,12 @@ _WEEKDAY_MAP = {
     "sunday": 6,
 }
 
-MONTH_NAMES = {
-    "january": 1,
-    "february": 2,
-    "march": 3,
-    "april": 4,
-    "may": 5,
-    "june": 6,
-    "july": 7,
-    "august": 8,
-    "september": 9,
-    "october": 10,
-    "november": 11,
-    "december": 12,
-}
 
-ORDINAL_SUFFIXES = (
-    "th",
-    "st",
-    "nd",
-    "rd",
-)
-
-
-def month_number(name):
-
-    clean = (
-        str(name)
-        .strip()
-        .strip(".,;:!?()[]\"")
-        .lower()
-    )
-
-    return MONTH_NAMES.get(clean)
-
-
-def has_month_name(query):
-
-    for token in query.split():
-
-        if month_number(token) is not None:
-            return True
-
-    return False
-
-
-def has_weekday_name(query):
-
-    for token in query.split():
-
-        clean = token.strip(".,;:!?()[]\"").lower()
-
-        if clean in _WEEKDAY_MAP:
-            return True
-
-    return False
-
-
-def contains_weekday(
-    query: str,
-    weekday_name: str,
-) -> bool:
-
-    for token in query.split():
-
-        clean = token.strip(".,;:!?()[]\"").lower()
-
-        if clean == weekday_name:
-            return True
-
-    return False
-
-
-def parse_day_token(
-    token: str,
-):
-
-    clean = token.strip(".,;:!?()[]\"")
-
-    for suffix in ORDINAL_SUFFIXES:
-
-        if (
-            clean.lower().endswith(suffix)
-            and
-            clean[:-len(suffix)].isdigit()
-        ):
-            clean = clean[:-len(suffix)]
-            break
-
-    if not clean.isdigit():
-        return None
-
-    day = int(clean)
-
-    if not (1 <= day <= 31):
-        return None
-
-    return day
-
-
-def extract_day_month(
-    query: str,
-    start_month: int = DEFAULT_ACADEMIC_YEAR_START_MONTH,
-):
-
-    tokens = query.split()
-
-    month_index = None
-
-    month = None
-
-    for index, token in enumerate(tokens):
-
-        candidate = month_number(token)
-
-        if candidate is not None:
-
-            month_index = index
-            month = candidate
-            break
-
-    if month_index is None:
-        return None
-
-    year = None
-
-    for token in tokens:
-
-        clean = token.strip(".,;:!?()[]\"")
-
-        if (
-            len(clean) == 4
-            and
-            clean.isdigit()
-            and
-            1900 <= int(clean) <= 2099
-        ):
-
-            year = int(clean)
-            break
-
-    if year is None:
-        year = academic_year_for(ist_today(), start_month)
-
-    days = []
-
-    for offset in range(-3, 4):
-
-        position = month_index + offset
-
-        if position < 0 or position >= len(tokens):
-            continue
-
-        if position == month_index:
-            continue
-
-        day = parse_day_token(
-            tokens[position]
-        )
-
-        if day is not None:
-            days.append(day)
-
-    if not days:
-        return None
-
-    days = sorted(
-        set(days)
-    )
-
-    max_day = calendar.monthrange(
-        year,
-        month,
-    )[1]
-
-    days = [
-        day
-        for day in days
-        if day <= max_day
-    ]
-
-    if not days:
-        return None
-
-    start = date(
-        year,
-        month,
-        days[0],
-    )
-
-    end = date(
-        year,
-        month,
-        days[-1],
-    )
-
-    return (start, end)
-
-
-def extract_month_range(
-    query: str,
-    start_month: int = DEFAULT_ACADEMIC_YEAR_START_MONTH,
-):
-
-    tokens = query.split()
-
-    months = []
-
-    for token in tokens:
-
-        month = month_number(token)
-
-        if month is not None:
-            months.append(month)
-
-    unique_months = set(months)
-
-    if len(unique_months) != 1:
-        return None
-
-    month = unique_months.pop()
-
-    year = None
-
-    for token in tokens:
-
-        clean = token.strip(".,;:!?()[]\"")
-
-        if (
-            len(clean) == 4
-            and
-            clean.isdigit()
-            and
-            1900 <= int(clean) <= 2099
-        ):
-
-            year = int(clean)
-            break
-
-    if year is None:
-        year = academic_year_for(ist_today(), start_month)
-
-    first = date(
-        year,
-        month,
-        1,
-    )
-
-    last = date(
-        year,
-        month,
-        calendar.monthrange(
-            year,
-            month,
-        )[1],
-    )
-
-    return (first, last)
-
-
-def past_or_last_days_count(
-    query: str,
-):
-
-    tokens = query.split()
-
-    for index, token in enumerate(tokens):
-
-        if token not in ("past", "last"):
-            continue
-
-        if index + 2 >= len(tokens):
-            continue
-
-        count_token = tokens[index + 1]
-
-        day_token = tokens[index + 2]
-
-        if not count_token.isdigit():
-            continue
-
-        if not day_token.startswith("day"):
-            continue
-
-        return int(count_token)
-
-    return None
-
-
-def next_days_count(
-    query: str,
-):
-
-    tokens = query.split()
-
-    for index, token in enumerate(tokens):
-
-        if token != "next":
-            continue
-
-        if index + 2 >= len(tokens):
-            continue
-
-        count_token = tokens[index + 1]
-
-        day_token = tokens[index + 2]
-
-        if not count_token.isdigit():
-            continue
-
-        if not day_token.startswith("day"):
-            continue
-
-        return int(count_token)
-
-    return None
-
-
-def has_explicit_year(query: str) -> bool:
-
-    for token in query.split():
-
-        clean = token.strip(".,;:!?()[]\"")
-
-        if (
-            len(clean) == 4
-            and
-            clean.isdigit()
-            and
-            1900 <= int(clean) <= 2099
-        ):
-            return True
-
-    return False
-
-
-def force_current_academic_year(
-    parsed: dict,
-    query: str,
-    start_month: int = DEFAULT_ACADEMIC_YEAR_START_MONTH,
-) -> dict:
-
-    if has_explicit_year(query):
-        return parsed
-
-    target_year = academic_year_for(ist_today(), start_month)
-
-    for field in ("start_date", "end_date"):
-
-        value = parsed.get(field)
-
-        if isinstance(value, date):
-
-            parsed[field] = value.replace(
-                year=target_year,
-            )
-
-    return parsed
-
-
-async def resolve_dates(
+def resolve_dates(
     parsed: dict,
 ):
 
     today = ist_today()
-
-    start_month = await get_academic_year_start_month()
 
     query = (
         parsed.get(
@@ -475,100 +120,6 @@ async def resolve_dates(
         .lower()
         .strip()
     )
-
-    # ------------------------------------------------------
-    # Deterministic day + month override
-    # ------------------------------------------------------
-    #
-    # If the query clearly names a day and month
-    # (e.g. "7 August"), trust that over any date the
-    # LLM may have returned (it occasionally returns
-    # "today" for a clearly dated question).
-    #
-
-    start_value = parsed.get("start_date")
-    end_value = parsed.get("end_date")
-
-    llm_start = None
-    llm_end = None
-    llm_valid = False
-
-    if (
-        isinstance(start_value, date)
-        and
-        isinstance(end_value, date)
-    ):
-
-        llm_start = start_value
-        llm_end = end_value
-        llm_valid = True
-
-    elif (
-        isinstance(start_value, str)
-        and
-        isinstance(end_value, str)
-    ):
-
-        try:
-
-            llm_start = date.fromisoformat(
-                start_value
-            )
-
-            llm_end = date.fromisoformat(
-                end_value
-            )
-
-            llm_valid = True
-
-        except ValueError:
-            pass
-
-    day_month = extract_day_month(query, start_month)
-
-    if day_month is not None:
-
-        dstart, dend = day_month
-
-        included = (
-            llm_valid
-            and
-            llm_start <= dstart
-            and
-            dend <= llm_end
-        )
-
-        if not included:
-
-            parsed["start_date"] = dstart
-            parsed["end_date"] = dend
-
-            return parsed
-
-    month_range = extract_month_range(query, start_month)
-
-    if (
-        month_range is not None
-        and
-        day_month is None
-    ):
-
-        mstart, mend = month_range
-
-        included = (
-            llm_valid
-            and
-            mstart >= llm_start
-            and
-            mend <= llm_end
-        )
-
-        if not included:
-
-            parsed["start_date"] = mstart
-            parsed["end_date"] = mend
-
-            return parsed
 
     # ------------------------------------------------------
     # Explicit dates already parsed by LLM
@@ -587,10 +138,7 @@ async def resolve_dates(
         and
         isinstance(end_date, date)
     ):
-        return force_current_academic_year(
-            parsed,
-            query,
-        )
+        return parsed
 
     if (
         isinstance(start_date, str)
@@ -608,11 +156,7 @@ async def resolve_dates(
                 end_date
             )
 
-            return force_current_academic_year(
-                parsed,
-                query,
-                start_month,
-            )
+            return parsed
 
         except ValueError:
 
@@ -884,9 +428,16 @@ async def resolve_dates(
     # Past X days
     # ------------------------------------------------------
 
-    days = past_or_last_days_count(query)
+    match = re.search(
+        r"(?:past|last)\s+(\d+)\s+days",
+        query,
+    )
 
-    if days:
+    if match:
+
+        days = int(
+            match.group(1)
+        )
 
         parsed["start_date"] = (
             today - timedelta(days=days)
@@ -900,9 +451,16 @@ async def resolve_dates(
     # Next X days
     # ------------------------------------------------------
 
-    days = next_days_count(query)
+    match = re.search(
+        r"next\s+(\d+)\s+days",
+        query,
+    )
 
-    if days:
+    if match:
+
+        days = int(
+            match.group(1)
+        )
 
         parsed["start_date"] = today
 
@@ -958,50 +516,23 @@ async def resolve_dates(
 
             return parsed
 
-        if contains_weekday(query, weekday_name):
+        if re.search(
+            rf"\b{weekday_name}\b",
+            query,
+        ):
 
-            intent = parsed.get("intent")
+            delta = (
+                weekday - today.weekday()
+            ) % 7
 
-            if intent == "attendance_summary":
-
-                delta = (
-                    today.weekday() - weekday
-                ) % 7
-
-                target = (
-                    today - timedelta(days=delta)
-                )
-
-            else:
-
-                delta = (
-                    weekday - today.weekday()
-                ) % 7
-
-                if delta == 0:
-                    delta = 7
-
-                target = (
-                    today + timedelta(days=delta)
-                )
+            target = (
+                today + timedelta(days=delta)
+            )
 
             parsed["start_date"] = target
             parsed["end_date"] = target
 
             return parsed
-
-    # ------------------------------------------------------
-    # Deterministic day + month fallback
-    # ------------------------------------------------------
-
-    if not parsed.get("start_date") and not parsed.get("end_date"):
-
-        dates = extract_day_month(query, start_month)
-
-        if dates:
-
-            parsed["start_date"] = dates[0]
-            parsed["end_date"] = dates[1]
 
     return parsed
 

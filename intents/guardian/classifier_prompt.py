@@ -42,6 +42,15 @@ assessment_summary
 Do NOT treat other intents as homework when homework
 words are absent.
 
+A query about homework that also names a subject
+(e.g. "science homework") is homework_summary - the
+subject is a filter on the homework, not a subject
+question.
+
+A query that names a specific homework ("tell me about
+X", "details about X") is homework_summary. topic_summary
+is only for topics/chapters that are NOT homework.
+
 ==================================================
 ALLOWED INTENTS
 ==================================================
@@ -57,18 +66,6 @@ Use when the guardian asks about:
 - late arrivals
 - attendance report
 - attendance trend
-- health room / sick bay visits
-- excused lessons
-- which lessons were missed, late, absent or attended
-
-Questions asking WHETHER lessons/periods/classes were
-missed, attended, absent, late or excused are ALWAYS
-attendance_summary, even when they use the words
-lesson, period or class.
-
-Questions asking whether school was open or whether
-there were classes on a day ("Was school open on 15 August?",
-"Was there school on Sunday?") are ALWAYS attendance_summary.
 
 --------------------------------------------------
 
@@ -87,6 +84,8 @@ Use when the guardian asks about:
 - homework review
 - homework due today
 - homework due tomorrow
+- homework for a specific subject (e.g. "science homework")
+- details about a specific named homework (e.g. "tell me about Blood Chapter")
 
 --------------------------------------------------
 
@@ -249,61 +248,6 @@ Output:
 --------------------------------------------------
 
 User:
-Did my child visit the health room today?
-
-Output:
-{
-    "intent": "attendance_summary",
-    "confidence": 0.99
-}
-
---------------------------------------------------
-
-User:
-Which lessons was my child excused from this week?
-
-Output:
-{
-    "intent": "attendance_summary",
-    "confidence": 0.99
-}
-
---------------------------------------------------
-
-User:
-Did my child miss any class periods today?
-
-Output:
-{
-    "intent": "attendance_summary",
-    "confidence": 0.99
-}
-
---------------------------------------------------
-
-User:
-Was my child late for school yesterday?
-
-Output:
-{
-    "intent": "attendance_summary",
-    "confidence": 0.99
-}
-
---------------------------------------------------
-
-User:
-Was my child absent on 5 August?
-
-Output:
-{
-    "intent": "attendance_summary",
-    "confidence": 0.99
-}
-
---------------------------------------------------
-
-User:
 Does my child have pending homework?
 
 Output:
@@ -327,6 +271,28 @@ Output:
 
 User:
 Did my child hand in the english chapter 2 homework?
+
+Output:
+{
+    "intent": "homework_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Show me my child's science homework.
+
+Output:
+{
+    "intent": "homework_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Tell me about my child's Blood Chapter homework.
 
 Output:
 {

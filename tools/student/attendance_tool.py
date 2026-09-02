@@ -51,7 +51,6 @@ class AttendanceTool:
                     enrollment_id=context.enrollment_id,
                     start_date=parsed_intent.start_date,
                     end_date=parsed_intent.end_date,
-                    campus_id=context.campus_id,
                 ),
             }
 
@@ -93,13 +92,8 @@ class AttendanceTool:
                 0,
             )
 
-            working_days = payload.get(
-                "working_days",
-                0,
-            )
-
-            absent_days = payload.get(
-                "absent_days",
+            total_marked_days = payload.get(
+                "total_marked_days",
                 0,
             )
 
@@ -142,7 +136,7 @@ class AttendanceTool:
             # INSIGHTS
             # =====================================
 
-            if working_days == 0:
+            if total_marked_days == 0:
 
                 insights.append(
                     "No attendance records are available yet."
@@ -151,7 +145,7 @@ class AttendanceTool:
             else:
 
                 insights.append(
-                    f"You attended school on {present_days} of {working_days} working day(s) and were absent on {absent_days} day(s)."
+                    f"You attended school on {present_days} of {total_marked_days} recorded day(s)."
                 )
 
                 if total_periods:
@@ -236,11 +230,6 @@ class AttendanceTool:
                 build_attendance_llm_context(
                     payload,
                 )
-            )
-
-            payload.pop(
-                "period_rows",
-                None,
             )
 
             return payload

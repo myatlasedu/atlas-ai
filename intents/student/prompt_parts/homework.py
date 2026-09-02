@@ -81,6 +81,21 @@ set "topic" to the FULL homework name EXACTLY as the student wrote it.
   match it against real homework titles itself.
 - If no specific homework is named, leave "topic" as null.
 
+- Copy the FULL homework name exactly as written. NEVER add
+  or remove words (do not add "homework", do not drop
+  "chapter").
+
+- A bare "<subject> homework / assignment / work" with NO
+  distinctive title means the SUBJECT, not a homework title.
+  Set "subject" to that subject and leave "topic" null.
+  Example: "Spanish Assignment" -> subject "Spanish", topic null.
+
+- "by <teacher>" / "<teacher> assign(ed)" -> set "teacher"
+  to that name and leave "topic" null.
+
+- "<teacher>'s homework" / "homework of <teacher>" ->
+  set "teacher" to that name and leave "topic" null.
+
 Examples:
 
 Query: marks for homework 'homework worksheet - 29 july'
@@ -95,6 +110,9 @@ topic: "homework-worksheet28july"
 Query: tell me about my homework son muy famossos
 topic: "son muy famossos"    (copy even MISSPELLED names exactly)
 
+Query: what is the Respiration chapter homework?
+topic: "Respiration chapter"    (exact title, no extra "homework")
+
 Query: what marks did I get in homework
 topic: null
 
@@ -107,7 +125,7 @@ to EXACTLY ONE of these values:
 
 topic_status | pending | overdue | due_today |
 due_tomorrow | submitted | graded | feedback |
-due_range | next_up | general
+due_range | next_up | general | resubmit | upcoming | awaiting_marks
 
 Rules:
 
@@ -124,6 +142,12 @@ Rules:
   -> "submitted" (fill start_date = end_date = that date).
 - graded / marked / scores so far / my results list
   -> "graded".
+- resubmission / sent back for a redo / resubmit /
+  submit again / asked to redo -> "resubmit".
+- upcoming / coming up / in the future / not yet
+  due -> "upcoming".
+- submitted but not graded / awaiting marks / waiting
+  to be graded / ungraded -> "awaiting_marks".
 - teacher feedback / remarks / notes from teacher
   -> "feedback".
 - A DUE-DATE period is mentioned ("this week",
@@ -147,6 +171,27 @@ homework_focus: "overdue"
 
 Query: show my graded homework
 homework_focus: "graded"
+
+Query: which homework needs resubmission?
+homework_focus: "resubmit"
+
+Query: show my upcoming homework
+homework_focus: "upcoming"
+
+Query: which homework is waiting to be graded?
+homework_focus: "awaiting_marks"
+
+Query: what homework is due next?
+homework_focus: "next_up"
+
+Query: show my homework feedback
+homework_focus: "feedback"
+
+Query: show feedback for my Science homework
+homework_focus: "feedback", subject: "Science"
+
+Query: what did my teacher say about Elements of Art?
+homework_focus: "topic_status", topic: "Elements of Art"
 
 Query: what homework was due on 31 July?
 homework_focus: "due_range", start_date = 2026-07-31,

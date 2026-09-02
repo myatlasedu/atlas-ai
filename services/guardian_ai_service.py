@@ -203,14 +203,14 @@ class GuardianAIService:
 
         parsed_intent = (
             await parse_guardian_intent(
-                query
+                query,
+                enrollment_id=context.enrollment_id,
             )
         )
 
         parsed_intent = (
             DateService.validate(
-                parsed_intent,
-                query=query,
+                parsed_intent
             )
         )
 

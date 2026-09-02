@@ -45,7 +45,6 @@ class AttendanceTool:
                     enrollment_id=context.enrollment_id,
                     start_date=parsed_intent.start_date,
                     end_date=parsed_intent.end_date,
-                    campus_id=context.campus_id,
                 )
             }
 
@@ -55,9 +54,4 @@ class AttendanceTool:
                 )
             )
 
-            payload.pop(
-                "period_rows",
-                None,
-            )
-            
             return payload

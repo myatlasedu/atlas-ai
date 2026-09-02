@@ -41,8 +41,7 @@ class MentorAIService:
         )
 
         parsed_intent = DateService.validate(
-            parsed_intent,
-            query=query,
+            parsed_intent
         )
 
         logger.info(

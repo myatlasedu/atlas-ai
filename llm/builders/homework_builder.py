@@ -1,5 +1,15 @@
 from __future__ import annotations
 
+from utils import format_datetime
+
+
+def format_row_dates(row):
+    row = dict(row)
+    for key in ("submitted_at", "reviewed_at"):
+        if row.get(key):
+            row[key] = format_datetime(row[key])
+    return row
+
 
 def build_homework_llm_context(
     payload: dict,
@@ -45,7 +55,22 @@ def build_homework_llm_context(
 
     graded = payload.get(
         "graded",
-    [],
+        [],
+    )
+
+    resubmit = payload.get(
+        "resubmit",
+        [],
+    )
+
+    upcoming = payload.get(
+        "upcoming",
+        [],
+    )
+
+    awaiting_marks = payload.get(
+        "awaiting_marks",
+        [],
     )
 
     next_up = payload.get(
@@ -70,6 +95,9 @@ def build_homework_llm_context(
     feedback_count = len(feedback)
     submitted_count = len(submitted)
     graded_count = len(graded)
+    resubmit_count = len(resubmit)
+    upcoming_count = len(upcoming)
+    awaiting_marks_count = len(awaiting_marks)
 
     # ==========================================
     # STATUS
@@ -82,6 +110,10 @@ def build_homework_llm_context(
     elif overdue_count:
 
         status = "critical"
+
+    elif resubmit_count:
+
+        status = "attention"
 
     elif due_today_count or pending_count:
 
@@ -134,6 +166,33 @@ def build_homework_llm_context(
             f"{feedback_count} assignment(s)."
         ) if feedback_count else (
             "No teacher feedback yet."
+        )
+
+    elif focus == "resubmit":
+
+        headline = (
+            f"{resubmit_count} homework assignment(s) "
+            f"need to be resubmitted."
+        ) if resubmit_count else (
+            "No homework is waiting for resubmission."
+        )
+
+    elif focus == "upcoming":
+
+        headline = (
+            f"{upcoming_count} homework assignment(s) "
+            f"coming up."
+        ) if upcoming_count else (
+            "No homework is coming up."
+        )
+
+    elif focus == "awaiting_marks":
+
+        headline = (
+            f"{awaiting_marks_count} homework assignment(s) "
+            f"submitted but not yet graded."
+        ) if awaiting_marks_count else (
+            "No submitted homework is awaiting marks."
         )
 
     elif overdue_count:
@@ -194,6 +253,25 @@ def build_homework_llm_context(
 
         highlights.append(
             f"Teacher feedback available for {feedback_count} assignment(s)."
+        )
+
+    if resubmit_count:
+
+        highlights.append(
+            f"{resubmit_count} resubmission(s) requested."
+        )
+
+    if upcoming_count:
+
+        highlights.append(
+            f"{upcoming_count} homework assignment(s) coming up."
+        )
+
+    if awaiting_marks_count:
+
+        highlights.append(
+            f"{awaiting_marks_count} homework assignment(s) "
+            f"awaiting marks."
         )
 
     # ==========================================
@@ -263,6 +341,10 @@ def build_homework_llm_context(
 
             "overdue": overdue_count,
 
+            "resubmit": resubmit_count,
+
+            "upcoming": upcoming_count,
+
             "due_today": due_today_count,
 
             "due_tomorrow": due_tomorrow_count,
@@ -272,6 +354,8 @@ def build_homework_llm_context(
             "submitted": submitted_count,
 
             "graded": graded_count,
+
+            "awaiting_marks": awaiting_marks_count,
         },
 
         "highlights": highlights,
@@ -284,21 +368,31 @@ def build_homework_llm_context(
 
         "titled_lookup": titled_lookup,
 
-        "pending": pending,
+        "pending": [format_row_dates(x) for x in pending],
 
-        "overdue": overdue,
+        "overdue": [format_row_dates(x) for x in overdue],
 
-        "due_today": due_today,
+        "due_today": [format_row_dates(x) for x in due_today],
 
-        "due_tomorrow": due_tomorrow,
+        "due_tomorrow": [format_row_dates(x) for x in due_tomorrow],
 
-        "recent_feedback": feedback,
+        "recent_feedback": [format_row_dates(x) for x in feedback],
 
-        "submitted": submitted,
+        "submitted": [format_row_dates(x) for x in submitted],
 
-        "graded": graded,
+        "graded": [format_row_dates(x) for x in graded],
 
-        "next_up": next_up,
+        "resubmit": [format_row_dates(x) for x in resubmit],
+
+        "upcoming": [format_row_dates(x) for x in upcoming],
+
+        "awaiting_marks": [format_row_dates(x) for x in awaiting_marks],
+
+        "next_up": (
+            format_row_dates(next_up)
+            if isinstance(next_up, dict)
+            else None
+        ),
 
         "due_window": due_window,
     }
