@@ -1832,7 +1832,7 @@ async def summarize_response(
             },
         ],
         max_tokens=500,
-        thinking=True
+        thinking=False
     )
 
     logger.info(
