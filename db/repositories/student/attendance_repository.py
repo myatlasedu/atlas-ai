@@ -1,25 +1,14 @@
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import timedelta
-from utils import IST, ist_today
 
 
 class AttendanceRepository:
-
-    STATUS_LABELS = {
-        1: "present",
-        2: "absent",
-        3: "late",
-        4: "excused",
-        5: "healthroom",
-    }
 
     def __init__(
         self,
         db: AsyncSession,
     ):
         self.db = db
-
 
     # =====================================================
     # DAILY ATTENDANCE
@@ -107,74 +96,37 @@ class AttendanceRepository:
         enrollment_id: int,
         start_date: str,
         end_date: str,
-        campus_id: int | None = None,
     ):
 
         # -------------------------------------------------
         # RFID attendance is the source of truth
         # -------------------------------------------------
 
-        holiday_dates = set()
-
-        if (
-            campus_id
-            and start_date
-            and end_date
-        ):
-
-            holiday_query = text(
-                """
-                SELECT start_datetime, end_datetime
-                FROM schools_schoolevent
-                WHERE event_type = 1
-                  AND campus_id = :campus_id
-                  AND start_datetime::date <= :end_date
-                  AND end_datetime::date >= :start_date
-                """
-            )
-
-            holiday_result = await self.db.execute(
-                holiday_query,
-                {
-                    "campus_id": campus_id,
-                    "start_date": start_date,
-                    "end_date": end_date,
-                },
-            )
-
-            for row in holiday_result.mappings().all():
-
-                start = (
-                    row["start_datetime"]
-                    .astimezone(IST)
-                    .date()
-                )
-
-                end = (
-                    row["end_datetime"]
-                    .astimezone(IST)
-                    .date()
-                )
-
-                for offset in range(
-                    (end - start).days + 1
-                ):
-
-                    holiday_dates.add(
-                        start + timedelta(days=offset)
-                    )
-
-        record_query = text(
+        attendance_query = text(
             """
-            SELECT DISTINCT date, status
+            SELECT
+
+                COUNT(*) AS total_marked_days,
+
+                SUM(
+                    CASE
+                        WHEN status = 1
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS present_days
+
             FROM students_studentattendance
+
             WHERE enrollment_id = :enrollment_id
-              AND date BETWEEN :start_date AND :end_date
+
+              AND date BETWEEN :start_date
+                          AND :end_date
             """
         )
 
-        record_result = await self.db.execute(
-            record_query,
+        attendance_result = await self.db.execute(
+            attendance_query,
             {
                 "enrollment_id": enrollment_id,
                 "start_date": start_date,
@@ -182,85 +134,27 @@ class AttendanceRepository:
             },
         )
 
-        record_rows = record_result.mappings().all()
-        
-        record_dates = {
-            row["date"]
-            for row in record_rows
-        }
+        attendance = attendance_result.mappings().first()
 
-        late_day_dates = sorted(
-            row["date"]
-            for row in record_rows
-            if row["status"] == 3
+        total_marked_days = (
+            attendance["total_marked_days"]
+            or 0
         )
 
-        total_marked_days = len(record_dates)
-
-        working_days = 0
-
-        present_days = 0
-
-        absent_days = 0
-
-        non_working_days = 0
-
-        absent_day_dates = []
-
-        if (
-            start_date
-            and end_date
-        ):
-
-            today = ist_today()
-
-            for offset in range(
-                (end_date - start_date).days + 1
-            ):
-
-                current = (
-                    start_date + timedelta(days=offset)
-                )
-
-                if current <= today:
-
-                    is_weekend = (
-                        current.weekday() >= 5
-                    )
-
-                    is_holiday = (
-                        current in holiday_dates
-                    )
-
-                    if is_weekend or is_holiday:
-
-                        non_working_days += 1
-
-                    else:
-
-                        working_days += 1
-
-                        if current in record_dates:
-
-                            present_days += 1
-
-                        else:
-
-                            absent_days += 1
-
-                            absent_day_dates.append(
-                                current
-                            )
+        present_days = (
+            attendance["present_days"]
+            or 0
+        )
 
         attendance_percentage = 0
 
-        if working_days:
+        if total_marked_days:
 
             attendance_percentage = round(
                 (
                     present_days
                     /
-                    working_days
+                    total_marked_days
                 ) * 100,
                 2,
             )
@@ -272,42 +166,74 @@ class AttendanceRepository:
         period_query = text(
             """
             SELECT
-                ps.date,
-                spa.status,
-                sp.id AS period_id,
-                sp.name AS period_name,
-                sp.start_time,
-                sp.end_time,
-                s.name AS subject_name,
-                ps.started_at,
-                ps.ended_at,
-                ps.is_cancelled
+
+                COUNT(*) AS total_periods,
+
+                SUM(
+                    CASE
+                        WHEN spa.status = 1
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS present_periods,
+
+                SUM(
+                    CASE
+                        WHEN spa.status = 2
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS missed_periods,
+
+                SUM(
+                    CASE
+                        WHEN spa.status = 3
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS late_periods,
+
+                SUM(
+                    CASE
+                        WHEN spa.status = 4
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS excused_periods,
+
+                SUM(
+                    CASE
+                        WHEN spa.status = 5
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS healthroom_periods
+
             FROM students_studentperiodattendance spa
+
             INNER JOIN schools_periodsession ps
                 ON ps.id = spa.period_session_id
-            INNER JOIN schools_timetableslot ts
-                ON ps.timetable_slot_id = ts.id
-            INNER JOIN schools_structureperiod sp
-                ON ts.period_id = sp.id
+
             INNER JOIN students_studentsubjectenrollment sse
                 ON sse.enrollment_id = spa.enrollment_id
-                AND sse.subject_offering_id = ps.subject_offering_id
-            LEFT JOIN schools_subjectoffering so
-                ON so.id = ps.subject_offering_id
-            LEFT JOIN schools_subjectversion sv
-                ON sv.id = so.subject_version_id
-            LEFT JOIN schools_subject s
-                ON s.id = sv.subject_id
+            AND sse.subject_offering_id = ps.subject_offering_id
+
             INNER JOIN students_studentattendance sa
                 ON sa.enrollment_id = spa.enrollment_id
-                AND sa.date = ps.date
+            AND sa.date = ps.date
+
             WHERE
+
                 spa.enrollment_id = :enrollment_id
-                AND ps.date BETWEEN :start_date AND :end_date
-                AND sa.status IN (1,3,4)
-            ORDER BY
-                ps.date,
-                sp.order
+
+            AND
+
+                ps.date BETWEEN :start_date
+                            AND :end_date
+
+            AND
+
+                sa.status = 1
             """
         )
 
@@ -320,109 +246,44 @@ class AttendanceRepository:
             },
         )
 
-        period_rows = [
-            dict(row)
-            for row in period_result.mappings().all()
-        ]
-
-        total_periods = len(period_rows)
-
-        for row in period_rows:
-            row["status_label"] = (
-                self.STATUS_LABELS.get(
-                    row["status"],
-                    "unknown",
-                )
-            )
-
-        present_periods = sum(
-            1
-            for row in period_rows
-            if row["status"] == 1
-        )
-
-        missed_periods = sum(
-            1
-            for row in period_rows
-            if row["status"] == 2
-        )
-
-        late_periods = sum(
-            1
-            for row in period_rows
-            if row["status"] == 3
-        )
-
-        excused_periods = sum(
-            1
-            for row in period_rows
-            if row["status"] == 4
-        )
-
-        healthroom_periods = sum(
-            1
-            for row in period_rows
-            if row["status"] == 5
-        )
-
-
+        periods = period_result.mappings().first()
 
         return {
+
+            # -------------------------------------------------
+            # RFID Attendance
+            # -------------------------------------------------
 
             "total_marked_days":
                 total_marked_days,
 
             "present_days":
                 present_days,
-            
-            "working_days":
-                working_days,
-
-            "absent_days":
-                absent_days,
-
-            "absent_day_dates":
-                [
-                    date.isoformat()
-                    for date in absent_day_dates
-                ],
-
-            "non_working_days":
-                non_working_days,
-
-            "late_days":
-                len(late_day_dates),
-
-            "late_day_dates":
-                [
-                    date.isoformat()
-                    for date in late_day_dates
-                ],
 
             "attendance_percentage":
                 attendance_percentage,
 
+            # -------------------------------------------------
+            # Classroom Attendance
+            # -------------------------------------------------
+
             "total_periods":
-                total_periods,
+                periods["total_periods"] or 0,
 
             "present_periods":
-                present_periods,
+                periods["present_periods"] or 0,
 
             "missed_periods":
-                missed_periods,
+                periods["missed_periods"] or 0,
 
             "late_periods":
-                late_periods,
-
+                periods["late_periods"] or 0,
 
             "excused_periods":
-                excused_periods,
+                periods["excused_periods"] or 0,
 
             "healthroom_periods":
-                healthroom_periods,
-
-            "period_rows":
-                period_rows,
+                periods["healthroom_periods"] or 0,
         }
 
     # =====================================================

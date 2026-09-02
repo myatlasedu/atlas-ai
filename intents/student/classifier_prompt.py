@@ -37,16 +37,6 @@ Attendance, absences, presence, late arrivals,
 attendance reports, attendance analytics,
 attendance percentage or attendance trends.
 
-- health room / sick bay visits ("Did I visit the health room?")
-- excused lessons ("Which lessons was I excused from?")
-- Questions asking WHETHER lessons/periods/classes were
-missed, attended, absent, late or excused are ALWAYS
-attendance_summary, even when they use the words
-lesson, period or class.
-- Questions asking whether school was open or whether
-there were classes on a day ("Was school open on 15 August?",
-"Was there school on Sunday?") are ALWAYS attendance_summary.
-
 --------------------------------------------------
 
 homework_summary
@@ -80,6 +70,20 @@ Examples:
 "Show details of the assignment Son muy famosos."
 
 "When did I submit my Maths homework?"
+
+"Show me my Science homework."
+
+"Show me science homework."
+
+"What Spanish homework do I have?"
+
+"Tell me about Elements of Art."
+
+"Give me details about Elements of Art."
+
+"Tell me about Blood Chapter."
+
+"Give me details about Unit 1-Rivers."
 
 → homework_summary
 
@@ -317,9 +321,6 @@ refer to instructional blocks.
 
 NOT school events.
 
-EXCEPTION: if the question asks WHETHER lessons/periods/
-classes were missed, attended, absent, late or excused,
-classify as attendance_summary, NOT timetable_summary.
 --------------------------------------------------
 
 screen_navigation
@@ -430,6 +431,19 @@ Topic questions ALWAYS take precedence over
 subject_summary.
 
 6.
+
+A query about homework/assignment that also names a
+subject is homework_summary - the subject is a filter
+on the homework, not a subject question. subject_summary
+is ONLY for questions about a subject itself
+(e.g. "How is my Science?", "Which subject is my
+strongest?").
+
+A query that names a specific homework ("tell me about
+X", "details about X") is homework_summary. topic_summary
+is only for topics/chapters that are NOT homework.
+
+7.
 
 Questions about
 
@@ -542,27 +556,12 @@ Never classify these as
 - calendar_summary
 - personal_event_summary
 
-Did I visit the health room today?
-
-→ attendance_summary
-
 8.
 
 Once an intent clearly matches,
 STOP reasoning and return that intent.
 
 Do not continue comparing with other intents.
-
-"Did I miss any period today?"
-
-→ attendance_summary
-
---------------------------------------------------
-
-"Did I miss any class periods today?"
-
-→ attendance_summary
-
 
 ==================================================
 OUTPUT

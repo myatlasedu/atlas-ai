@@ -53,6 +53,26 @@ NOT_SUBMITTED_CONDITION = (
     "(hs.status IS NULL OR hs.status NOT IN (1, 2))"
 )
 
+NOT_SUBMITTED_EXCLUDING_RESUBMIT = (
+    "(hs.status IS NULL OR hs.status NOT IN (1, 2, 3))"
+)
+
+
+def filter_homework_rows(rows, teacher=None, subject=None):
+    if teacher:
+        rows = [
+            r for r in rows
+            if (r.get("teacher_name") or "").strip().lower()
+            == teacher.lower()
+        ]
+    if subject:
+        rows = [
+            r for r in rows
+            if (r.get("subject_name") or "").strip().lower()
+            == subject.lower()
+        ]
+    return rows
+
 
 class HomeworkRepository:
 
@@ -130,6 +150,7 @@ class HomeworkRepository:
                     hs.marks_obtained,
                     hs.submitted_at,
                     hs.reviewed_at,
+                    hs.teacher_note,
                     hs.attempt_number,
                     {SUBJECT_TEACHER_COLUMNS}
                     CASE
@@ -204,6 +225,7 @@ class HomeworkRepository:
                 "percentage": percentage,
                 "submitted_at": row["submitted_at"],
                 "reviewed_at": row["reviewed_at"],
+                "teacher_note": row["teacher_note"],
                 "attempt_number": row["attempt_number"],
             }
 
@@ -276,6 +298,7 @@ class HomeworkRepository:
                 "due_date": row["due_date"],
                 "subject_name": row["subject_name"],
                 "teacher_name": row["teacher_name"],
+                "teacher_note": row["teacher_note"],
                 "matches": matches_meta,
             }
 
@@ -288,6 +311,7 @@ class HomeworkRepository:
                 "due_date": row["due_date"],
                 "subject_name": row["subject_name"],
                 "teacher_name": row["teacher_name"],
+                "teacher_note": row["teacher_note"],
                 "matches": matches_meta,
             }
 
@@ -309,6 +333,7 @@ class HomeworkRepository:
                 "is_past_due": is_past_due,
                 "subject_name": row["subject_name"],
                 "teacher_name": row["teacher_name"],
+                "teacher_note": row["teacher_note"],
                 "matches": matches_meta,
             }
 
@@ -325,37 +350,18 @@ class HomeworkRepository:
         subject=None,
         start=None,
         end=None,
-        include_submitted=False
+        include_submitted=False,
+        teacher=None
     ):
 
-        # Default: every homework not submitted yet,
-        # regardless of due date. Overdue items are part of
-        # this list and flagged via is_overdue.
-        #
-        # start/end limit rows to a due-date window, so one
-        # method answers this week / yesterday / a single day
-        # / any range without extra queries.
-        #
-        # include_submitted=True widens the result to ALL
-        # homework; every row then carries submitted_at,
-        # marks_obtained and a status_tag (pending / overdue /
-        # submitted / graded / resubmit_requested) so the
-        # caller can slice submitted or graded views from the
-        # same single query.
-
-        subject_filter = ""
+        # Default: every homework not submitted yet (overdue flagged via is_overdue).
+        # start/end bound to a due-date window (this week / yesterday / a single day / any range).
+        # include_submitted widens to ALL homework with submitted_at, marks_obtained and a
+        # status_tag (pending / overdue / submitted / graded / resubmit_requested) for slicing.
 
         params = {
             "enrollment_id": enrollment_id
         }
-
-        if subject:
-
-            subject_filter = (
-                "AND sub.name ILIKE :subject"
-            )
-
-            params["subject"] = f"%{subject}%"
 
         window_filter = ""
 
@@ -441,8 +447,6 @@ class HomeworkRepository:
 
             AND {status_condition}
 
-            {subject_filter}
-
             {window_filter}
 
             ORDER BY h.due_date ASC
@@ -457,33 +461,60 @@ class HomeworkRepository:
         print(
             f"get_pending_homework: {(time.perf_counter()-start)*1000:.2f} ms"
         )
-        return [
+        rows = [
             dict(row)
             for row in result.mappings()
         ]
+        return filter_homework_rows(
+            rows,
+            teacher,
+            subject,
+        )
 
     async def get_overdue_homework(
         self,
         enrollment_id: int,
-        subject=None
+        subject=None,
+        teacher=None,
+        start=None,
+        end=None
     ):
 
         # Overdue = not submitted AND past due date.
         # Always a subset of the pending list.
 
-        subject_filter = ""
-
         params = {
             "enrollment_id": enrollment_id
         }
 
-        if subject:
+        window_filter = ""
 
-            subject_filter = (
-                "AND sub.name ILIKE :subject"
+        if start and end:
+
+            window_filter = (
+                "AND DATE(h.due_date)"
+                " BETWEEN :window_start AND :window_end"
             )
 
-            params["subject"] = f"%{subject}%"
+            params["window_start"] = start
+
+            params["window_end"] = end
+
+        elif start:
+
+            window_filter = (
+                "AND DATE(h.due_date) >= :window_start"
+            )
+
+            params["window_start"] = start
+
+        elif end:
+
+            window_filter = (
+                "AND DATE(h.due_date) <= :window_end"
+            )
+
+            params["window_end"] = end
 
         query = text(
             f"""
@@ -520,11 +551,11 @@ class HomeworkRepository:
 
                 hm.enrollment_id = :enrollment_id
 
-            AND {NOT_SUBMITTED_CONDITION}
+            AND  {NOT_SUBMITTED_EXCLUDING_RESUBMIT}
 
             AND h.due_date < date_trunc('day', NOW())
 
-            {subject_filter}
+            {window_filter}
 
             ORDER BY h.due_date ASC
             """
@@ -537,17 +568,29 @@ class HomeworkRepository:
         print(
             f"get_overdue_homework: {(time.perf_counter()-start)*1000:.2f} ms"
         )
-        return [
+        rows = [
             dict(row)
             for row in result.mappings()
         ]
+        return filter_homework_rows(
+            rows,
+            teacher,
+            subject,
+        )
 
     async def get_due_today(
         self,
-        enrollment_id: int
+        enrollment_id: int,
+        subject=None,
+        teacher=None
     ):
 
         today = ist_today()
+
+        params = {
+            "enrollment_id": enrollment_id,
+            "today": today
+        }
 
         query = text(
             f"""
@@ -578,7 +621,7 @@ class HomeworkRepository:
 
                 hm.enrollment_id = :enrollment_id
 
-            AND {NOT_SUBMITTED_CONDITION}
+            AND  {NOT_SUBMITTED_EXCLUDING_RESUBMIT}
 
             AND DATE(h.due_date) = :today
 
@@ -588,28 +631,37 @@ class HomeworkRepository:
         start = time.perf_counter()
         result = await self.db.execute(
             query,
-            {
-                "enrollment_id": enrollment_id,
-                "today": today
-            }
+            params
         )
         print(
             f"get_due_today: {(time.perf_counter()-start)*1000:.2f} ms"
         )
-        return [
+        rows = [
             dict(row)
             for row in result.mappings()
         ]
+        return filter_homework_rows(
+            rows,
+            teacher,
+            subject,
+        )
 
     async def get_due_tomorrow(
         self,
-        enrollment_id: int
+        enrollment_id: int,
+        subject=None,
+        teacher=None
     ):
 
         tomorrow = (
             ist_today()
             + timedelta(days=1)
         )
+
+        params = {
+            "enrollment_id": enrollment_id,
+            "tomorrow": tomorrow
+        }
 
         query = text(
             f"""
@@ -640,35 +692,40 @@ class HomeworkRepository:
 
                 hm.enrollment_id = :enrollment_id
 
-            AND {NOT_SUBMITTED_CONDITION}
+            AND  {NOT_SUBMITTED_EXCLUDING_RESUBMIT}
 
             AND DATE(h.due_date) = :tomorrow
 
             ORDER BY h.due_date ASC
             """
         )
-
+        start = time.perf_counter()
         result = await self.db.execute(
             query,
-            {
-                "enrollment_id": enrollment_id,
-                "tomorrow": tomorrow
-            }
+            params
         )
 
-        return [
+        rows = [
             dict(row)
             for row in result.mappings()
         ]
+        return filter_homework_rows(
+            rows,
+            teacher,
+            subject,
+        )
 
     async def get_recent_feedback(
         self,
-        enrollment_id: int
+        enrollment_id: int,
+        subject=None
     ):
 
-        # Latest 5 teacher notes, anchored to the LATEST
-        # attempt of each homework so an old attempt's note
-        # can never resurface after a resubmit.
+        # Latest 5 teacher notes per homework, anchored to the latest attempt (old notes must not resurface).
+
+        params = {
+            "enrollment_id": enrollment_id
+        }
 
         query = text(
             f"""
@@ -707,7 +764,7 @@ class HomeworkRepository:
 
             AND hs.teacher_note IS NOT NULL
 
-            ORDER BY hs.reviewed_at DESC
+            ORDER BY hs.reviewed_at DESC NULLS LAST
 
             LIMIT 5
             """
@@ -715,14 +772,16 @@ class HomeworkRepository:
         start = time.perf_counter()
         result = await self.db.execute(
             query,
-            {
-                "enrollment_id": enrollment_id
-            }
+            params
         )
         print(
             f"get_recent_feedback: {(time.perf_counter()-start)*1000:.2f} ms"
         )
-        return [
+        rows = [
             dict(row)
             for row in result.mappings()
         ]
+        return filter_homework_rows(
+            rows,
+            subject=subject,
+        )

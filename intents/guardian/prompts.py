@@ -125,19 +125,6 @@ Your only job is to extract:
 - enrichment
 - view
 
-enrichment is a boolean flag.
-
-Set it to true ONLY when the question is about
-enrichment / enrichment classes / enrichment sessions
-(enrichment lessons, enrichment attendance,
-enrichment marks, enrichment activities).
-
-Set it to null for every other question.
-
-Never put status words such as "late", "present",
-"absent", "missed", "excused" or any other text
-into enrichment.
-
 ASKS FOR MARKS FLAG
 
 Set "asks_for_marks" to true ONLY when the user names
@@ -161,7 +148,7 @@ to exactly ONE value:
 
 topic_status | pending | overdue | due_today |
 due_tomorrow | submitted | graded | feedback |
-due_range | next_up | general
+due_range | next_up | general | resubmit | upcoming | awaiting_marks
 
 A specific titled homework ALWAYS means "topic_status"
 plus the name in "topic". Date-based questions fill
@@ -182,6 +169,7 @@ Return:
     "grade": null,
     "section": null,
     "subject": null,
+    "teacher": null,
     "topic": null,
     "enrichment": null,
     "view": null,
