@@ -27,6 +27,30 @@ student_performance.
 If the query contains Atlas, Band or Pillar,
 classify it as atlas_score_summary.
 
+If the query asks for marks, grades, score or result
+FOR a homework, assignment, worksheet or submission
+(e.g. "marks for homework", "marks for the worksheet",
+"grade on the assignment"), classify it as:
+
+homework_summary
+
+A query about marks WITHOUT any homework, assignment,
+worksheet or submission keyword must remain:
+
+assessment_summary
+
+Do NOT treat other intents as homework when homework
+words are absent.
+
+A query about homework that also names a subject
+(e.g. "science homework") is homework_summary - the
+subject is a filter on the homework, not a subject
+question.
+
+A query that names a specific homework ("tell me about
+X", "details about X") is homework_summary. topic_summary
+is only for topics/chapters that are NOT homework.
+
 ==================================================
 ALLOWED INTENTS
 ==================================================
@@ -54,10 +78,14 @@ Use when the guardian asks about:
 - pending homework
 - overdue homework
 - submitted homework
+- whether a specific homework was submitted or handed in
+- when a specific homework was submitted or handed in
 - homework feedback
 - homework review
 - homework due today
 - homework due tomorrow
+- homework for a specific subject (e.g. "science homework")
+- details about a specific named homework (e.g. "tell me about Blood Chapter")
 
 --------------------------------------------------
 
@@ -238,6 +266,50 @@ Output:
 
 User:
 Does my child have pending homework?
+
+Output:
+{
+    "intent": "homework_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+When did my child submit Son muy famosos?
+
+Output:
+{
+    "intent": "homework_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Did my child hand in the english chapter 2 homework?
+
+Output:
+{
+    "intent": "homework_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Show me my child's science homework.
+
+Output:
+{
+    "intent": "homework_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Tell me about my child's Blood Chapter homework.
 
 Output:
 {

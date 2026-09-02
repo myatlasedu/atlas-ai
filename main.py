@@ -10,7 +10,7 @@ from middleware import (
 
 app = FastAPI(
     title="ERP AI Copilot",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 app.add_middleware(
