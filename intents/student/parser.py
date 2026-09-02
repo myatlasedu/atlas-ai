@@ -602,7 +602,7 @@ async def parse_student_intent(
                 },
             ],
             expect_json=True,
-            thinking=True
+            thinking=False
         )
 
         content = (
