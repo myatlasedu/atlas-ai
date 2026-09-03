@@ -1325,6 +1325,10 @@ def format_listing_line(item):
 
         return f"{line} - submitted {stamp}"
 
+    if item.get("due_date"):
+
+        return f"{line} - due {str(item['due_date'])[:10]}"
+
     return line
 
 
@@ -1402,6 +1406,7 @@ def build_listing_passthrough(role, hw):
         unfinished = (
             (hw.get("overdue") or [])
             + (hw.get("pending") or [])
+            + (hw.get("resubmit") or [])
         )
 
         total = len(unfinished)
@@ -1435,21 +1440,6 @@ def build_listing_passthrough(role, hw):
                 make_json_safe(format_listing_line(item))
             )
 
-        submitted_count = len(hw.get("submitted") or [])
-
-        if submitted_count:
-
-            noun = (
-                "assignment"
-                if submitted_count == 1
-                else "assignments"
-            )
-
-            lines.append(
-                f"{submitted_count} {noun} were handed in "
-                f"within this period."
-            )
-
         return "\n".join(lines)
 
     if focus == "general":
@@ -1464,12 +1454,6 @@ def build_listing_passthrough(role, hw):
 
         submitted_rows = hw.get("submitted") or []
 
-        total = (
-            len(overdue_rows)
-            + len(pending_rows)
-            + len(resubmit_rows)
-        )
-
         if not (
             overdue_rows
             or pending_rows
@@ -1480,15 +1464,13 @@ def build_listing_passthrough(role, hw):
 
             return f"{subject} no open homework right now."
 
-        noun = (
-            "assignment"
-            if total == 1
-            else "assignments"
+        greeting = (
+            "Here is your child's homework overview:"
+            if role == "guardian"
+            else "Here is your homework overview:"
         )
 
-        lines = [
-            f"{subject} {total} open homework {noun}:"
-        ]
+        lines = [greeting]
 
         if overdue_rows:
 
@@ -1506,7 +1488,7 @@ def build_listing_passthrough(role, hw):
 
             lines.append("")
 
-            lines.append("Pending:")
+            lines.append("Due:")
 
             for item in pending_rows:
 
@@ -1538,21 +1520,17 @@ def build_listing_passthrough(role, hw):
                     make_json_safe(format_listing_line(item))
                 )
 
-        submitted_count = len(submitted_rows)
-
-        if submitted_count:
-
-            noun = (
-                "assignment"
-                if submitted_count == 1
-                else "assignments"
-            )
+        if submitted_rows:
 
             lines.append("")
 
-            lines.append(
-                f"{submitted_count} {noun} handed in."
-            )
+            lines.append("Handed in:")
+
+            for item in submitted_rows:
+
+                lines.append(
+                    make_json_safe(format_listing_line(item))
+                )
 
         return "\n".join(lines)
 

@@ -621,7 +621,7 @@ class HomeworkRepository:
 
                 hm.enrollment_id = :enrollment_id
 
-            AND  {NOT_SUBMITTED_EXCLUDING_RESUBMIT}
+            AND  {NOT_SUBMITTED_CONDITION}
 
             AND DATE(h.due_date) = :today
 
@@ -692,7 +692,7 @@ class HomeworkRepository:
 
                 hm.enrollment_id = :enrollment_id
 
-            AND  {NOT_SUBMITTED_EXCLUDING_RESUBMIT}
+            AND  {NOT_SUBMITTED_CONDITION}
 
             AND DATE(h.due_date) = :tomorrow
 

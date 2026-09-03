@@ -301,6 +301,8 @@ def normalize_homework_focus(
 
         parsed["homework_focus"] = "submitted"
 
+        focus = "submitted"
+
         parsed["late_only"] = True
 
     # Upcoming/future: force "upcoming" focus (due after today); skipped when a week/month window is set.
@@ -425,6 +427,49 @@ def normalize_homework_focus(
 
             parsed["end_date"] = f"{year}-12-31"
 
+    # "due"/"pending" are synonyms for the full open list; "due/pending today" -> due today.
+
+    if (
+        intent
+        ==
+        GuardianIntent.HOMEWORK_SUMMARY.value
+        and
+        not parsed.get("topic")
+        and
+        focus in (None, "general", "pending", "due_range", "overdue", "upcoming", "next_up")
+        and
+        any(
+            word in query_lower.split()
+            for word in ("due", "pending")
+        )
+        and
+        not any(
+            phrase in query_lower
+            for phrase in (
+                "this week",
+                "last week",
+                "next week",
+                "this month",
+                "last month",
+                "next month",
+                "tomorrow",
+                "upcoming",
+                "next",
+                "submitted",
+                "graded",
+                "marks",
+                "feedback",
+                "resubmit",
+            )
+        )
+    ):
+
+        parsed["homework_focus"] = (
+            "due_today"
+            if "today" in query_lower
+            else "pending"
+        )
+
     return parsed
 
 def normalize_dates(
@@ -491,13 +536,15 @@ async def parse_guardian_intent(
 
     try:
 
+        normalized_query = query.strip().lower()
+
         classified_intent = (
             await classify_guardian_intent(
-                query
+                normalized_query
             )
         )
 
-        query_lower = query.lower()
+        query_lower = normalized_query
 
         if (
             classified_intent == GuardianIntent.UNKNOWN
@@ -529,7 +576,7 @@ async def parse_guardian_intent(
                 },
                 {
                     "role": "user",
-                    "content": query
+                    "content": normalized_query
                 }
             ],
             expect_json=True
@@ -671,6 +718,8 @@ async def parse_guardian_intent(
 
         parsed["intent"] = intent
 
+        parsed["original_query"] = query
+
         parsed = normalize_dates(
             parsed
         )
@@ -689,8 +738,6 @@ async def parse_guardian_intent(
             "confidence",
             0.95
         )
-
-        parsed["original_query"] = query
 
         return ParsedGuardianIntent(
             **parsed
