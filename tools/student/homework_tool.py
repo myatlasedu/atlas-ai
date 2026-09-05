@@ -20,6 +20,7 @@ from utils import (
     IST,
     MARKS_QUERY_KEYWORDS,
     MARKS_MANIPULATION_KEYWORDS,
+    VALID_HOMEWORK_GRADES,
     resolve_canonical_name,
 )
 
@@ -257,29 +258,7 @@ class HomeworkTool:
 
         if state == "marks":
 
-            marks_obtained = int(
-                round(
-                    float(
-                        marks["marks_obtained"]
-                    )
-                )
-            )
-
-            total_marks = int(
-                round(
-                    float(
-                        marks["total_marks"]
-                    )
-                )
-            )
-
-            percentage = int(
-                round(
-                    float(
-                        marks["percentage"]
-                    )
-                )
-            )
+            grade = (marks.get("grade") or "").strip()
 
             titled_mark = {
                 "title": marks["title"],
@@ -289,18 +268,25 @@ class HomeworkTool:
                 "submitted_at": str(marks["submitted_at"])[:16] if marks.get("submitted_at") else None,
                 "reviewed_at": str(marks["reviewed_at"])[:16] if marks.get("reviewed_at") else None,
                 "teacher_note": marks.get("teacher_note"),
-                "marks_obtained": marks_obtained,
-                "total_marks": total_marks,
-                "percentage": percentage,
+                "grade": grade or None,
                 "attempt_number": marks.get("attempt_number"),
             }
 
-            direct = (
-                f"{close_match_note}"
-                f"Your mark for {marks['title']} "
-                f"is {marks_obtained}/{total_marks} "
-                f"({percentage}%)."
-            )
+            if grade in VALID_HOMEWORK_GRADES:
+
+                direct = (
+                    f"{close_match_note}"
+                    f"Your grade for {marks['title']} "
+                    f"is {grade}."
+                )
+
+            else:
+
+                direct = (
+                    f"{close_match_note}"
+                    f"{marks['title']} has been graded, "
+                    f"but no grade is recorded yet."
+                )
 
             return {
                 "module": "homework",
@@ -403,7 +389,14 @@ class HomeworkTool:
             "due_date": str(marks["due_date"])[:10] if marks.get("due_date") else None,
             "submitted_at": str(marks["submitted_at"])[:16] if marks.get("submitted_at") else None,
             "teacher_note": marks.get("teacher_note"),
+            "attempt_number": marks.get("attempt_number"),
         }
+
+        if titled_lookup["attempt_number"]:
+
+            titled_lookup["resubmission_count"] = (
+                max(titled_lookup["attempt_number"] - 1, 0)
+            )
 
         if close_match_note:
 
@@ -1472,20 +1465,13 @@ class HomeworkTool:
 
                     if (
                         item.get("status_tag") == "graded"
-                        and item.get("marks_obtained") is not None
+                        and (item.get("grade") or "").strip()
+                        in VALID_HOMEWORK_GRADES
                     ):
 
-                        pct = int(round(
-                            float(item["marks_obtained"])
-                            / float(item["total_marks"])
-                            * 100
-                        )) if item.get("total_marks") else 0
-
                         line += (
-                            f" (graded: "
-                            f"{int(round(float(item['marks_obtained'])))}/"
-                            f"{int(round(float(item['total_marks'] or 0)))}"
-                            f" ({pct}%))"
+                            f" (grade: "
+                            f"{(item['grade'] or '').strip()})"
                         )
 
                     lines.append(line)
@@ -1565,19 +1551,13 @@ class HomeworkTool:
 
                 for item in rows:
 
-                    if item.get("marks_obtained") is not None:
+                    grade = (item.get("grade") or "").strip()
 
-                        pct = int(round(
-                            float(item["marks_obtained"])
-                            / float(item["total_marks"])
-                            * 100
-                        )) if item.get("total_marks") else 0
+                    if grade in VALID_HOMEWORK_GRADES:
 
                         lines.append(
                             f"• {item['title']} - "
-                            f"{int(round(float(item['marks_obtained'])))}"
-                            f"/{int(round(float(item['total_marks'] or 0)))}"
-                            f" ({pct}%)"
+                            f"grade {grade}"
                         )
 
                     else:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from utils import format_datetime
+from utils import format_datetime, VALID_HOMEWORK_GRADES
 
 
 def format_row_dates(row):
@@ -129,14 +129,23 @@ def build_homework_llm_context(
 
     if titled_mark:
 
-        headline = (
-            f"Your mark for "
-            f"{titled_mark.get('title')} "
-            f"is "
-            f"{titled_mark.get('marks_obtained')}/"
-            f"{titled_mark.get('total_marks')} "
-            f"({titled_mark.get('percentage')}%)."
-        )
+        grade = (titled_mark.get("grade") or "").strip()
+
+        if grade in VALID_HOMEWORK_GRADES:
+
+            headline = (
+                f"Your grade for "
+                f"{titled_mark.get('title')} "
+                f"is {grade}."
+            )
+
+        else:
+
+            headline = (
+                f"{titled_mark.get('title')} "
+                f"has been graded, but no grade "
+                f"is recorded yet."
+            )
 
     elif titled_lookup:
 

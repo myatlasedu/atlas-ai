@@ -182,6 +182,7 @@ Possible parameters include:
 - subject
 - topic
 - view
+- navigation_target
 - target_modules
 
 Do not invent values.
@@ -326,6 +327,7 @@ Return ONLY valid JSON:
     "teacher": null,
     "topic": null,
     "view": null,
+    "navigation_target": null,
     "target_modules": [],
     "asks_for_marks": false,
 

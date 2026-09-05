@@ -9,7 +9,7 @@ from llm.client import (
     chat_completion
 )
 
-from utils import format_datetime
+from utils import format_datetime, VALID_HOMEWORK_GRADES
 
 from llm.student_prompt import (
     STUDENT_SYSTEM_PROMPT
@@ -518,9 +518,9 @@ Explain that Atlas Score is still calibrating.
 
         if isinstance(titled_mark, dict):
 
-            percentage = titled_mark.get("percentage") or 0
+            grade = (titled_mark.get("grade") or "").strip()
 
-            if percentage >= 80:
+            if grade in ("A*", "A"):
 
                 encouragement = (
                     "End with one short sentence praising "
@@ -528,7 +528,7 @@ Explain that Atlas Score is still calibrating.
                     "to keep up the good work."
                 )
 
-            elif percentage >= 60:
+            elif grade == "B":
 
                 encouragement = (
                     "End with one short sentence acknowledging "
@@ -536,17 +536,21 @@ Explain that Atlas Score is still calibrating.
                     "student to keep pushing."
                 )
 
-            else:
+            elif grade in VALID_HOMEWORK_GRADES:
 
                 encouragement = (
                     "End with one short sentence encouraging "
                     "the student to strive harder next time."
                 )
 
+            else:
+
+                encouragement = ""
+
             owner = (
-                "Your child's latest homework score"
+                "Your child's latest homework grade"
                 if role == "guardian"
-                else "Your latest homework score"
+                else "Your latest homework grade"
             )
 
             subject_line = (
@@ -591,14 +595,31 @@ Explain that Atlas Score is still calibrating.
                 if line
             )
 
-            fact_block = (
-                f"""
+            if grade in VALID_HOMEWORK_GRADES:
+
+                fact_block = (
+                    f"""
 - title: {titled_mark.get('title')}
-- marks obtained: {titled_mark.get('marks_obtained')}
-- total marks: {titled_mark.get('total_marks')}
-- percentage: {titled_mark.get('percentage')}%"""
-                + ("\n" + extra_facts if extra_facts else "")
-            )
+- grade: {grade}"""
+                    + ("\n" + extra_facts if extra_facts else "")
+                )
+
+                start = (
+                    f'"{owner} for <title> is <grade>."'
+                )
+
+            else:
+
+                fact_block = (
+                    f"""
+- title: {titled_mark.get('title')}"""
+                    + ("\n" + extra_facts if extra_facts else "")
+                )
+
+                start = (
+                    '"<title> has been graded, but no grade '
+                    'is recorded yet."'
+                )
 
             detail_note = (
                 "When mentioning the homework, you may also "
@@ -618,7 +639,7 @@ Use ONLY these supplied facts:
 {fact_block}
 
 Start with exactly this fact:
-"{owner} for <title> is <marks_obtained> out of <total_marks> (<percentage>%)."
+{start}
 
 {encouragement}
 
@@ -651,8 +672,28 @@ Keep the whole response under 100 words.
                     "for a redo. Say the teacher has asked the "
                     "student to resubmit it, so the latest "
                     "attempt needs attention. There is no "
-                    "final mark yet."
+                    "final mark yet. "
                 )
+
+                teacher_note = (
+                    titled_lookup.get("teacher_note") or ""
+                ).strip()
+
+                if teacher_note:
+
+                    reply += (
+                        "If the user asks why, phrase the reason "
+                        "exactly as: 'because your teacher said: "
+                        f"{teacher_note}'."
+                    )
+
+                else:
+
+                    reply += (
+                        "If the user asks why, say the teacher "
+                        "did not provide any feedback or reason "
+                        "for the resubmission - do not invent one."
+                    )
 
             elif state == "assigned_not_submitted":
 
@@ -709,11 +750,37 @@ Keep the whole response under 100 words.
                     f"teacher note: {titled_lookup.get('teacher_note')}"
                 )
 
+            if titled_lookup.get("attempt_number") is not None:
+
+                facts.append(
+                    f"attempts: {titled_lookup.get('attempt_number')}"
+                )
+
+                if titled_lookup.get("resubmission_count") is not None:
+
+                    facts.append(
+                        "resubmissions: "
+                        f"{titled_lookup.get('resubmission_count')}"
+                    )
+
             facts_block = (
                 "\nYou may also mention these details, but only "
                 "these:\n- "
                 + "\n- ".join(facts)
                 if facts
+                else ""
+            )
+
+            attempt_note = (
+                "The attempt count is history - phrase it as "
+                "'You have attempted this <attempts> times'. "
+                "Never use 'left', 'remaining' or any limit "
+                "wording. Mention the resubmission count only "
+                "if the user specifically asks how many times "
+                "it was resubmitted; otherwise do not mention "
+                "it. State both counts exactly as supplied; "
+                "never calculate or change them. "
+                if titled_lookup.get("attempt_number") is not None
                 else ""
             )
 
@@ -725,6 +792,7 @@ The user asked about one specific homework.
 {reply}
 {facts_block}
 
+{attempt_note}
 Do NOT invent any score, name or date.
 
 Keep the response under 60 words.
@@ -772,7 +840,7 @@ Keep the response under 60 words.
                 "line:\nTitle - submitted <date/time>\n"
                 "Never include pending or overdue items.\n"
                 "Graded items in the submitted list must be shown "
-                "as graded with their marks - never present a "
+                "as graded with their grade - never present a "
                 "graded item as merely submitted.\n"
                 "If the context also contains pending/overdue/"
                 "resubmit items, add one closing line noting the "
@@ -798,10 +866,10 @@ Keep the response under 60 words.
             scope = (
                 "SCOPE - GRADED HOMEWORK ONLY.\n"
                 "List ONLY items in the graded list, one per "
-                "line:\nTitle - <marks_obtained>/<total_marks> "
-                "(<percentage>%)\n"
-                "Use marks ONLY for graded items; never guess a "
-                "score.\n"
+                "line:\nTitle - grade <grade>\n"
+                "Use grades ONLY for graded items; never guess "
+                "a grade. If a graded item has no grade value "
+                "supplied, list just the title without a grade.\n"
                 "If the graded list is empty, say no graded "
                 "homework was found."
             )
@@ -1302,18 +1370,15 @@ def format_listing_line(item):
 
         return line + " (overdue)"
 
-    if (
-        item.get("marks_obtained") is not None
-        and item.get("total_marks")
-    ):
+    if item.get("status_tag") == "graded":
 
-        obtained = int(round(float(item["marks_obtained"])))
+        grade = (item.get("grade") or "").strip()
 
-        total = int(round(float(item["total_marks"])))
+        if grade in VALID_HOMEWORK_GRADES:
 
-        pct = int(round(float(item["marks_obtained"]) / float(item["total_marks"]) * 100))
+            return f"{line} - grade {grade}"
 
-        return f"{line} - {obtained}/{total} ({pct}%)"
+        return line
 
     if item.get("submitted_at"):
 
