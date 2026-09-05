@@ -23,6 +23,8 @@ HOMEWORK_QUERY_KEYWORDS = ("homework", "assignment", "worksheet", "submission", 
 
 FEEDBACK_QUERY_KEYWORDS = ("feedback", "remarks", "comments", "teacher say", "teacher said")
 
+VALID_HOMEWORK_GRADES = ("A*", "A", "B", "C", "D", "E", "U")
+
 MONTH_NAMES = (
     "january", "february", "march", "april", "may", "june",
     "july", "august", "september", "october", "november",
