@@ -152,6 +152,7 @@ class HomeworkRepository:
                     hs.reviewed_at,
                     hs.teacher_note,
                     hs.attempt_number,
+                    hs.grade,
                     {SUBJECT_TEACHER_COLUMNS}
                     CASE
                         WHEN hm.enrollment_id IS NOT NULL THEN TRUE
@@ -205,24 +206,14 @@ class HomeworkRepository:
 
         def build_marks(row):
 
-            percentage = round(
-                (
-                    row["marks_obtained"]
-                    / row["total_marks"]
-                ) * 100,
-                2
-            ) if row["total_marks"] else 0
-
             return {
                 "state": "marks",
                 "id": row["id"],
                 "title": row["title"],
-                "total_marks": row["total_marks"],
                 "due_date": row["due_date"],
                 "subject_name": row["subject_name"],
                 "teacher_name": row["teacher_name"],
-                "marks_obtained": row["marks_obtained"],
-                "percentage": percentage,
+                "grade": row["grade"],
                 "submitted_at": row["submitted_at"],
                 "reviewed_at": row["reviewed_at"],
                 "teacher_note": row["teacher_note"],
@@ -233,11 +224,7 @@ class HomeworkRepository:
 
             for row in rows:
 
-                if (
-                    row["latest_status"] == 2
-                    and
-                    row["marks_obtained"] is not None
-                ):
+                if row["latest_status"] == 2:
 
                     return build_marks(row)
 
@@ -275,11 +262,7 @@ class HomeworkRepository:
 
         latest_status = row["latest_status"]
 
-        if (
-            latest_status == 2
-            and
-            row["marks_obtained"] is not None
-        ):
+        if latest_status == 2:
 
             marks_state = build_marks(row)
 
@@ -299,6 +282,7 @@ class HomeworkRepository:
                 "subject_name": row["subject_name"],
                 "teacher_name": row["teacher_name"],
                 "teacher_note": row["teacher_note"],
+                "attempt_number": row["attempt_number"],
                 "matches": matches_meta,
             }
 
@@ -312,6 +296,7 @@ class HomeworkRepository:
                 "subject_name": row["subject_name"],
                 "teacher_name": row["teacher_name"],
                 "teacher_note": row["teacher_note"],
+                "attempt_number": row["attempt_number"],
                 "matches": matches_meta,
             }
 
@@ -334,6 +319,7 @@ class HomeworkRepository:
                 "subject_name": row["subject_name"],
                 "teacher_name": row["teacher_name"],
                 "teacher_note": row["teacher_note"],
+                "attempt_number": row["attempt_number"],
                 "matches": matches_meta,
             }
 
@@ -418,6 +404,8 @@ class HomeworkRepository:
                 hs.status AS latest_status,
 
                 hs.marks_obtained,
+
+                hs.grade,
 
                 hs.submitted_at,
 
