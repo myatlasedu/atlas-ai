@@ -58,8 +58,10 @@ ROLE_INTENT_ENUM = {
 
 
 #
-# Intents that must never be inherited: they are one-shot
-# actions, not a subject the user can keep asking about.
+# One-shot actions. The resolver may CLASSIFY a query as one of
+# these - "create an event tomorrow" really is a create - but it
+# may never carry one over from a previous turn, because a
+# fragment must not silently re-fire an action.
 #
 
 NON_INHERITABLE_INTENTS = frozenset(
@@ -189,7 +191,7 @@ class QueryResolutionService:
 
             query=query,
         )
-        print("\n=====IN query_resolution_service at 190======")
+        print("\n=====IN query_resolution_service at 194======")
         
         response = await chat_completion(
 
@@ -333,10 +335,19 @@ class QueryResolutionService:
             # Recovery is only useful if the intent comes with it;
             # otherwise the classifier still sees a bare fragment.
 
-            intent = cls._normalize_intent(
+            recovered_intent = cls._normalize_intent(
                 turns[0].predicted_intent,
                 role=role,
             )
+
+            # Recovery is a guess about a message the resolver
+            # could not read, so it never re-fires an action.
+
+            if recovered_intent in NON_INHERITABLE_INTENTS:
+
+                recovered_intent = None
+
+            intent = recovered_intent
 
             logger.info(
                 "Recovered intent from the previous turn: %s",
@@ -348,27 +359,37 @@ class QueryResolutionService:
             and context_used.used
         )
 
-        # The resolver may only inherit an intent the conversation
-        # actually contains; anything else is a guess, and the
-        # classifier is the component that is allowed to guess.
+        #
+        # "Inherited" is a provenance claim, and it only holds if
+        # the conversation actually contains that intent and the
+        # intent is one a follow-up may carry over. When it does
+        # not hold, the intent still stands - it is simply a fresh
+        # classification rather than an inherited one.
+        #
 
         known_intents = {
             cls._intent_value(turn.predicted_intent)
             for turn in turns
         }
 
-        if (
-            inherited_intent
-            and intent not in known_intents
-        ):
+        if inherited_intent and intent not in known_intents:
 
             logger.info(
-                "Resolver proposed intent %r absent from history; "
-                "deferring to the classifier.",
+                "Resolver marked intent %r as inherited but the "
+                "conversation does not contain it; treating it as a "
+                "fresh classification.",
                 intent,
             )
 
-            intent = None
+            inherited_intent = False
+
+        if inherited_intent and intent in NON_INHERITABLE_INTENTS:
+
+            logger.info(
+                "Intent %r is a one-shot action and cannot be "
+                "inherited; treating it as a fresh classification.",
+                intent,
+            )
 
             inherited_intent = False
 
@@ -470,6 +491,15 @@ class QueryResolutionService:
         role: str,
     ) -> list[str]:
 
+        #
+        # Every intent the role supports. This is the classifier's
+        # output space now, so one-shot intents belong here even
+        # though they can never be inherited.
+        #
+        # action_confirmation is excluded: confirmations are caught
+        # by the pending-action short circuit before resolution.
+        #
+
         enum = ROLE_INTENT_ENUM.get(
             role
         )
@@ -481,8 +511,7 @@ class QueryResolutionService:
         return [
             member.value
             for member in enum
-            if member.value
-            not in NON_INHERITABLE_INTENTS
+            if member.value != "action_confirmation"
         ]
 
     @classmethod
@@ -501,10 +530,6 @@ class QueryResolutionService:
             not intent
             or intent in ("null", "none")
         ):
-
-            return None
-
-        if intent in NON_INHERITABLE_INTENTS:
 
             return None
 

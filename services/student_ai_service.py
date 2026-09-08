@@ -217,6 +217,8 @@ class StudentAIService:
                 context=context
             )
         )
+        print("=====Chat History======")
+        print(turns)
 
         resolution = (
             await QueryResolutionService.resolve(
@@ -248,11 +250,7 @@ class StudentAIService:
 
             enrollment_id=context.enrollment_id,
 
-            forced_intent=(
-                resolution.intent
-                if resolution.inherited_intent
-                else None
-            ),
+            forced_intent=resolution.intent,
 
             raw_query=query,
         )

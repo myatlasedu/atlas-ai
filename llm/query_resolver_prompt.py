@@ -1,8 +1,45 @@
 import json
 
+from intents.student.classifier_prompt import (
+    CLASSIFIER_PROMPT,
+)
+
 from schemas.conversation import (
     SAME_INTENT_INHERITABLE_PARAMETERS,
 )
+
+
+def _intent_catalogue() -> str:
+
+    #
+    # Reuse the classifier's own taxonomy rather than keeping a
+    # second copy in sync. Everything between its INTENTS heading
+    # and its closing OUTPUT block is the catalogue and the
+    # disambiguation rules; the surrounding wrapper is the
+    # classifier's own job description, which does not apply here.
+    #
+
+    separator = "=" * 50
+
+    start = CLASSIFIER_PROMPT.find(
+        f"{separator}\nINTENTS"
+    )
+
+    end = CLASSIFIER_PROMPT.rfind(
+        f"{separator}\nOUTPUT"
+    )
+
+    if start == -1 or end <= start:
+
+        # Prompt was restructured: fall back to the whole thing
+        # rather than silently dropping the taxonomy.
+
+        return CLASSIFIER_PROMPT.strip()
+
+    return CLASSIFIER_PROMPT[start:end].strip()
+
+
+INTENT_CATALOGUE = _intent_catalogue()
 
 
 def build_query_resolver_prompt(
@@ -24,14 +61,18 @@ def build_query_resolver_prompt(
     )
 
     return f"""
-You are Atlas AI's conversational query resolver for the
-{role} assistant.
+You are Atlas AI's conversational query resolver and intent
+classifier for the {role} assistant.
 
-You run BEFORE intent classification.
+You do TWO things in one pass:
 
-Your ONLY job is to rewrite the user's LATEST message into a
-STANDALONE query, using the recent conversation only when the
-latest message cannot stand on its own.
+1. Rewrite the user's LATEST message into a STANDALONE query,
+   using the recent conversation only when the latest message
+   cannot stand on its own.
+
+2. Decide the intent of that standalone query - either the
+   intent of the turn it continues, or a fresh one from the
+   catalogue below.
 
 Do NOT answer the question.
 Do NOT invent facts, subjects, names or dates that are absent
@@ -49,10 +90,12 @@ Resolve every relative date against THIS date and THIS
 timezone. Never invent another year.
 
 ==================================================
-ALLOWED INTENTS
+ALLOWED INTENT VALUES
 ==================================================
 
 {intents_block}
+
+{INTENT_CATALOGUE}
 
 ==================================================
 ALLOWED PARAMETERS
@@ -73,7 +116,7 @@ Return EXACTLY this shape:
 
 {{
   "resolved_query": "<standalone version of the latest message>",
-  "intent": "<allowed intent, or null>",
+  "intent": "<an intent from the catalogue - required>",
   "parameters": {{}},
   "context_used": {{
     "used": true,
@@ -117,15 +160,29 @@ borrowing the missing pieces from the most recent relevant
 turn, and list every borrowed field in
 context_used.inherited_fields.
 
-3. INTENT INHERITANCE
+3. INTENT
 
-When the message is contextual and does NOT name a new subject
-area, set "intent" to the previous turn's intent and include
-"intent" in inherited_fields.
+You MUST always return an intent from the INTENT CATALOGUE.
+The only time "intent" may be null is when you are asking for
+clarification.
 
-When the message names a different subject area
-("and my attendance?"), set "intent" to null so the classifier
-decides, but still carry the time window across.
+Choose it like this:
+
+- If the message continues the previous topic (a fragment, one
+  changed detail, a pronoun pointing at the last answer), reuse
+  the intent of the turn it continues and list "intent" in
+  context_used.inherited_fields.
+
+- Otherwise classify it fresh against the catalogue, and do NOT
+  list "intent" as inherited.
+
+Always classify the RESOLVED query, not the raw fragment. If the
+message says "what about september" after a calendar question,
+you are classifying "What school events are there in
+September?".
+
+Use "unknown" only when the resolved query matches nothing in
+the catalogue.
 
 4. PARAMETER INHERITANCE
 

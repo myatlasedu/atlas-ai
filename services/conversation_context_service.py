@@ -20,7 +20,7 @@ class ConversationContextService:
 
     # Loads the recent conversation a follow-up can lean on.
 
-    MAX_TURNS = 3
+    MAX_TURNS = 1
 
     # Anything older than this is a different conversation
 
