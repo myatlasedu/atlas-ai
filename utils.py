@@ -1,6 +1,6 @@
 import pytz
 import calendar
-
+import difflib
 from datetime import datetime
 from datetime import date
 from zoneinfo import ZoneInfo
@@ -15,6 +15,56 @@ from datetime import (
 
 
 IST = ZoneInfo("Asia/Kolkata")
+
+MARKS_QUERY_KEYWORDS = ("marks", "grade", "score", "result")
+
+HOMEWORK_QUERY_KEYWORDS = ("homework", "assignment", "worksheet", "submission", " hw")
+
+FEEDBACK_QUERY_KEYWORDS = ("feedback", "remarks", "comments", "teacher say", "teacher said")
+
+VALID_HOMEWORK_GRADES = ("A*", "A", "B", "C", "D", "E", "U")
+
+MONTH_NAMES = (
+    "january", "february", "march", "april", "may", "june",
+    "july", "august", "september", "october", "november",
+    "december", "jan", "feb", "mar", "apr", "jun", "jul",
+    "aug", "sep", "oct", "nov", "dec",
+)
+
+
+def detect_invalid_date(query):
+    lower = query.lower()
+    for month in MONTH_NAMES:
+        idx = lower.find(month)
+        if idx == -1:
+            continue
+        tokens = lower[:idx].strip().split()
+        if not tokens:
+            continue
+        token = tokens[-1].rstrip("stndrdth.,")
+        if token.isdigit() and int(token) not in range(1, 32):
+            return True
+    return False
+
+
+MARKS_MANIPULATION_KEYWORDS = (
+    "give me 100", "give me 100%", "100% marks", "100% grade",
+    "100 percent", "change my marks", "set my marks",
+    "update my marks", "increase my marks", "boost my marks",
+    "full marks",
+)
+
+
+def resolve_canonical_name(raw, names, cutoff=0.6):
+    match = difflib.get_close_matches(
+        str(raw).lower(),
+        [str(n).lower() for n in names],
+        n=1,
+        cutoff=cutoff,
+    )
+    if match:
+        return next(n for n in names if str(n).lower() == match[0])
+    return None
 
 
 def ist_now() -> datetime:
@@ -519,3 +569,14 @@ def format_datetime(
     ).strftime(
         "%d %b %Y at %I:%M %p",
     )
+
+def resolve_canonical_name(raw, names, cutoff=0.6):
+    match = difflib.get_close_matches(
+        str(raw).lower(),
+        [str(n).lower() for n in names],
+        n=1,
+        cutoff=cutoff,
+    )
+    if match:
+        return next(n for n in names if str(n).lower() == match[0])
+    return None

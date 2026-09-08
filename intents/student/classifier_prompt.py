@@ -45,6 +45,48 @@ Homework, assignments, submissions,
 deadlines, pending homework,
 overdue homework, homework feedback.
 
+Examples:
+
+"What marks did I get in my homework?"
+
+→ homework_summary
+
+--------------------------------------------------
+
+"Show me my marks for homework 'Worksheet 1'."
+
+→ homework_summary
+
+--------------------------------------------------
+
+"What grade did I get on the worksheet?"
+
+→ homework_summary
+
+--------------------------------------------------
+
+"Tell me about my homework Elements of Art."
+
+"Show details of the assignment Son muy famosos."
+
+"When did I submit my Maths homework?"
+
+"Show me my Science homework."
+
+"Show me science homework."
+
+"What Spanish homework do I have?"
+
+"Tell me about Elements of Art."
+
+"Give me details about Elements of Art."
+
+"Tell me about Blood Chapter."
+
+"Give me details about Unit 1-Rivers."
+
+→ homework_summary
+
 --------------------------------------------------
 
 assessment_summary
@@ -95,9 +137,52 @@ Questions about one or more school subjects.
 topic_summary
 
 Questions about chapters,
-topics,
-learning objectives,
+topics, learning objectives,
 lesson topics.
+
+This includes questions about:
+
+- completed topics
+- pending topics
+- weak topics
+- strong topics
+- topics to revise
+- topics to focus on
+- topic progress
+- topic overview
+- topic summary
+
+Examples:
+
+"Which topics have I completed?"
+
+"Which topics are pending?"
+
+"Which topics am I weak in?"
+
+"Which topics am I strong in?"
+
+"Which topics should I revise?"
+
+"Show my topic progress."
+
+"What topics are covered in class?"
+
+"Am I weak in any topic?"
+
+"Which topics need more practice?"
+
+"Which topics am I good at?"
+
+"Was Fractions covered in class?"
+
+"How am I doing in Algebra?"
+
+"What is my score in Biology?"
+
+"Am I weak in Fractions in Maths?"
+
+"Which topics am I struggling with in Science?"
 
 --------------------------------------------------
 
@@ -323,6 +408,21 @@ return unknown.
 PRIORITY RULES
 ==================================================
 
+If a query asks for marks, grades, score or result
+FOR a homework, assignment, worksheet or submission
+(e.g. "marks for homework", "marks for the worksheet",
+"grade on the assignment"), classify it as:
+
+homework_summary
+
+A query about marks WITHOUT any homework, assignment,
+worksheet or submission keyword must remain:
+
+assessment_summary
+
+Do NOT treat other intents as homework when homework
+words are absent.
+
 1.
 
 Creating something always takes precedence over viewing it.
@@ -374,6 +474,19 @@ Topic questions ALWAYS take precedence over
 subject_summary.
 
 6.
+
+A query about homework/assignment that also names a
+subject is homework_summary - the subject is a filter
+on the homework, not a subject question. subject_summary
+is ONLY for questions about a subject itself
+(e.g. "How is my Science?", "Which subject is my
+strongest?").
+
+A query that names a specific homework ("tell me about
+X", "details about X") is homework_summary. topic_summary
+is only for topics/chapters that are NOT homework.
+
+7.
 
 Questions about
 
