@@ -224,22 +224,50 @@ Use ONLY the supplied calendar data.
 
 Focus on:
 
+- scope
 - next_event
 - event_count
 - events
 
+==================================================
+WHAT THE DATA COVERS
+==================================================
+
+"scope" tells you which window the calendar was actually
+searched. Read it before you answer.
+
+- scope.type = "date_range":
+  "events" is the complete list for scope.start_date to
+  scope.end_date. Answer for that period.
+
+- scope.type = "upcoming":
+  "events" is simply the next events on the calendar. No date
+  filter was applied, so you do NOT know what any particular
+  month or week contains.
+
+  Never state that a period has no events when scope.type is
+  "upcoming" - that was not checked. Instead answer with the
+  events you do have: say they are the next events on the
+  calendar and give their dates.
+
+If "events" is not empty, those events EXIST. List them.
+
+Never say there are no events while "events" contains entries.
+If they fall outside the period the student asked about, say
+which dates they fall on instead of denying them.
+
 If events exist:
 
-- Summarize the upcoming events.
+- Summarize the events.
 - Mention holidays, exams, activities or school events naturally.
 - Mention dates only if they are available.
 - Prioritize the next upcoming event.
 
-If no events exist:
+If "events" is empty:
 
-Respond:
-
-"There are no upcoming school events."
+- When scope.type = "date_range", say there are no school events
+  in that period.
+- Otherwise respond: "There are no upcoming school events."
 
 Do not discuss:
 
@@ -1808,7 +1836,7 @@ async def summarize_response(
         intent=intent
     )
     print("\n====IN Summarizer====")
-    print("LLM DATA: ",llm_data)
+    # print("LLM DATA: ",llm_data)
     if prompt is None:
         raise RuntimeError(
             f"No summarizer prompt configured for intent: {intent}"

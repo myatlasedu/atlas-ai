@@ -168,7 +168,7 @@ class QueryResolutionService:
         )
         print("\n=====IN query_resolution_service======")
         print("At 170")
-        print("Turns: ", turns)
+        # print("Turns: ", turns)
         messages = build_query_resolver_messages(
 
             role=role,
@@ -268,6 +268,37 @@ class QueryResolutionService:
             raw.get("clarification_required")
         )
 
+        #
+        # A clarification only means something if the resolver
+        # actually consulted the conversation. Claiming the message
+        # "stands on its own" AND asking what it means are
+        # contradictory, and honouring the question would stall a
+        # follow-up that history could have answered.
+        #
+
+        if (
+            clarification.required
+            and not context_used.used
+        ):
+
+            logger.info(
+                "Resolver asked for clarification without using the "
+                "conversation; treating the message as a follow-up."
+            )
+
+            clarification = Clarification()
+
+            context_used = cls._recover_context_usage(
+                context_used,
+                turns=turns,
+            )
+
+            recovered = True
+
+        else:
+
+            recovered = False
+
         if clarification.required:
 
             # An ambiguous turn must not carry an intent or
@@ -296,6 +327,21 @@ class QueryResolutionService:
             raw.get("intent"),
             role=role,
         )
+
+        if recovered and intent is None:
+
+            # Recovery is only useful if the intent comes with it;
+            # otherwise the classifier still sees a bare fragment.
+
+            intent = cls._normalize_intent(
+                turns[0].predicted_intent,
+                role=role,
+            )
+
+            logger.info(
+                "Recovered intent from the previous turn: %s",
+                intent,
+            )
 
         inherited_intent = bool(
             intent
@@ -472,6 +518,42 @@ class QueryResolutionService:
             return None
 
         return intent
+
+    @classmethod
+    def _recover_context_usage(
+        cls,
+        context_used: ContextUsage,
+        *,
+        turns: list[ConversationTurn],
+    ) -> ContextUsage:
+
+        #
+        # The resolver flagged the message as a fragment that needs
+        # more detail, which is itself evidence that it depends on
+        # the conversation. Attach it to the most recent turn so the
+        # intent and parameters below can still be inherited.
+        #
+
+        previous = turns[0]
+
+        return ContextUsage(
+
+            used=True,
+
+            turn_ids=[
+                previous.turn_id
+            ],
+
+            inherited_fields=[
+                "intent"
+            ],
+
+            reason=(
+                "Recovered: the resolver could not resolve the "
+                "fragment on its own, so it continues the previous "
+                "turn."
+            ),
+        )
 
     @classmethod
     def _select_source_turn(

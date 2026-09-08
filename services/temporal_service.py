@@ -13,6 +13,11 @@ from zoneinfo import (
     ZoneInfoNotFoundError,
 )
 
+from utils import (
+    resolve_named_month,
+    resolve_named_month_range,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -241,6 +246,31 @@ class TemporalService:
                 today - timedelta(days=days - 1),
                 today,
             )
+
+        # ----------------------------------------------
+        # Named months: "in July", "september", "3 August",
+        # "20 to 26 August"
+        #
+        # Checked before the week/month phrases because
+        # "<month> month" contains the word "month" and would
+        # otherwise resolve to the CURRENT month.
+        # ----------------------------------------------
+
+        named = (
+            resolve_named_month_range(
+                lowered,
+                today,
+            )
+            or
+            resolve_named_month(
+                lowered,
+                today,
+            )
+        )
+
+        if named:
+
+            return named
 
         # ----------------------------------------------
         # Weeks

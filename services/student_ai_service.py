@@ -557,7 +557,7 @@ class StudentAIService:
             reason="Resolution not reached for this turn.",
         )
         print("At 559")
-        print("resolution: ", normalized_query)
+        print("resolution: ", resolution)
         selected_tools = []
 
         results = {}
@@ -750,7 +750,7 @@ class StudentAIService:
                 query=query,
                 context=context,
             )
-            print("At 753, RESOLUTION: ", resolution)
+            print("\nIN Student_ai_services At 753, RESOLUTION: ", resolution)
             if parsed_intent is None:
                 print("*******No intent Parse******")
                 return self._clarification_response(

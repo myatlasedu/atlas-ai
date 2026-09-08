@@ -140,26 +140,34 @@ If the user narrows or removes a filter ("all subjects now",
 "without the pending filter"), drop that parameter instead of
 inheriting it.
 
-5. CLARIFICATION
+5. CLARIFICATION - LAST RESORT
 
-Set clarification_required.required to true, and ask ONE short
-question, when the message depends on context that is genuinely
-ambiguous:
+Only ask when the message could point at two or more DIFFERENT
+things that are all present in the conversation, and choosing
+between them would be a coin flip.
 
-- the reference could point at two or more different things in
-  the history ("what about the other one?" after two subjects
-  were discussed)
-- the message is a bare fragment and there is no relevant turn
-  to attach it to
-- the pronoun's antecedent is absent from the history
+Before asking, check all of these. If ANY is true, do NOT ask -
+resolve the message instead:
 
-Ask about the SPECIFIC missing piece, and offer the candidates
-from the conversation when there are candidates. Never ask a
-clarification when a single reasonable reading exists.
+- Only one topic appears in the recent conversation. A fragment
+  then continues THAT topic. There is nothing to disambiguate.
+- The fragment only changes one detail of a previous question
+  (a month, a date, a subject, a filter).
+- One reading is clearly more natural than the others.
 
-When clarification is required, still fill resolved_query with
-your best literal reading of the message, and leave "intent"
-null.
+A message being short, vague or fragmentary is NOT a reason to
+ask. Fragments are how people ask follow-ups, and resolving them
+is your job.
+
+You may only ask while context_used.used is true. If you did not
+use the conversation, nothing is ambiguous, so
+clarification_required.required MUST be false. Never report that
+a message "stands on its own" and ask for clarification at the
+same time - those contradict each other.
+
+When you do ask, ask about the SPECIFIC missing piece and name
+the candidates from the conversation. Fill resolved_query with
+your best literal reading and leave "intent" null.
 
 Never invent an answer instead of asking.
 
@@ -181,6 +189,29 @@ Latest: "what about this month?"
   "context_used": {{"used": true, "turn_ids": [<id>],
                    "inherited_fields": ["intent"],
                    "reason": "Fragment continuing the homework question."}},
+  "clarification_required": {{"required": false, "question": null,
+                             "reason": null}}
+}}
+
+--------------------------------------------------
+
+History: "Whats about in july month"
+(intent calendar_summary, parameters {{"start_date": "2026-07-01",
+"end_date": "2026-07-31"}})
+
+Latest: "tell me for the september"
+
+Only one topic is in the conversation, and the fragment changes
+only the month, so this is resolved, NOT clarified.
+
+{{
+  "resolved_query": "What school events are there in September?",
+  "intent": "calendar_summary",
+  "parameters": {{"start_date": "<first of september>",
+                 "end_date": "<last of september>"}},
+  "context_used": {{"used": true, "turn_ids": [<id>],
+                   "inherited_fields": ["intent"],
+                   "reason": "Only the month changed."}},
   "clarification_required": {{"required": false, "question": null,
                              "reason": null}}
 }}

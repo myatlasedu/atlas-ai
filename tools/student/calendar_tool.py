@@ -128,6 +128,27 @@ class CalendarTool:
                     limit=5,
                 )
 
+                scope = {
+
+                    "type":
+                        "upcoming",
+
+                    "start_date":
+                        None,
+
+                    "end_date":
+                        None,
+
+                    "keyword":
+                        keyword,
+
+                    "description":
+                        (
+                            "The next events on the calendar. "
+                            "No date range was applied."
+                        ),
+                }
+
             #
             # Search events
             #
@@ -145,6 +166,27 @@ class CalendarTool:
                     keyword=keyword,
                 )
 
+                scope = {
+
+                    "type":
+                        "date_range",
+
+                    "start_date":
+                        start_date,
+
+                    "end_date":
+                        end_date,
+
+                    "keyword":
+                        keyword,
+
+                    "description":
+                        (
+                            "Every event between "
+                            f"{start_date} and {end_date}."
+                        ),
+                }
+
             payload = {
 
                 "module":
@@ -157,6 +199,17 @@ class CalendarTool:
                     events,
 
                 "llm_context": {
+
+                    #
+                    # The summarizer must be told which window was
+                    # actually searched. Without it, a fallback to
+                    # "upcoming" is indistinguishable from a filtered
+                    # answer, and the model resolves the mismatch by
+                    # denying that any events exist.
+                    #
+
+                    "scope":
+                        scope,
 
                     "event_count":
                         len(events),
