@@ -74,6 +74,55 @@ def make_json_safe(value):
     return value
 
 
+
+def _coerce_json(
+    value,
+    default,
+):
+
+    # jsonb columns normally arrive decoded, but a raw driver
+    # (or a NULL column) can hand back a string or None.
+
+    if value is None:
+
+        return default
+
+    if isinstance(
+        value,
+        str,
+    ):
+
+        try:
+
+            value = json.loads(
+                value
+            )
+
+        except (
+            ValueError,
+            TypeError,
+        ):
+
+            return default
+
+    if isinstance(
+        default,
+        list,
+    ):
+
+        return (
+            list(value)
+            if isinstance(value, (list, tuple))
+            else default
+        )
+
+    return (
+        value
+        if isinstance(value, dict)
+        else default
+    )
+
+
 class AIConversationAuditRepository:
 
     async def create(
@@ -205,3 +254,104 @@ class AIConversationAuditRepository:
         await db.commit()
 
         return result.scalar_one()
+
+    # ==================================================
+    # RECENT TURNS (CONVERSATION CONTEXT)
+    # ==================================================
+
+    async def list_recent_turns(
+        self,
+        db,
+        *,
+        user_id: int,
+        role: str,
+        limit: int = 5,
+        window_minutes: int = 15,
+    ):
+
+        #
+        # Newest-first history for the context resolver: up to
+        # `limit` rows from the last `window_minutes`.
+        #
+        # tool_results is deliberately NOT selected: those rows
+        # hold entire tool payloads, while the resolver only needs
+        # what was asked, which tools ran, and what was answered.
+        #
+        # Callers ask for more rows than they intend to use, since
+        # non-contextual turns get filtered out downstream.
+        #
+
+        statement = text(
+            """
+            SELECT
+
+                id,
+                query,
+                predicted_intent,
+                parsed_intent,
+                selected_tools,
+                summary,
+                created_at
+
+            FROM ai_conversation_audit
+
+            WHERE
+                user_id = :user_id
+                AND role = :role
+                AND created_at >= NOW() - (
+                    CAST(:window_minutes AS integer)
+                    * INTERVAL \'1 minute\'
+                )
+
+            ORDER BY
+                created_at DESC,
+                id DESC
+
+            LIMIT CAST(:scan_limit AS integer)
+            """
+        )
+
+        result = await db.execute(
+            statement,
+            {
+                "user_id": user_id,
+
+                "role": role,
+
+                "window_minutes": window_minutes,
+
+                "scan_limit": limit,
+            },
+        )
+
+        return [
+            {
+                "turn_id":
+                    row["id"],
+
+                "query":
+                    row["query"] or "",
+
+                "predicted_intent":
+                    row["predicted_intent"] or "",
+
+                "parsed_intent":
+                    _coerce_json(
+                        row["parsed_intent"],
+                        {},
+                    ),
+
+                "selected_tools":
+                    _coerce_json(
+                        row["selected_tools"],
+                        [],
+                    ),
+
+                "summary":
+                    row["summary"] or "",
+
+                "created_at":
+                    row["created_at"],
+            }
+            for row in result.mappings().all()
+        ]

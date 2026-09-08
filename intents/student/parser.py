@@ -54,11 +54,19 @@ logger = logging.getLogger(__name__)
 
 def _fallback(
     query: str,
+    raw_query: str | None = None,
 ) -> ParsedStudentIntent:
 
     data = build_fallback_student_intent()
 
     data["original_query"] = query
+
+    data["raw_query"] = (
+        raw_query
+        or query
+    )
+
+    data["resolved_query"] = query
 
     return ParsedStudentIntent(
         **data
@@ -588,7 +596,16 @@ def normalize_focus(
 async def parse_student_intent(
     query: str,
     enrollment_id: int | None = None,
+    forced_intent: StudentIntent | None = None,
+    raw_query: str | None = None,
 ) -> ParsedStudentIntent:
+
+    #
+    # `query` is the STANDALONE query: for a follow-up it is the
+    # rewrite produced by the query resolver, so every keyword and
+    # date heuristic below sees a complete question. `raw_query`
+    # keeps the user's literal message for auditing.
+    #
 
     try:
 
@@ -599,33 +616,48 @@ async def parse_student_intent(
 
         normalized_query = query.strip().lower()
 
-        classified_intent = (
-            await classify_student_intent(
-                normalized_query
-            )
-        )
-
         query_lower = normalized_query
 
-        if (
-            classified_intent == StudentIntent.UNKNOWN
-            and any(
-                word in query_lower
-                for word in HOMEWORK_QUERY_KEYWORDS
-            )
-        ):
+        if forced_intent is not None:
+
+            # The conversation already established the intent and
+            # the follow-up did not change subject area; classifying
+            # a fragment again would only lose it.
+
+            classified_intent = forced_intent
 
             logger.info(
-                "UNKNOWN overridden to homework_summary: %r",
-                query,
+                "Inherited intent from conversation context: %s",
+                classified_intent.value,
             )
 
-            classified_intent = StudentIntent.HOMEWORK_SUMMARY
+        else:
 
-        logger.info(
-            "Classified intent: %s",
-            classified_intent.value,
-        )
+            classified_intent = (
+                await classify_student_intent(
+                    normalized_query
+                )
+            )
+
+            if (
+                classified_intent == StudentIntent.UNKNOWN
+                and any(
+                    word in query_lower
+                    for word in HOMEWORK_QUERY_KEYWORDS
+                )
+            ):
+
+                logger.info(
+                    "UNKNOWN overridden to homework_summary: %r",
+                    query,
+                )
+
+                classified_intent = StudentIntent.HOMEWORK_SUMMARY
+
+            logger.info(
+                "Classified intent: %s",
+                classified_intent.value,
+            )
 
         # ==================================================
         # STEP 2: PARAMETER EXTRACTION (never re-classify)
@@ -794,6 +826,13 @@ async def parse_student_intent(
 
         parsed["original_query"] = query
 
+        parsed["raw_query"] = (
+            raw_query
+            or query
+        )
+
+        parsed["resolved_query"] = query
+
         # ==================================================
         # STEP 6
         # NORMALIZE DATES
@@ -837,5 +876,6 @@ async def parse_student_intent(
         )
 
         return _fallback(
-            query
+            query,
+            raw_query,
         )

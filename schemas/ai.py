@@ -17,6 +17,12 @@ class UserContext(BaseModel):
 
     academic_class_id: int | None = None
 
+    # IANA name, e.g. "Asia/Kolkata". Relative dates
+    # ("this month") are resolved against it. Falls back to
+    # TemporalService.DEFAULT_TIMEZONE when absent.
+
+    timezone: str | None = None
+
 
 class AIRequest(BaseModel):
 
@@ -32,6 +38,8 @@ class MentorContext(BaseModel):
     academic_year_id: int
 
     staff_id: int
+
+    timezone: str | None = None
 
 class MentorAIRequest(BaseModel):
     query: str
@@ -51,6 +59,8 @@ class GuardianContext(BaseModel):
     campus_id: int
 
     role: str
+
+    timezone: str | None = None
 
 class GuardianAIRequest(BaseModel):
 

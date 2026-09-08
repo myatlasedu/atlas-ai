@@ -46,6 +46,19 @@ from intents.common.prompt_categories import (
     build_unknown_intent_summary,
 )
 
+from schemas.conversation import (
+    DATE_PARAMETERS,
+    QueryResolution,
+)
+
+from services.conversation_context_service import (
+    ConversationContextService,
+)
+
+from services.query_resolution_service import (
+    QueryResolutionService,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -172,6 +185,348 @@ class StudentAIService:
             )
 
     # ==================================================
+    # CONTEXT RESOLUTION + INTENT PARSING
+    # ==================================================
+
+    async def _resolve_and_parse(
+        self,
+        *,
+        query: str,
+        context,
+    ):
+
+        #
+        # Runs BEFORE intent detection:
+        #
+        #   1. load the last few relevant turns from the audit log
+        #   2. rewrite a follow-up into a standalone query
+        #   3. classify + extract parameters on that standalone query
+        #   4. fill any gap the follow-up left from the prior turn
+        #
+        # Returns (parsed_intent, resolution, latency_ms). When the
+        # resolution needs a clarification, parsed_intent is None
+        # and the caller must ask instead of answering.
+        #
+
+        intent_start = (
+            time.perf_counter()
+        )
+
+        turns = (
+            await ConversationContextService.load_recent_turns(
+                context=context
+            )
+        )
+
+        resolution = (
+            await QueryResolutionService.resolve(
+                query=query,
+                context=context,
+                turns=turns,
+            )
+        )
+
+        if resolution.clarification_required.required:
+
+            return (
+                None,
+                resolution,
+                int(
+                    (
+                        time.perf_counter()
+                        - intent_start
+                    )
+                    * 1000
+                ),
+            )
+
+        parsed_intent = await parse_intent(
+
+            query=resolution.resolved_query,
+
+            role=context.role,
+
+            enrollment_id=context.enrollment_id,
+
+            forced_intent=(
+                resolution.intent
+                if resolution.inherited_intent
+                else None
+            ),
+
+            raw_query=query,
+        )
+
+        parsed_intent = self._apply_resolution(
+            parsed_intent=parsed_intent,
+            resolution=resolution,
+        )
+
+        parsed_intent = (
+            DateService.validate(
+                parsed_intent
+            )
+        )
+
+        intent_latency_ms = int(
+            (
+                time.perf_counter()
+                - intent_start
+            )
+            * 1000
+        )
+
+        return (
+            parsed_intent,
+            resolution,
+            intent_latency_ms,
+        )
+
+    @staticmethod
+    def _apply_resolution(
+        *,
+        parsed_intent,
+        resolution: QueryResolution,
+    ):
+
+        #
+        # Overlays the carried-over parameters onto the freshly
+        # parsed intent.
+        #
+        # Anything the user restated in this turn wins: the parser
+        # saw the standalone query, so a value it produced came
+        # from the user, not from context. Only the gaps are filled
+        # from the previous turn.
+        #
+        # Dates are the exception: the resolver computes them in
+        # the user's timezone, which the parser's IST-based
+        # helpers cannot do, so a resolved window overrides.
+        #
+
+        overrides = {}
+
+        inherited_fields = []
+
+        for field, value in resolution.parameters.items():
+
+            if not hasattr(
+                parsed_intent,
+                field,
+            ):
+
+                continue
+
+            if field in DATE_PARAMETERS:
+
+                continue
+
+            current = getattr(
+                parsed_intent,
+                field,
+            )
+
+            if current not in (
+                None,
+                "",
+                [],
+                False,
+            ):
+
+                continue
+
+            overrides[field] = value
+
+            inherited_fields.append(
+                field
+            )
+
+        # ----------------------------------------------
+        # Timezone-resolved window
+        # ----------------------------------------------
+
+        start = resolution.parameters.get(
+            "start_date"
+        )
+
+        end = resolution.parameters.get(
+            "end_date"
+        )
+
+        if (
+            start
+            and end
+            and not parsed_intent.invalid_date
+        ):
+
+            overrides["start_date"] = start
+
+            overrides["end_date"] = end
+
+            inherited_fields.extend(
+                [
+                    "start_date",
+                    "end_date",
+                ]
+            )
+
+        # ----------------------------------------------
+        # Provenance
+        # ----------------------------------------------
+
+        context_used = (
+            resolution.context_used.model_dump()
+        )
+
+        context_used["resolution_latency_ms"] = (
+            resolution.latency_ms
+        )
+
+        overrides["resolved_query"] = (
+            resolution.resolved_query
+        )
+
+        overrides["inherited_intent"] = (
+            resolution.inherited_intent
+        )
+
+        overrides["context_used"] = context_used
+
+        overrides["inherited_parameters"] = (
+            inherited_fields
+        )
+
+        if inherited_fields:
+
+            logger.info(
+                "Inherited parameters from context: %s",
+                inherited_fields,
+            )
+
+        # Rebuilding (rather than setattr) runs pydantic
+        # validation, so ISO strings become real dates.
+
+        return type(parsed_intent)(
+            **{
+                **parsed_intent.model_dump(),
+                **overrides,
+            }
+        )
+
+    # ==================================================
+    # CLARIFICATION
+    # ==================================================
+
+    def _clarification_response(
+        self,
+        *,
+        query: str,
+        context,
+        resolution: QueryResolution,
+        request_start: float,
+        intent_latency_ms: int,
+    ):
+
+        summary = (
+            resolution.clarification_required.question
+        )
+
+        context_used = (
+            resolution.context_used.model_dump()
+        )
+
+        context_used["resolution_latency_ms"] = (
+            resolution.latency_ms
+        )
+
+        parsed_intent = ParsedStudentIntent(
+
+            intent="clarification_required",
+
+            start_date=None,
+
+            end_date=None,
+
+            target_modules=[],
+
+            confidence=0.0,
+
+            original_query=(
+                resolution.resolved_query
+            ),
+
+            raw_query=query,
+
+            resolved_query=(
+                resolution.resolved_query
+            ),
+
+            context_used=context_used,
+        )
+
+        total_latency_ms = int(
+            (
+                time.perf_counter()
+                - request_start
+            )
+            * 1000
+        )
+
+        self._schedule_audit(
+
+            context=context,
+
+            query=query,
+
+            parsed_intent=parsed_intent,
+
+            selected_tools=[],
+
+            tool_results={},
+
+            summary=summary,
+
+            total_latency_ms=(
+                total_latency_ms
+            ),
+
+            intent_latency_ms=(
+                intent_latency_ms
+            ),
+
+            tool_latency_ms=0,
+
+            summarizer_latency_ms=0,
+        )
+
+        logger.info(
+            "Clarification requested: %s",
+            summary,
+        )
+
+        return {
+
+            "success": True,
+
+            "query":
+                query,
+
+            "intent":
+                parsed_intent.model_dump(),
+
+            "data":
+                {},
+
+            "summary":
+                summary,
+
+            "clarification_required":
+                True,
+
+            "resolution":
+                resolution.contract(),
+        }
+
+    # ==================================================
     # ANSWER
     # ==================================================
 
@@ -188,13 +543,21 @@ class StudentAIService:
             .strip()
             .lower()
         )
-
+        print("=======In student_ai_services======")
+        print("At 547")
+        print("Normalize Query: ", normalized_query)
         # ==================================================
         # DEFAULT AUDIT VALUES
         # ==================================================
 
         parsed_intent = None
 
+        resolution = QueryResolution.passthrough(
+            query,
+            reason="Resolution not reached for this turn.",
+        )
+        print("At 559")
+        print("resolution: ", normalized_query)
         selected_tools = []
 
         results = {}
@@ -218,7 +581,7 @@ class StudentAIService:
         )
 
         if pending_action:
-
+            print("At 584: Pending Action Confirm")
             if normalized_query in [
 
                 "yes",
@@ -339,71 +702,66 @@ class StudentAIService:
 
                     "summary":
                         summary,
+
+                    "resolution":
+                        resolution.contract(),
                 }
 
             else:
-
+                print("At 711: After Pending action cofirmation")
                 # ==========================================
-                # INTENT PARSING
+                # CONTEXT RESOLUTION + INTENT PARSING
                 # ==========================================
 
-                intent_start = (
-                    time.perf_counter()
+                (
+                    parsed_intent,
+                    resolution,
+                    intent_latency_ms,
+                ) = await self._resolve_and_parse(
+                    query=query,
+                    context=context,
                 )
+                # print("At 724, Parsed_Intent: ", parse_intent)
+                print("At 725, RESOLUTION: ", resolution)
 
-                parsed_intent = (
-                    await parse_intent(
+                if parsed_intent is None:
+                    print("*******No intent Parse******")
+                    return self._clarification_response(
                         query=query,
-                        role=context.role,
-                        enrollment_id=context.enrollment_id,
+                        context=context,
+                        resolution=resolution,
+                        request_start=request_start,
+                        intent_latency_ms=(
+                            intent_latency_ms
+                        ),
                     )
-                )
-
-                parsed_intent = (
-                    DateService.validate(
-                        parsed_intent
-                    )
-                )
-
-                intent_latency_ms = int(
-                    (
-                        time.perf_counter()
-                        - intent_start
-                    )
-                    * 1000
-                )
 
         else:
-
+            print("\nAt 740, No pending Action involve")
             # ==========================================
-            # INTENT PARSING
+            # CONTEXT RESOLUTION + INTENT PARSING
             # ==========================================
 
-            intent_start = (
-                time.perf_counter()
+            (
+                parsed_intent,
+                resolution,
+                intent_latency_ms,
+            ) = await self._resolve_and_parse(
+                query=query,
+                context=context,
             )
-
-            parsed_intent = (
-                await parse_intent(
+            print("At 753, RESOLUTION: ", resolution)
+            if parsed_intent is None:
+                print("*******No intent Parse******")
+                return self._clarification_response(
                     query=query,
-                    role=context.role,
-                    enrollment_id=context.enrollment_id,
+                    context=context,
+                    resolution=resolution,
+                    request_start=request_start,
+                    intent_latency_ms=(
+                        intent_latency_ms
+                    ),
                 )
-            )
-
-            parsed_intent = (
-                DateService.validate(
-                    parsed_intent
-                )
-            )
-
-            intent_latency_ms = int(
-                (
-                    time.perf_counter()
-                    - intent_start
-                )
-                * 1000
-            )
 
         logger.info(
             "Parsed Intent: %s",
@@ -419,7 +777,7 @@ class StudentAIService:
             ==
             StudentIntent.UNKNOWN
         ):
-
+            print("****Unknown Intent found****")
             summary = (
                 build_unknown_intent_summary(
                     "student"
@@ -476,18 +834,22 @@ class StudentAIService:
 
                 "summary":
                     summary,
+
+                "resolution":
+                    resolution.contract(),
             }
 
         # ==================================================
         # SELECT TOOLS
         # ==================================================
-
+        print(f'****{parsed_intent.intent} found****')
         selected_tools = (
             get_tools_for_intent(
                 intent=parsed_intent.intent
             )
         )
-
+        print("\n SELECTED TOOLS: ")
+        print(selected_tools)
         logger.info(
             "Selected Tools: %s",
             selected_tools
@@ -515,7 +877,7 @@ class StudentAIService:
             tool_start = (
                 time.perf_counter()
             )
-
+            print("****Tool name****: ", tool)
             result = await tool.run(
 
                 context=context,
@@ -633,6 +995,9 @@ class StudentAIService:
                         tool_result.get(
                             "action_type"
                         ),
+
+                    "resolution":
+                        resolution.contract(),
                 }
 
         # ==================================================
@@ -697,6 +1062,9 @@ class StudentAIService:
 
                 "summary":
                     None,
+
+                "resolution":
+                    resolution.contract(),
             }
 
         # ==================================================
@@ -706,7 +1074,7 @@ class StudentAIService:
         summarizer_start = (
             time.perf_counter()
         )
-
+        print("\n****Go for summary At 1078****")
         summary = await summarize_response(
 
             query=query,
@@ -788,4 +1156,7 @@ class StudentAIService:
 
             "summary":
                 summary,
+
+            "resolution":
+                resolution.contract(),
         }

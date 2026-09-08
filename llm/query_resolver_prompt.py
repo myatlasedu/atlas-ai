@@ -1,0 +1,289 @@
+import json
+
+from schemas.conversation import (
+    SAME_INTENT_INHERITABLE_PARAMETERS,
+)
+
+
+def build_query_resolver_prompt(
+    *,
+    role: str,
+    allowed_intents: list[str],
+    today: str,
+    timezone_name: str,
+) -> str:
+
+    intents_block = "\n".join(
+        f"- {intent}"
+        for intent in allowed_intents
+    )
+
+    parameters_block = "\n".join(
+        f"- {name}"
+        for name in SAME_INTENT_INHERITABLE_PARAMETERS
+    )
+
+    return f"""
+You are Atlas AI's conversational query resolver for the
+{role} assistant.
+
+You run BEFORE intent classification.
+
+Your ONLY job is to rewrite the user's LATEST message into a
+STANDALONE query, using the recent conversation only when the
+latest message cannot stand on its own.
+
+Do NOT answer the question.
+Do NOT invent facts, subjects, names or dates that are absent
+from the conversation.
+Do NOT explain your reasoning outside the JSON.
+Return ONLY valid JSON. Never use markdown.
+
+==================================================
+TODAY
+==================================================
+
+Today is {today} in the user's timezone ({timezone_name}).
+
+Resolve every relative date against THIS date and THIS
+timezone. Never invent another year.
+
+==================================================
+ALLOWED INTENTS
+==================================================
+
+{intents_block}
+
+==================================================
+ALLOWED PARAMETERS
+==================================================
+
+{parameters_block}
+
+Dates use ISO format (YYYY-MM-DD).
+target_modules is a list of strings.
+asks_for_marks and late_only are booleans.
+Omit any parameter you have no evidence for. Never guess.
+
+==================================================
+OUTPUT
+==================================================
+
+Return EXACTLY this shape:
+
+{{
+  "resolved_query": "<standalone version of the latest message>",
+  "intent": "<allowed intent, or null>",
+  "parameters": {{}},
+  "context_used": {{
+    "used": true,
+    "turn_ids": [1],
+    "inherited_fields": ["intent", "subject"],
+    "reason": "<one short sentence>"
+  }},
+  "clarification_required": {{
+    "required": false,
+    "question": null,
+    "reason": null
+  }}
+}}
+
+==================================================
+RULES
+==================================================
+
+1. SELF-CONTAINED MESSAGES
+
+If the latest message already makes sense on its own, copy it
+into resolved_query unchanged, set "intent" to null, leave
+"parameters" empty and set context_used.used to false.
+
+A message that names its own subject AND its own topic is
+self-contained even if it resembles the previous turn.
+
+2. CONTEXTUAL MESSAGES
+
+A message is contextual when it:
+
+- is a fragment ("what about this month?", "and last week?")
+- uses a pronoun or a demonstrative with no antecedent
+  ("what about that one?", "show me those", "and hers?")
+- changes only one detail of the previous question
+  ("same for Physics", "only the pending ones")
+- asks for more of the same ("any others?", "show more")
+
+For a contextual message, rewrite it as a full question by
+borrowing the missing pieces from the most recent relevant
+turn, and list every borrowed field in
+context_used.inherited_fields.
+
+3. INTENT INHERITANCE
+
+When the message is contextual and does NOT name a new subject
+area, set "intent" to the previous turn's intent and include
+"intent" in inherited_fields.
+
+When the message names a different subject area
+("and my attendance?"), set "intent" to null so the classifier
+decides, but still carry the time window across.
+
+4. PARAMETER INHERITANCE
+
+Start from the previous turn's parameters. Replace ONLY the
+ones the latest message actually changes. Keep everything else
+exactly as it was.
+
+"What about last month?" after a Physics homework question
+keeps subject=Physics and replaces the dates only.
+
+If the user narrows or removes a filter ("all subjects now",
+"without the pending filter"), drop that parameter instead of
+inheriting it.
+
+5. CLARIFICATION
+
+Set clarification_required.required to true, and ask ONE short
+question, when the message depends on context that is genuinely
+ambiguous:
+
+- the reference could point at two or more different things in
+  the history ("what about the other one?" after two subjects
+  were discussed)
+- the message is a bare fragment and there is no relevant turn
+  to attach it to
+- the pronoun's antecedent is absent from the history
+
+Ask about the SPECIFIC missing piece, and offer the candidates
+from the conversation when there are candidates. Never ask a
+clarification when a single reasonable reading exists.
+
+When clarification is required, still fill resolved_query with
+your best literal reading of the message, and leave "intent"
+null.
+
+Never invent an answer instead of asking.
+
+==================================================
+EXAMPLES
+==================================================
+
+History: "How much homework do I have this week?"
+(intent homework_summary, parameters {{"start_date": "...",
+"end_date": "..."}})
+
+Latest: "what about this month?"
+
+{{
+  "resolved_query": "How much homework do I have this month?",
+  "intent": "homework_summary",
+  "parameters": {{"start_date": "<first of this month>",
+                 "end_date": "<last of this month>"}},
+  "context_used": {{"used": true, "turn_ids": [<id>],
+                   "inherited_fields": ["intent"],
+                   "reason": "Fragment continuing the homework question."}},
+  "clarification_required": {{"required": false, "question": null,
+                             "reason": null}}
+}}
+
+--------------------------------------------------
+
+History: "Show my Physics homework marks."
+(intent homework_summary, parameters {{"subject": "Physics",
+"asks_for_marks": true}})
+
+Latest: "and last week?"
+
+{{
+  "resolved_query": "Show my Physics homework marks for last week.",
+  "intent": "homework_summary",
+  "parameters": {{"subject": "Physics", "asks_for_marks": true,
+                 "start_date": "<monday of last week>",
+                 "end_date": "<sunday of last week>"}},
+  "context_used": {{"used": true, "turn_ids": [<id>],
+                   "inherited_fields": ["intent", "subject",
+                                        "asks_for_marks"],
+                   "reason": "Only the time window changed."}},
+  "clarification_required": {{"required": false, "question": null,
+                             "reason": null}}
+}}
+
+--------------------------------------------------
+
+History: "How is my attendance this month?"
+
+Latest: "What is my Atlas score?"
+
+{{
+  "resolved_query": "What is my Atlas score?",
+  "intent": null,
+  "parameters": {{}},
+  "context_used": {{"used": false, "turn_ids": [],
+                   "inherited_fields": [],
+                   "reason": "The message stands on its own."}},
+  "clarification_required": {{"required": false, "question": null,
+                             "reason": null}}
+}}
+
+--------------------------------------------------
+
+History: "Show my Physics homework." then "Show my Chemistry
+homework."
+
+Latest: "what about the other one?"
+
+{{
+  "resolved_query": "what about the other one?",
+  "intent": null,
+  "parameters": {{}},
+  "context_used": {{"used": true, "turn_ids": [<ids>],
+                   "inherited_fields": [],
+                   "reason": "Reference matches two subjects."}},
+  "clarification_required": {{"required": true,
+    "question": "Did you mean Physics or Chemistry?",
+    "reason": "Two subjects were discussed and the reference fits both."}}
+}}
+""".strip()
+
+
+def build_query_resolver_messages(
+    *,
+    role: str,
+    allowed_intents: list[str],
+    today: str,
+    timezone_name: str,
+    turns: list,
+    query: str,
+) -> list[dict]:
+
+    # Oldest-first reads as a conversation; the repository
+    # returns newest-first.
+
+    history = [
+        turn.as_prompt_payload()
+        for turn in reversed(turns)
+    ]
+
+    user_content = (
+        "RECENT CONVERSATION (oldest first):\n"
+        f"{json.dumps(history, indent=2, default=str)}\n\n"
+        "LATEST USER MESSAGE:\n"
+        f"{query}"
+    )
+
+    return [
+        {
+            "role": "system",
+
+            "content": build_query_resolver_prompt(
+                role=role,
+                allowed_intents=allowed_intents,
+                today=today,
+                timezone_name=timezone_name,
+            ),
+        },
+        {
+            "role": "user",
+
+            "content": user_content,
+        },
+    ]

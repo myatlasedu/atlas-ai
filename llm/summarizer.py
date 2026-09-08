@@ -1755,7 +1755,8 @@ async def summarize_response(
     context,
     intent
 ):
-    
+    print("****INtent*****")
+    print("Intent in summarize: ", intent)
     if intent == StudentIntent.PERSONAL_EVENT_SUMMARY:
 
         events = (
@@ -1786,19 +1787,19 @@ async def summarize_response(
 
     import json
 
-    print(json.dumps(data, indent=2, default=str))  
+    # print(json.dumps(data, indent=2, default=str))  
     llm_data = make_json_safe(
         build_llm_context(data)
     )
     
 
-    print(
-        json.dumps(
-            llm_data,
-            indent=2,
-            ensure_ascii=False,
-        )
-    )
+    # print(
+    #     json.dumps(
+    #         llm_data,
+    #         indent=2,
+    #         ensure_ascii=False,
+    #     )
+    # )
 
     prompt = build_prompt(
         query=query,
@@ -1806,7 +1807,8 @@ async def summarize_response(
         role=context.role,
         intent=intent
     )
-
+    print("\n====IN Summarizer====")
+    print("LLM DATA: ",llm_data)
     if prompt is None:
         raise RuntimeError(
             f"No summarizer prompt configured for intent: {intent}"
@@ -1877,7 +1879,8 @@ async def summarize_response(
         max_tokens=500,
         thinking=False
     )
-
+    print("======LLM Response======")
+    print(response)
     logger.info(
         "Summarizer response: %s",
         response
