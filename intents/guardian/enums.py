@@ -30,6 +30,10 @@ class GuardianIntent(
         "subject_summary"
     )
 
+    TOPIC_SUMMARY = (
+        "topic_summary"
+    )
+    
     ANNOUNCEMENT_SUMMARY = (
         "announcement_summary"
     )

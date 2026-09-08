@@ -2,6 +2,8 @@ from intents.student.enums import (
     StudentIntent,
 )
 
+from utils import ist_today
+
 from intents.student.prompt_parts.attendance import (
     ATTENDANCE_PROMPT,
 )
@@ -136,6 +138,14 @@ intent classifier.
 You MUST TRUST the provided intent.
 
 ==================================================
+TODAY
+==================================================
+
+Today's date is {ist_today().isoformat()}.
+Use this year for any relative date ("this week",
+"last month", "tomorrow"). Never invent another year.
+
+==================================================
 CLASSIFIED INTENT
 ==================================================
 
@@ -172,11 +182,53 @@ Possible parameters include:
 - subject
 - topic
 - view
+- navigation_target
 - target_modules
 
 Do not invent values.
 
 Use null when a value is not present.
+
+==================================================
+ASKS FOR MARKS FLAG
+==================================================
+
+Set "asks_for_marks" to true ONLY when the user names
+a SPECIFIC homework / assignment / worksheet / submission
+and asks for its MARKS / GRADE / SCORE / RESULT.
+
+Casual phrasings count as asking for marks, for example
+"what did I get in X", "how much did I get", "what did
+I score", "my result for X".
+
+When true, also set "topic" to the FULL homework name
+exactly as written (keep the date, do not shorten).
+
+If no specific titled homework is named, set
+"asks_for_marks" to false.
+
+This applies to any intent, so a specific titled
+homework marks question must set both "asks_for_marks"
+and "topic" even if the overall intent is assessment-like.
+
+==================================================
+HOMEWORK FOCUS FLAG
+==================================================
+
+For homework_summary intents also set "homework_focus"
+to exactly ONE value:
+
+topic_status | pending | overdue | due_today |
+due_tomorrow | submitted | graded | feedback |
+due_range | next_up | general | resubmit | upcoming | awaiting_marks
+
+A specific titled homework ALWAYS means "topic_status"
+plus the name in "topic". Date-based questions fill
+start_date / end_date. Full rules and examples are in
+the intent-specific instructions below.
+
+If the query is not about homework, leave
+"homework_focus" as null.
 
 ==================================================
 CAMBRIDGE TERMINOLOGY
@@ -272,8 +324,13 @@ Return ONLY valid JSON:
     "start_date": null,
     "end_date": null,
     "subject": null,
+    "teacher": null,
     "topic": null,
     "view": null,
-    "target_modules": []
+    "navigation_target": null,
+    "target_modules": [],
+    "asks_for_marks": false,
+
+    "homework_focus": null,
 }}
 """

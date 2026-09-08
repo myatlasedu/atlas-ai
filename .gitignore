@@ -1,3 +1,11 @@
 .env
 **.pyc
 __pycache__/
+venv/
+
+# Personal changelog
+CHANGELOG/
+
+# Redis
+dump.rdb
+*.rdb
