@@ -116,11 +116,11 @@ class AssessmentRepository:
 
                 a.id,
                 a.title,
-                a.total_marks,
+                -- a.total_marks,
                 a.assessment_date,
                 a.type,
 
-                r.marks_obtained,
+                -- r.marks_obtained,
                 r.grade,
                 r.teacher_comment,
                 r.graded_at
@@ -153,30 +153,30 @@ class AssessmentRepository:
 
         row = dict(row)
 
-        total_marks = (
-            row.get("total_marks")
-            or 0
-        )
+        # total_marks = (
+        #     row.get("total_marks")
+        #     or 0
+        # )
 
-        obtained = (
-            row.get("marks_obtained")
-            or 0
-        )
+        # obtained = (
+        #     row.get("marks_obtained")
+        #     or 0
+        # )
 
-        percentage = 0
+        # percentage = 0
 
-        if total_marks:
+        # if total_marks:
 
-            percentage = round(
-                (
-                    obtained
-                    /
-                    total_marks
-                ) * 100,
-                2
-            )
+        #     percentage = round(
+        #         (
+        #             obtained
+        #             /
+        #             total_marks
+        #         ) * 100,
+        #         2
+        #     )
 
-        row["percentage"] = percentage
+        # row["percentage"] = percentage
 
         return row
 
@@ -235,6 +235,8 @@ class AssessmentRepository:
             WHERE r.enrollment_id = :enrollment_id
 
             AND r.status = 3
+
+            AND r.marks_obtained IS NOT NULL
         """)
 
         result = await self.db.execute(
@@ -313,6 +315,8 @@ class AssessmentRepository:
 
             AND a.total_marks > 0
 
+            AND r.marks_obtained IS NOT NULL
+
             ORDER BY
                 (
                     r.marks_obtained
@@ -382,6 +386,8 @@ class AssessmentRepository:
 
             AND a.total_marks > 0
 
+            AND r.marks_obtained IS NOT NULL
+
             ORDER BY
                 (
                     r.marks_obtained
@@ -434,7 +440,7 @@ class AssessmentRepository:
                 a.assessment_date,
 
                 r.teacher_comment,
-                r.marks_obtained,
+                -- r.marks_obtained,
                 r.grade,
                 r.graded_at
 
@@ -508,6 +514,8 @@ class AssessmentRepository:
             AND r.status = 3
 
             AND a.total_marks > 0
+
+            AND r.marks_obtained IS NOT NULL
 
             ORDER BY r.graded_at ASC
         """)
@@ -654,6 +662,8 @@ class AssessmentRepository:
             AND r.status = 3
 
             AND a.total_marks > 0
+
+            AND r.marks_obtained IS NOT NULL
 
             ORDER BY a.assessment_date DESC
         """)
