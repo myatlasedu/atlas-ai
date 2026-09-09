@@ -218,7 +218,7 @@ class StudentAIService:
             )
         )
         print("=====Chat History======")
-        print(turns)
+        # print(turns)
 
         resolution = (
             await QueryResolutionService.resolve(
@@ -542,8 +542,6 @@ class StudentAIService:
             .lower()
         )
         print("=======In student_ai_services======")
-        print("At 547")
-        print("Normalize Query: ", normalized_query)
         # ==================================================
         # DEFAULT AUDIT VALUES
         # ==================================================
@@ -554,8 +552,7 @@ class StudentAIService:
             query,
             reason="Resolution not reached for this turn.",
         )
-        print("At 559")
-        print("resolution: ", resolution)
+
         selected_tools = []
 
         results = {}
@@ -748,7 +745,7 @@ class StudentAIService:
                 query=query,
                 context=context,
             )
-            print("\nIN Student_ai_services At 753, RESOLUTION: ", resolution)
+            # print("\nIN Student_ai_services At 753, RESOLUTION: ", resolution)
             if parsed_intent is None:
                 print("*******No intent Parse******")
                 return self._clarification_response(

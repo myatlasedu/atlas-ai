@@ -168,9 +168,7 @@ class QueryResolutionService:
         today = TemporalService.today(
             context
         )
-        print("\n=====IN query_resolution_service======")
-        print("At 170")
-        # print("Turns: ", turns)
+
         messages = build_query_resolver_messages(
 
             role=role,

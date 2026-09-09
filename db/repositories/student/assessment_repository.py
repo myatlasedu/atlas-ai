@@ -2,27 +2,6 @@ from sqlalchemy import text
 import statistics
 
 
-def _safe_percentage(
-    obtained,
-    total,
-):
-
-    #
-    # A record can be marked graded while marks_obtained is still
-    # NULL. Returning None keeps that honest instead of crashing or
-    # inventing a zero.
-    #
-
-    if obtained is None or not total:
-
-        return None
-
-    return round(
-        (obtained / total) * 100,
-        2,
-    )
-
-
 class AssessmentRepository:
 
     def __init__(self, db):
@@ -360,10 +339,13 @@ class AssessmentRepository:
 
         row = dict(row)
 
-        row["percentage"] = _safe_percentage(
-            row.get("marks_obtained"),
-            row.get("total_marks"),
-        )
+        marks = row.get("marks_obtained")
+        total = row.get("total_marks") or 0
+
+        if marks is not None and total:
+            row["percentage"] = round((marks / total) * 100, 2)
+        else:
+            row["percentage"] = 0
 
         return row
 
@@ -427,10 +409,13 @@ class AssessmentRepository:
 
         row = dict(row)
 
-        row["percentage"] = _safe_percentage(
-            row.get("marks_obtained"),
-            row.get("total_marks"),
-        )
+        marks = row.get("marks_obtained")
+        total = row.get("total_marks") or 0
+
+        if marks is not None and total:
+            row["percentage"] = round((marks / total) * 100, 2)
+        else:
+            row["percentage"] = 0
 
         return row
 
@@ -695,16 +680,13 @@ class AssessmentRepository:
 
             row = dict(row)
 
-            percentage = _safe_percentage(
-                row.get("marks_obtained"),
-                row.get("total_marks"),
-            )
+            marks = row.get("marks_obtained")
+            total = row.get("total_marks") or 0
 
-            if percentage is None:
-
-                # Not graded yet: it cannot be a risk signal.
-
+            if marks is None or not total:
                 continue
+
+            percentage = round((marks / total) * 100, 2)
 
             if percentage < 50:
 
@@ -733,3 +715,79 @@ class AssessmentRepository:
         )
 
         return risks
+
+    # =====================================================
+    # ASSESSMENTS BY DATE RANGE
+    # =====================================================
+
+    async def get_assessments_by_date_range(
+        self,
+        enrollment_id: int,
+        start_date,
+        end_date,
+    ):
+
+        query = text("""
+            SELECT
+
+                a.id,
+                a.title,
+                a.total_marks,
+                a.assessment_date,
+                a.type,
+
+                r.marks_obtained,
+                r.grade,
+                r.teacher_comment,
+                r.graded_at,
+                r.status
+
+            FROM students_assessmentstudentrecord r
+
+            INNER JOIN students_assessment a
+                ON a.id = r.assessment_id
+
+            WHERE r.enrollment_id = :enrollment_id
+
+            AND a.assessment_date >= :start_date
+            AND a.assessment_date <= :end_date
+
+            ORDER BY a.assessment_date ASC
+        """)
+
+        result = await self.db.execute(
+            query,
+            {
+                "enrollment_id": enrollment_id,
+                "start_date": start_date,
+                "end_date": end_date,
+            }
+        )
+
+        rows = []
+
+        for row in result.mappings().all():
+
+            item = dict(row)
+
+            total = (
+                item.get("total_marks")
+                or 0
+            )
+
+            obtained = item.get("marks_obtained")
+
+            percentage = 0
+
+            if total and obtained is not None:
+
+                percentage = round(
+                    (obtained / total) * 100,
+                    2
+                )
+
+            item["percentage"] = percentage
+
+            rows.append(item)
+
+        return rows

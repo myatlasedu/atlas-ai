@@ -1,3 +1,8 @@
+from datetime import (
+    timedelta,
+    date,
+)
+
 from db.session import (
     AsyncSessionLocal
 )
@@ -386,6 +391,121 @@ class AssessmentTool:
             }
 
             # =====================================
+            # INVALID DATE SHORT CIRCUIT
+            # =====================================
+
+            if getattr(parsed_intent, "invalid_date", False):
+
+                payload["direct_answer"] = (
+                    "That date isn't valid - please check it and try again."
+                )
+
+                return payload
+
+            # =====================================
+            # DATE RANGE / MONTH ASSESSMENTS
+            # =====================================
+
+            start_date = getattr(parsed_intent, "start_date", None)
+            end_date = getattr(parsed_intent, "end_date", None)
+
+            if isinstance(start_date, str):
+                try:
+                    start_date = date.fromisoformat(start_date[:10])
+                except ValueError:
+                    start_date = None
+
+            if isinstance(end_date, str):
+                try:
+                    end_date = date.fromisoformat(end_date[:10])
+                except ValueError:
+                    end_date = None
+
+            if start_date and end_date:
+
+                records = await repo.get_assessments_by_date_range(
+                    context.enrollment_id,
+                    start_date,
+                    end_date,
+                )
+
+                if (
+                    start_date.day == 1
+                    and (end_date + timedelta(days=1)).day == 1
+                    and start_date.month == end_date.month
+                ):
+                    period_label = start_date.strftime("%B")
+                else:
+                    period_label = (
+                        f"{start_date.strftime('%d %b')} to "
+                        f"{end_date.strftime('%d %b')}"
+                    )
+
+                graded_records = [
+                    r for r in records
+                    if r.get("status") == 3 or r.get("marks_obtained") is not None
+                ]
+
+                pending_records = [
+                    r for r in records
+                    if r.get("status") in (1, 2)
+                ]
+
+                if graded_records:
+
+                    lines = []
+
+                    for r in graded_records:
+
+                        score_str = (
+                            f"{r['marks_obtained']}/{r['total_marks']} "
+                            f"({r['percentage']}%)"
+                        )
+
+                        grade_str = (
+                            f" - Grade: {r['grade']}"
+                            if r.get("grade")
+                            else ""
+                        )
+
+                        lines.append(
+                            f"• {r['title']} ({r['assessment_date']}): "
+                            f"{score_str}{grade_str}"
+                        )
+
+                    msg = (
+                        f"Here are your assessment marks for {period_label}:\n\n"
+                        + "\n".join(lines)
+                    )
+
+                    if pending_records:
+
+                        msg += (
+                            f"\n\nYou also have {len(pending_records)} pending "
+                            f"assessment(s) scheduled for this period."
+                        )
+
+                    payload["direct_answer"] = msg
+
+                elif pending_records:
+
+                    payload["direct_answer"] = (
+                        f"You have no graded assessment results for {period_label}. "
+                        f"However, you have {len(pending_records)} pending "
+                        f"assessment(s) scheduled for this period."
+                    )
+
+                else:
+
+                    payload["direct_answer"] = (
+                        f"No assessment results found for {period_label}."
+                    )
+
+                payload["date_range_assessments"] = records
+
+                return payload
+
+            # =====================================
             # UPCOMING ASSESSMENTS
             # =====================================
 
@@ -637,7 +757,12 @@ class AssessmentTool:
                     "what was my score",
                     "what marks did i get",
                     "show my grades",
-                    "latest grade"
+                    "latest grade",
+                    "assessment marks",
+                    "test marks",
+                    "exam marks",
+                    "my marks",
+                    "my grades",
                 ]
             ):
 

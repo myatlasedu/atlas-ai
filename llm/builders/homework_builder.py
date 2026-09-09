@@ -4,11 +4,18 @@ from utils import format_datetime, VALID_HOMEWORK_GRADES
 
 
 def format_row_dates(row):
-    row = dict(row)
-    for key in ("submitted_at", "reviewed_at"):
-        if row.get(key):
-            row[key] = format_datetime(row[key])
-    return row
+    if not isinstance(row, dict):
+        return row
+    return {
+        "title": row.get("title"),
+        "subject_name": row.get("subject_name"),
+        "teacher_name": row.get("teacher_name"),
+        "status_tag": row.get("status_tag"),
+        "due_date": str(row.get("due_date"))[:10] if row.get("due_date") else None,
+        "submitted_at": format_datetime(row.get("submitted_at")) if row.get("submitted_at") else None,
+        "reviewed_at": format_datetime(row.get("reviewed_at")) if row.get("reviewed_at") else None,
+        "grade": (row.get("grade") or "").strip() if row.get("grade") else None,
+    }
 
 
 def build_homework_llm_context(
@@ -377,25 +384,25 @@ def build_homework_llm_context(
 
         "titled_lookup": titled_lookup,
 
-        "pending": [format_row_dates(x) for x in pending],
+        "pending": [format_row_dates(x) for x in pending[:10]],
 
-        "overdue": [format_row_dates(x) for x in overdue],
+        "overdue": [format_row_dates(x) for x in overdue[:10]],
 
-        "due_today": [format_row_dates(x) for x in due_today],
+        "due_today": [format_row_dates(x) for x in due_today[:10]],
 
-        "due_tomorrow": [format_row_dates(x) for x in due_tomorrow],
+        "due_tomorrow": [format_row_dates(x) for x in due_tomorrow[:10]],
 
-        "recent_feedback": [format_row_dates(x) for x in feedback],
+        "recent_feedback": [format_row_dates(x) for x in feedback[:10]],
 
-        "submitted": [format_row_dates(x) for x in submitted],
+        "submitted": [format_row_dates(x) for x in submitted[:10]],
 
-        "graded": [format_row_dates(x) for x in graded],
+        "graded": [format_row_dates(x) for x in graded[:10]],
 
-        "resubmit": [format_row_dates(x) for x in resubmit],
+        "resubmit": [format_row_dates(x) for x in resubmit[:10]],
 
-        "upcoming": [format_row_dates(x) for x in upcoming],
+        "upcoming": [format_row_dates(x) for x in upcoming[:10]],
 
-        "awaiting_marks": [format_row_dates(x) for x in awaiting_marks],
+        "awaiting_marks": [format_row_dates(x) for x in awaiting_marks[:10]],
 
         "next_up": (
             format_row_dates(next_up)

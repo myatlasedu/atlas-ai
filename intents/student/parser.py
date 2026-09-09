@@ -711,6 +711,19 @@ async def parse_student_intent(
         )
 
         # Safety net: marks for a specific homework must route to homework_summary.
+        has_assessment_keyword = any(
+            kw in query_lower
+            for kw in (
+                "assessment",
+                "assessments",
+                "exam",
+                "exams",
+                "test",
+                "tests",
+                "quiz",
+                "quizzes",
+            )
+        )
 
         if (
             parsed["intent"]
@@ -726,16 +739,43 @@ async def parse_student_intent(
                 "topic",
                 None,
             )
+            and not has_assessment_keyword
         ):
 
-            logger.info(
-                "Reclassifying assessment intent to homework_summary: %r",
-                query,
-            )
-
-            parsed["intent"] = (
-                StudentIntent.HOMEWORK_SUMMARY.value
-            )
+            if enrollment_id:
+                async with AsyncSessionLocal() as db:
+                    repo = HomeworkRepository(db)
+                    titles = [
+                        t["title"]
+                        for t in (
+                            await repo.list_enrollment_homework_titles(
+                                enrollment_id
+                            )
+                        )
+                    ]
+                canonical = resolve_canonical_name(
+                    str(parsed["topic"]),
+                    titles,
+                )
+                if canonical:
+                    logger.info(
+                        "Reclassifying assessment intent to homework_summary "
+                        "(matches homework %r): %r",
+                        canonical,
+                        query,
+                    )
+                    parsed["intent"] = (
+                        StudentIntent.HOMEWORK_SUMMARY.value
+                    )
+                    parsed["topic"] = canonical
+            else:
+                logger.info(
+                    "Reclassifying assessment intent to homework_summary: %r",
+                    query,
+                )
+                parsed["intent"] = (
+                    StudentIntent.HOMEWORK_SUMMARY.value
+                )
 
         # Clean the extracted title: trailing punctuation would break exact lookups.
 
@@ -760,6 +800,18 @@ async def parse_student_intent(
                 cleaned
                 or None
             )
+
+        MONTH_NAMES = {
+            "january", "february", "march", "april", "may", "june",
+            "july", "august", "september", "october", "november", "december"
+        }
+        if (
+            parsed["intent"] == StudentIntent.ASSESSMENT_SUMMARY.value
+            and parsed.get("topic")
+        ):
+            top_clean = str(parsed["topic"]).strip().lower()
+            if any(m in top_clean for m in MONTH_NAMES) or "month" in top_clean:
+                parsed["topic"] = None
 
         # Homework-first: a topic that names a real homework title is homework.
 

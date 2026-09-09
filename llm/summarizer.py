@@ -1843,19 +1843,21 @@ async def summarize_response(
         )
 
     
+    if isinstance(data, dict):
+        for tool_result in data.values():
+            if isinstance(tool_result, dict) and tool_result.get("direct_answer"):
+                return tool_result["direct_answer"]
+
+    if isinstance(llm_data, dict):
+        for mod_data in llm_data.values():
+            if isinstance(mod_data, dict) and mod_data.get("direct_answer"):
+                return mod_data["direct_answer"]
+
     homework_context = (
         llm_data.get("homework")
         if isinstance(llm_data, dict)
         else None
     ) or {}
-
-    if (
-        isinstance(homework_context, dict)
-        and homework_context.get("direct_answer") is not None
-        and homework_context.get("focus") is None
-    ):
-
-        return homework_context["direct_answer"]
 
     is_titled_mark = (
         intent == StudentIntent.HOMEWORK_SUMMARY
