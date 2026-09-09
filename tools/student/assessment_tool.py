@@ -415,10 +415,70 @@ class AssessmentTool:
                     "am i getting better",
                     "are my grades improving",
                     "are my marks improving",
-                    "how are my scores changing",
+                    "how are my scores changing"
+                ]
+            ):
+
+                if not trend["valid"]:
+
+                    payload[
+                        "direct_answer"
+                    ] = (
+                        "There is not enough "
+                        "assessment history "
+                        "to determine a trend."
+                    )
+
+                else:
+
+                    payload[
+                        "direct_answer"
+                    ] = (
+                        # f"Your recent assessment "
+                        # f"average is "
+                        # f"{trend['recent_average']}%, "
+                        # f"compared with "
+                        # f"{trend['previous_average']}%. "
+
+                        f"Your assessment performance "
+                        f"is currently "
+                        f"{trend['direction']}."
+                    )
+
+                return payload
+
+            # =====================================
+            # CONSISTENCY
+            # =====================================
+
+            if any(
+                phrase in query
+                for phrase in [
                     "consistent",
                     "consistency",
-                    "stable performance",
+                    "stable performance"
+                ]
+            ):
+
+                payload[
+                    "direct_answer"
+                ] = (
+                    f"You have completed "
+                    f"{consistency['count']} graded "
+                    f"assessment(s). "
+                    f"Consistency rating: "
+                    f"{consistency['rating']}."
+                )
+
+                return payload
+
+            # =====================================
+            # HIGHEST SCORE
+            # =====================================
+
+            if any(
+                phrase in query
+                for phrase in [
                     "highest",
                     "best assessment",
                     "top assessment",
@@ -450,7 +510,40 @@ class AssessmentTool:
                 ]
             ):
 
-                role = getattr(context, "role", "student")
+                if highest_assessment:
+
+                    role = getattr(context, "role", "student")
+                    grade = (highest_assessment.get("grade") or "").strip()
+
+                    if role == "student" and grade:
+
+                        payload[
+                            "direct_answer"
+                        ] = (
+                            f"Your highest scoring "
+                            f"assessment was "
+                            f"{highest_assessment['title']} "
+                            f"with grade {grade}."
+                        )
+                    
+                    elif role == "guardian" and grade:
+        
+                        payload["direct_answer"] = (
+                            f"The student's highest scoring assessment was "
+                            f"{highest_assessment['title']} "
+                            f"with grade {grade}."
+                        )
+
+                    else:
+
+                        payload[
+                            "direct_answer"
+                        ] = (
+                            "Grade will be shown "
+                            "once the results are declared."
+                        )
+
+                else:
 
                 payload[
                     "direct_answer"
@@ -492,7 +585,36 @@ class AssessmentTool:
 
             if is_marks_query:
 
-                role = getattr(context, "role", "student")
+                    role = getattr(context, "role", "student")
+                    grade = (lowest_assessment.get("grade") or "").strip()
+
+                    if role == "student" and grade:
+
+                        payload[
+                            "direct_answer"
+                        ] = (
+                            f"Your lowest scoring "
+                            f"assessment was "
+                            f"{lowest_assessment['title']} "
+                            f"with grade {grade}."
+                        )
+                    
+                    elif role == "guardian" and grade:
+        
+                        payload["direct_answer"] = (
+                            f"The student's lowest scoring assessment was "
+                            f"{lowest_assessment['title']} "
+                            f"with grade {grade}."
+                        )
+
+                    else:
+
+                        payload[
+                            "direct_answer"
+                        ] = (
+                            "Your grade will be shown "
+                            "once the results are declared."
+                        )
 
                 owner = (
                     "The student's"
@@ -502,13 +624,61 @@ class AssessmentTool:
 
                 if latest_result:
 
-                    if has_grade(latest_result.get("grade")):
+            # =====================================
+            # LATEST RESULT / MARKS / GRADES
+            # =====================================
+
+            is_marks_query = (
+                getattr(parsed_intent, "asks_for_marks", False)
+                or any(
+                    phrase in query
+                    for phrase in [
+                        "latest result",
+                        "latest assessment",
+                        "latest test",
+                        "what was my score",
+                        "what marks did i get",
+                        "show my grades",
+                        "latest grade",
+                        "marks",
+                        "assessment marks",
+                        "my marks",
+                        "show my marks",
+                        "show my assessment marks",
+                        "grade",
+                        "grades",
+                        "my grade",
+                        "my grades",
+                        "score",
+                        "my score",
+                        "scores",
+                    ]
+                )
+            )
+
+            if is_marks_query:
+
+                role = getattr(context, "role", "student")
+
+                    else:
+
+                    grade = (latest_result.get("grade") or "").strip()
+
+                    if role == "student" and grade:
 
                         payload[
                             "direct_answer"
-                        ] = graded_message(
-                            latest_result["title"],
-                            role=role,
+                        ] = (
+                            f"Your grade for "
+                            f"{latest_result['title']} is {grade}."
+                        )
+                    
+                    elif role == "guardian" and grade:
+        
+                        payload["direct_answer"] = (
+                            f"The student's latest assessment was "
+                            f"{latest_result['title']} "
+                            f"with grade {grade}."
                         )
 
                     else:
@@ -516,9 +686,8 @@ class AssessmentTool:
                         payload[
                             "direct_answer"
                         ] = (
-                            f"{owner} latest assessment, "
-                            f"{latest_result['title']}, has not "
-                            f"been graded yet."
+                            "Your grade will be shown "
+                            "once the results are declared."
                         )
 
                 else:
@@ -526,8 +695,8 @@ class AssessmentTool:
                     payload[
                         "direct_answer"
                     ] = (
-                        "No graded assessments are "
-                        "available yet."
+                        "Your grade will be shown "
+                        "once the results are declared."
                     )
 
                 return payload

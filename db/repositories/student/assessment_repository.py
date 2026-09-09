@@ -153,31 +153,6 @@ class AssessmentRepository:
 
         row = dict(row)
 
-        # total_marks = (
-        #     row.get("total_marks")
-        #     or 0
-        # )
-
-        # obtained = (
-        #     row.get("marks_obtained")
-        #     or 0
-        # )
-
-        percentage = 0
-
-        # if total_marks:
-
-            # percentage = round(
-            #     (
-            #         obtained
-            #         /
-            #         total_marks
-            #     ) * 100,
-            #     2
-            # )
-
-        # row["percentage"] = percentage
-
         return row
 
     # =====================================================
@@ -235,6 +210,8 @@ class AssessmentRepository:
             WHERE r.enrollment_id = :enrollment_id
 
             AND r.status = 3
+
+            AND r.marks_obtained IS NOT NULL
         """)
 
         result = await self.db.execute(

@@ -1922,8 +1922,21 @@ async def _summarize_response(
         and assessment_context.get("direct_answer") is not None
     ):
 
+        return homework_context["direct_answer"]
+
+    assessment_context = (
+        llm_data.get("assessment")
+        if isinstance(llm_data, dict)
+        else None
+    ) or {}
+
+    if (
+        isinstance(assessment_context, dict)
+        and assessment_context.get("direct_answer") is not None
+    ):
+
         return assessment_context["direct_answer"]
-    
+
     is_titled_mark = (
         intent == StudentIntent.HOMEWORK_SUMMARY
         and isinstance(

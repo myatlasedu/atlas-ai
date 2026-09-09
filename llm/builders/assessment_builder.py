@@ -31,26 +31,31 @@ def build_assessment_llm_context(
             f"Work that has a result is referred to only as {GRADED_LABEL}."
         ),
 
-        "counts": {
+        "metrics": {
+            "graded": graded,
+            # "average": performance.get("average_percentage", 0),
+            # "highest": performance.get("highest_percentage", 0),
+            # "lowest": performance.get("lowest_percentage", 0),
             "upcoming": payload.get("upcoming_count", 0),
             "pending": payload.get("pending_count", 0),
         },
 
-        "upcoming": payload.get("upcoming", [])[:5],
+        "best_assessment": (
+            {
+                "title": highest["title"],
+                # "score": highest["percentage"],
+                "grade": highest.get("grade"),
+            }
+            if highest else None
+        ),
 
         "pending": payload.get("pending", [])[:5],
 
         "latest_assessment": (
             {
-                "title": latest.get("title"),
-                "result": (
-                    GRADED_LABEL
-                    if is_graded(
-                        latest.get("grade")
-                        or latest.get("result")
-                    )
-                    else None
-                ),
+                "title": lowest["title"],
+                # "score": lowest["percentage"],
+                "grade": lowest.get("grade"),
             }
             if latest else None
         ),
