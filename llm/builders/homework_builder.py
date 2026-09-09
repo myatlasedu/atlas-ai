@@ -377,25 +377,25 @@ def build_homework_llm_context(
 
         "titled_lookup": titled_lookup,
 
-        "pending": [format_row_dates(x) for x in pending],
+        "pending": [format_row_dates(x) for x in pending[:10]],
 
-        "overdue": [format_row_dates(x) for x in overdue],
+        "overdue": [format_row_dates(x) for x in overdue[:10]],
 
-        "due_today": [format_row_dates(x) for x in due_today],
+        "due_today": [format_row_dates(x) for x in due_today[:10]],
 
-        "due_tomorrow": [format_row_dates(x) for x in due_tomorrow],
+        "due_tomorrow": [format_row_dates(x) for x in due_tomorrow[:10]],
 
-        "recent_feedback": [format_row_dates(x) for x in feedback],
+        "recent_feedback": [format_row_dates(x) for x in feedback[:10]],
 
-        "submitted": [format_row_dates(x) for x in submitted],
+        "submitted": [format_row_dates(x) for x in submitted[:10]],
 
-        "graded": [format_row_dates(x) for x in graded],
+        "graded": [format_row_dates(x) for x in graded[:10]],
 
-        "resubmit": [format_row_dates(x) for x in resubmit],
+        "resubmit": [format_row_dates(x) for x in resubmit[:10]],
 
-        "upcoming": [format_row_dates(x) for x in upcoming],
+        "upcoming": [format_row_dates(x) for x in upcoming[:10]],
 
-        "awaiting_marks": [format_row_dates(x) for x in awaiting_marks],
+        "awaiting_marks": [format_row_dates(x) for x in awaiting_marks[:10]],
 
         "next_up": (
             format_row_dates(next_up)

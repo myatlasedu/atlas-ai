@@ -1893,6 +1893,9 @@ async def summarize_response(
 
         system_prompt = GUARDIAN_SYSTEM_PROMPT
 
+    if len(prompt) > 12000:
+        prompt = prompt[:12000] + "\n\n[Note: Content truncated to stay within context limits]"
+
     response = await chat_completion(
         [
             {

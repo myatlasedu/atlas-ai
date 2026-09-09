@@ -512,6 +512,50 @@ class AssessmentTool:
                     )
                 return payload
 
+            # Check if date range / month filter is requested
+            start_date = getattr(parsed_intent, "start_date", None)
+            end_date = getattr(parsed_intent, "end_date", None)
+            months = [
+                "january", "february", "march", "april", "may", "june",
+                "july", "august", "september", "october", "november", "december"
+            ]
+            has_month_word = any(m in query for m in months) or "month" in query
+
+            if start_date or end_date or has_month_word:
+                start_date_str = str(start_date)[:10] if start_date else None
+                end_date_str = str(end_date)[:10] if end_date else None
+                range_assessments = []
+                for asm in all_assessments:
+                    asm_date_str = str(asm.get("assessment_date") or "")[:10]
+                    if asm_date_str:
+                        if start_date_str and asm_date_str < start_date_str:
+                            continue
+                        if end_date_str and asm_date_str > end_date_str:
+                            continue
+                        range_assessments.append(asm)
+
+                graded_in_range = [
+                    asm for asm in range_assessments
+                    if (
+                        asm.get("status") == 3
+                        or asm.get("marks_obtained") is not None
+                        or bool(asm.get("grade"))
+                    )
+                ]
+                if graded_in_range:
+                    payload["direct_answer"] = format_graded_response(
+                        graded_in_range[0]["title"], role
+                    )
+                elif range_assessments:
+                    payload["direct_answer"] = format_ungraded_response(
+                        range_assessments[0]["title"], role
+                    )
+                else:
+                    payload["direct_answer"] = format_ungraded_response(
+                        None, role
+                    )
+                return payload
+
             # Check if asking for highest scoring assessment
             if any(p in query for p in ["highest", "best assessment", "top assessment"]):
                 target = highest_assessment or latest_result
