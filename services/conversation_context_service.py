@@ -20,11 +20,11 @@ class ConversationContextService:
 
     # Loads the recent conversation a follow-up can lean on.
 
-    MAX_TURNS = 1
+    MAX_TURNS = 0
 
     # Anything older than this is a different conversation
 
-    SESSION_WINDOW_MINUTES = 15
+    SESSION_WINDOW_MINUTES = 360
 
     # Turns that carry no reusable intent or parameters.
 

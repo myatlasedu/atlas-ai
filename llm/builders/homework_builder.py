@@ -2,6 +2,12 @@ from __future__ import annotations
 
 from utils import format_datetime, VALID_HOMEWORK_GRADES
 
+from core.marks_privacy import (
+    GRADED_LABEL,
+    graded_message,
+    has_grade,
+)
+
 
 def format_row_dates(row):
     if not isinstance(row, dict):
@@ -14,7 +20,11 @@ def format_row_dates(row):
         "due_date": str(row.get("due_date"))[:10] if row.get("due_date") else None,
         "submitted_at": format_datetime(row.get("submitted_at")) if row.get("submitted_at") else None,
         "reviewed_at": format_datetime(row.get("reviewed_at")) if row.get("reviewed_at") else None,
-        "grade": (row.get("grade") or "").strip() if row.get("grade") else None,
+        "result": (
+            GRADED_LABEL
+            if has_grade(row.get("grade"))
+            else None
+        ),
     }
 
 
@@ -138,19 +148,18 @@ def build_homework_llm_context(
 
         grade = (titled_mark.get("grade") or "").strip()
 
-        if grade in VALID_HOMEWORK_GRADES:
+        if grade in VALID_HOMEWORK_GRADES or grade == GRADED_LABEL:
 
-            headline = (
-                f"Your grade for "
-                f"{titled_mark.get('title')} "
-                f"is {grade}."
+            headline = graded_message(
+                titled_mark.get("title"),
+                kind="homework",
             )
 
         else:
 
             headline = (
                 f"{titled_mark.get('title')} "
-                f"has been graded, but no grade "
+                f"has been graded, but no result "
                 f"is recorded yet."
             )
 

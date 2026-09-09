@@ -24,6 +24,13 @@ from utils import (
     resolve_canonical_name,
 )
 
+from core.marks_privacy import (
+    GRADED_LABEL,
+    graded_message,
+    has_grade,
+    redact_tool_payload,
+)
+
 
 def coerce_date(value):
 
@@ -81,6 +88,7 @@ class HomeworkTool:
         enrollment_id,
         title,
         asks_for_marks,
+        role="student",
     ):
 
         # Runs when a specific homework is named; state comes from the latest attempt only.
@@ -275,9 +283,12 @@ class HomeworkTool:
             if grade in VALID_HOMEWORK_GRADES:
 
                 direct = (
-                    f"{close_match_note}"
-                    f"Your grade for {marks['title']} "
-                    f"is {grade}."
+                    close_match_note
+                    + graded_message(
+                        marks["title"],
+                        kind="homework",
+                        role=role,
+                    )
                 )
 
             else:
@@ -285,7 +296,7 @@ class HomeworkTool:
                 direct = (
                     f"{close_match_note}"
                     f"{marks['title']} has been graded, "
-                    f"but no grade is recorded yet."
+                    f"but no result is recorded yet."
                 )
 
             return {
@@ -541,6 +552,21 @@ class HomeworkTool:
         parsed_intent,
     ):
 
+        # Homework grades never reach the student, the guardian or the LLM.
+
+        return redact_tool_payload(
+            await self._run(
+                context,
+                parsed_intent,
+            )
+        )
+
+    async def _run(
+        self,
+        context,
+        parsed_intent,
+    ):
+
         if not context.enrollment_id:
 
             return {
@@ -643,6 +669,7 @@ class HomeworkTool:
                     enrollment_id,
                     title,
                     asks_for_marks,
+                    getattr(context, "role", "student"),
                 )
 
         payload = empty_payload(focus)
@@ -800,6 +827,7 @@ class HomeworkTool:
                                 enrollment_id,
                                 canonical_title,
                                 False,
+                                getattr(context, "role", "student"),
                             )
 
         payload["count_only"] = (
@@ -1465,14 +1493,10 @@ class HomeworkTool:
 
                     if (
                         item.get("status_tag") == "graded"
-                        and (item.get("grade") or "").strip()
-                        in VALID_HOMEWORK_GRADES
+                        and has_grade(item.get("grade"))
                     ):
 
-                        line += (
-                            f" (grade: "
-                            f"{(item['grade'] or '').strip()})"
-                        )
+                        line += f" ({GRADED_LABEL})"
 
                     lines.append(line)
 
@@ -1551,13 +1575,11 @@ class HomeworkTool:
 
                 for item in rows:
 
-                    grade = (item.get("grade") or "").strip()
-
-                    if grade in VALID_HOMEWORK_GRADES:
+                    if has_grade(item.get("grade")):
 
                         lines.append(
                             f"• {item['title']} - "
-                            f"grade {grade}"
+                            f"{GRADED_LABEL}"
                         )
 
                     else:

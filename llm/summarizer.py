@@ -9,7 +9,17 @@ from llm.client import (
     chat_completion
 )
 
-from utils import format_datetime, VALID_HOMEWORK_GRADES
+from utils import format_datetime
+
+from core.marks_privacy import (
+    GRADED_LABEL,
+    PERFORMANCE_WITHHELD_NOTE,
+    REPORT_CARD_NOTE,
+    REPORT_CARD_NOTE_PLURAL,
+    graded_message,
+    is_graded,
+    redact_marks_text,
+)
 
 from llm.student_prompt import (
     STUDENT_SYSTEM_PROMPT
@@ -133,6 +143,46 @@ def build_prompt(
     - Guess what the user meant.
     - Ignore the supplied tool context and answer the original question.
 
+    ==================================================
+    MARKS PRIVACY - ABSOLUTE
+    ==================================================
+
+    Marks, grades, scores, percentages and class ranks are never
+    disclosed to a student or a guardian.
+
+    You MUST NOT:
+
+    - State a mark, grade, score, percentage or rank for any
+    assessment, homework, topic or subject, even if one somehow
+    appears in the supplied context.
+    - Hint at, compare, rank or characterise how high or low a
+    result is ("excellent", "you did well", "that's low").
+    - Restate a withheld value in words, digits or any other form.
+    - State or imply an overall status, standing or verdict
+    ("your status is critical", "performance is below target").
+    - Mention an average, a trend, consistency, or a ranking, or
+    say that performance is improving, declining, strong or weak.
+    - Say that an assessment, subject or topic needs attention,
+    is at risk, is weak or is the best or worst.
+
+    You MUST:
+
+    - Refer to any work that has a result only as {GRADED_LABEL}.
+    - Answer any request for marks, grades, scorecards or results
+    with exactly this sentence, substituting the item's real name:
+    "Your [Assessment Name] assessment has been Graded.
+    {REPORT_CARD_NOTE}"
+    - Use that same sentence for homework, replacing the word
+    "assessment" with "homework".
+    - When several items are listed, show each one as
+    {GRADED_LABEL} and close with "{REPORT_CARD_NOTE_PLURAL}"
+    - Answer any question about performance, standing, averages,
+    trends, consistency or rankings with exactly:
+    "{PERFORMANCE_WITHHELD_NOTE} {REPORT_CARD_NOTE_PLURAL}"
+
+    Attendance percentages and the Atlas score are NOT marks and may
+    be stated normally.
+
     IMPORTANT:
 
     An intent does NOT authorize you to answer arbitrary questions.
@@ -161,33 +211,43 @@ def build_prompt(
 
     Use ONLY the supplied assessment context.
 
-    If status="building":
-
-    Explain that assessment insights are still being prepared as more assessments are completed.
-
-    Otherwise:
+    You are reporting a schedule, not a verdict.
 
     Prioritize your response in this order:
 
-    1. Overall assessment status.
-    2. The most important highlight.
-    3. Performance trend.
-    4. Upcoming assessments (if any).
-    5. Recommended focus.
-    6. Recommended actions.
+    1. Upcoming assessments (if any).
+    2. Pending assessments (if any).
+    3. Whether the latest assessment has a result.
+    4. The supplied highlights and actions.
 
     Use:
 
-    - status
-    - metrics
-    - best_assessment
-    - weakest_assessment
+    - counts
+    - upcoming
+    - pending
+    - latest_assessment
     - highlights
-    - focus
     - actions
+
+    Marks, grades, scores and percentages are never disclosed. A result that
+    exists is described only as {GRADED_LABEL}. If the user asks for a mark,
+    grade, scorecard or result, answer with exactly:
+    "Your [Assessment Name] assessment has been Graded. {REPORT_CARD_NOTE}"
+
+    {PERFORMANCE_WITHHELD_NOTE} If the user asks how they are doing, how they
+    are performing, about an average, a trend, consistency, or which
+    assessment is highest, lowest, weak or at risk, answer with exactly:
+    "{PERFORMANCE_WITHHELD_NOTE} {REPORT_CARD_NOTE_PLURAL}"
 
     Do NOT:
 
+    - state a mark, grade, score, percentage or rank
+    - state or imply an overall status, standing or verdict
+    - describe performance as good, poor, critical, strong, weak,
+    below target, improving or declining
+    - mention averages, trends, consistency or rankings
+    - say an assessment needs attention or is at risk
+    - hint at how high or low a result is
     - calculate scores
     - infer trends
     - invent feedback
@@ -546,40 +606,22 @@ Explain that Atlas Score is still calibrating.
 
         if isinstance(titled_mark, dict):
 
-            grade = (titled_mark.get("grade") or "").strip()
-
-            if grade in ("A*", "A"):
-
-                encouragement = (
-                    "End with one short sentence praising "
-                    "the result and encouraging the student "
-                    "to keep up the good work."
-                )
-
-            elif grade == "B":
-
-                encouragement = (
-                    "End with one short sentence acknowledging "
-                    "the decent result and encouraging the "
-                    "student to keep pushing."
-                )
-
-            elif grade in VALID_HOMEWORK_GRADES:
-
-                encouragement = (
-                    "End with one short sentence encouraging "
-                    "the student to strive harder next time."
-                )
-
-            else:
-
-                encouragement = ""
-
-            owner = (
-                "Your child's latest homework grade"
-                if role == "guardian"
-                else "Your latest homework grade"
+            graded = is_graded(
+                titled_mark.get("grade")
+                or titled_mark.get("result")
             )
+
+            # Encouragement must not vary with the result - praising a strong
+            # mark would disclose it just as surely as printing the grade.
+
+            encouragement = (
+                "End with one short, neutral sentence encouraging "
+                "steady effort. Do not praise or criticise the "
+                "result, and do not hint at how good or bad it is."
+                if graded
+                else ""
+            )
+
 
             subject_line = (
                 f"- subject: {titled_mark.get('subject')}"
@@ -623,17 +665,23 @@ Explain that Atlas Score is still calibrating.
                 if line
             )
 
-            if grade in VALID_HOMEWORK_GRADES:
+            if graded:
 
                 fact_block = (
                     f"""
 - title: {titled_mark.get('title')}
-- grade: {grade}"""
+- result: {GRADED_LABEL}"""
                     + ("\n" + extra_facts if extra_facts else "")
                 )
 
                 start = (
-                    f'"{owner} for <title> is <grade>."'
+                    '"'
+                    + graded_message(
+                        titled_mark.get("title"),
+                        kind="homework",
+                        role=role,
+                    )
+                    + '"'
                 )
 
             else:
@@ -645,7 +693,7 @@ Explain that Atlas Score is still calibrating.
                 )
 
                 start = (
-                    '"<title> has been graded, but no grade '
+                    '"<title> has been graded, but no result '
                     'is recorded yet."'
                 )
 
@@ -674,6 +722,10 @@ Start with exactly this fact:
 {detail_note}
 
 Never invent or change any number, name or date.
+
+Never state a mark, grade, score or percentage. A result that exists
+is described only as {GRADED_LABEL}, followed by
+"{REPORT_CARD_NOTE}"
 
 Keep the whole response under 100 words.
 
@@ -867,9 +919,10 @@ Keep the response under 60 words.
                 "List ONLY items in the submitted list, one per "
                 "line:\nTitle - submitted <date/time>\n"
                 "Never include pending or overdue items.\n"
-                "Graded items in the submitted list must be shown "
-                "as graded with their grade - never present a "
-                "graded item as merely submitted.\n"
+                f"Graded items in the submitted list must be shown "
+                f"as {GRADED_LABEL} - never present a graded item "
+                f"as merely submitted, and never state a grade or "
+                f"mark.\n"
                 "If the context also contains pending/overdue/"
                 "resubmit items, add one closing line noting the "
                 "still-pending work for that subject (do not "
@@ -892,14 +945,15 @@ Keep the response under 60 words.
         elif focus == "graded":
 
             scope = (
-                "SCOPE - GRADED HOMEWORK ONLY.\n"
-                "List ONLY items in the graded list, one per "
-                "line:\nTitle - grade <grade>\n"
-                "Use grades ONLY for graded items; never guess "
-                "a grade. If a graded item has no grade value "
-                "supplied, list just the title without a grade.\n"
-                "If the graded list is empty, say no graded "
-                "homework was found."
+                f"SCOPE - GRADED HOMEWORK ONLY.\n"
+                f"List ONLY items in the graded list, one per "
+                f"line:\nTitle - {GRADED_LABEL}\n"
+                f"Never state a grade, mark, score or percentage. "
+                f"A graded item is shown only as {GRADED_LABEL}; an "
+                f"item with no result yet is listed by title alone.\n"
+                f"Close the list with: {REPORT_CARD_NOTE_PLURAL}\n"
+                f"If the graded list is empty, say no graded "
+                f"homework was found."
             )
 
         elif focus == "resubmit":
@@ -1316,15 +1370,13 @@ Do not invent missing information.
 
     If subject_analysis=true:
 
-    Explain:
+    Explain which subjects the student is studying.
 
-    - strongest subject
-    - weakest subject
-    - score differences
-    - grades
-    - recommended focus
-
-    Use actual values.
+    Subject scores, marks, grades, percentages and rankings are
+    never disclosed, and neither is a performance verdict. Never
+    name a strongest or weakest subject. If the user asks for any
+    of these, say:
+    "{PERFORMANCE_WITHHELD_NOTE} {REPORT_CARD_NOTE_PLURAL}"
 
     Do not discuss:
 
@@ -1343,14 +1395,6 @@ Do not invent missing information.
         topic_context = (
             data.get("topic")
             or {}
-        )
-
-        weak_list = topic_context.get(
-            "weak_topics_list"
-        )
-
-        strong_list = topic_context.get(
-            "strong_topics_list"
         )
 
         completed_list = topic_context.get(
@@ -1388,26 +1432,15 @@ Do not invent missing information.
 
             unless explicitly provided.
 
-            Preserve all topic names and scores
-            exactly as given. Never invent scores.
+            Preserve all topic names exactly as given.
+            Never invent topics.
 
-            When weak_topics_list is present,
-            use it as the basis for your response.
-            Add a brief encouraging note.
-
-            Example:
-            You have 2 weak topic(s) that need revision:
-            - Maths: Fractions (25.0%), Decimals (40.0%)
-            Focus on revising these areas.
-
-            When strong_topics_list is present,
-            use it as the basis. Congratulate the student.
-
-            Example:
-            You are doing well in 3 topic(s):
-            - Maths: Algebra (92.0%), Geometry (88.0%)
-            - Science: Biology (85.0%)
-            Keep up the great work!
+            Topic averages, marks, grades, scores,
+            percentages and rankings are never disclosed,
+            and neither is a performance verdict. Never
+            call a topic weak or strong. If the user asks
+            for any of these, say:
+            "{PERFORMANCE_WITHHELD_NOTE} {REPORT_CARD_NOTE_PLURAL}"
 
             When completed_topics_list is present,
             use it. Highlight progress.
@@ -1433,9 +1466,7 @@ Do not invent missing information.
             Example:
             Fractions (Maths)
             Status: completed
-            Average score: 75.0%
-            You have completed this topic with a
-            good average score.
+            You have completed this topic.
 
             When topic_summary is present,
             use it as-is. It is deterministic data.
@@ -1448,10 +1479,6 @@ Do not invent missing information.
             You have 16 topics total:
             - 10 completed
             - 3 pending
-
-            Out of scored topics:
-            - 3 need revision (weak)
-            - 2 are strong
 
             Completed topics:
             - Maths: Algebra, Geometry
@@ -1505,11 +1532,12 @@ def format_listing_line(item):
 
     if item.get("status_tag") == "graded":
 
-        grade = (item.get("grade") or "").strip()
+        if is_graded(
+            item.get("grade")
+            or item.get("result")
+        ):
 
-        if grade in VALID_HOMEWORK_GRADES:
-
-            return f"{line} - grade {grade}"
+            return f"{line} - {GRADED_LABEL}"
 
         return line
 
@@ -1783,6 +1811,30 @@ async def summarize_response(
     context,
     intent
 ):
+    """
+    Produce the reply, then scrub it.
+
+    Marks are already stripped inside the tools, so this is the last line of
+    defence: it catches anything the model writes that quotes a mark, grade,
+    score or percentage. Attendance and Atlas figures are left intact.
+    """
+
+    return redact_marks_text(
+        await _summarize_response(
+            query=query,
+            data=data,
+            context=context,
+            intent=intent,
+        )
+    )
+
+
+async def _summarize_response(
+    query: str,
+    data: dict,
+    context,
+    intent
+):
     print("****INtent*****")
     print("Intent in summarize: ", intent)
     if intent == StudentIntent.PERSONAL_EVENT_SUMMARY:
@@ -1859,6 +1911,19 @@ async def summarize_response(
         else None
     ) or {}
 
+    assessment_context = (
+        llm_data.get("assessment")
+        if isinstance(llm_data, dict)
+        else None
+    ) or {}
+
+    if (
+        isinstance(assessment_context, dict)
+        and assessment_context.get("direct_answer") is not None
+    ):
+
+        return assessment_context["direct_answer"]
+    
     is_titled_mark = (
         intent == StudentIntent.HOMEWORK_SUMMARY
         and isinstance(
@@ -1895,6 +1960,7 @@ async def summarize_response(
 
         system_prompt = GUARDIAN_SYSTEM_PROMPT
 
+    print("=======RESPONSE FROM LLM=======")
     response = await chat_completion(
         [
             {

@@ -6,10 +6,30 @@ from db.repositories.student.student_performance_repository import (
     StudentPerformanceRepository,
 )
 
+from core.marks_privacy import (
+    redact_tool_payload,
+)
+
 
 class StudentPerformanceTool:
 
     async def run(
+        self,
+        context,
+        parsed_intent,
+    ):
+
+        # Cross-module performance data carries assessment and homework
+        # averages, which are stripped before the payload leaves the tool.
+
+        return redact_tool_payload(
+            await self._run(
+                context,
+                parsed_intent,
+            )
+        )
+
+    async def _run(
         self,
         context,
         parsed_intent,

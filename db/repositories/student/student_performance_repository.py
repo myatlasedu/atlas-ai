@@ -597,25 +597,6 @@ class StudentPerformanceRepository:
                         else None,
 
                         (
-                            f"Strongest subject is "
-                            f"{strongest_subject['subject_name']}."
-                        )
-
-                        if strongest_subject
-
-                        else None,
-
-                        (
-                            f"Best assessment was "
-                            f"{highest_assessment['title']} "
-                            f"({highest_assessment['percentage']}%)."
-                        )
-
-                        if highest_assessment
-
-                        else None,
-
-                        (
                             f"Strongest Atlas pillar is "
                             f"{strongest_pillar.title()}."
                         )
@@ -651,25 +632,6 @@ class StudentPerformanceRepository:
                         )
 
                         if pending_homework
-
-                        else None,
-
-                        (
-                            f"Weakest subject is "
-                            f"{weakest_subject['subject_name']}."
-                        )
-
-                        if weakest_subject
-
-                        else None,
-
-                        (
-                            f"Lowest assessment was "
-                            f"{lowest_assessment['title']} "
-                            f"({lowest_assessment['percentage']}%)."
-                        )
-
-                        if lowest_assessment
 
                         else None,
 

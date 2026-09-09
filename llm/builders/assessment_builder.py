@@ -2,66 +2,60 @@
 
 from __future__ import annotations
 
+from core.marks_privacy import (
+    GRADED_LABEL,
+    PERFORMANCE_WITHHELD_NOTE,
+    is_graded,
+)
+
 
 def build_assessment_llm_context(
     payload: dict,
 ) -> dict:
+    """
+    The assessment facts the LLM is allowed to see.
 
-    performance = payload.get("performance", {})
-    consistency = payload.get("consistency", {})
-    trend = payload.get("trend", {})
-    flags = payload.get("assessment_flags", {})
+    Marks, grades, percentages, averages, trends, consistency ratings and
+    rankings are all excluded: each of them either is a mark or is read off
+    one. What remains is the schedule - what is coming up, what is pending,
+    and whether a result exists at all.
+    """
 
-    highest = payload.get("highest_assessment")
-    lowest = payload.get("lowest_assessment")
-
-    graded = performance.get("graded_count", 0)
-
-    if graded == 0:
-        status = "building"
-    elif flags.get("has_risk_assessments"):
-        status = "critical"
-    elif trend.get("direction") == "declining":
-        status = "attention"
-    else:
-        status = "good"
+    latest = payload.get("latest_result") or {}
 
     return {
 
-        "status": status,
-
-        "metrics": {
-            "graded": graded,
-            # "average": performance.get("average_percentage", 0),
-            # "highest": performance.get("highest_percentage", 0),
-            # "lowest": performance.get("lowest_percentage", 0),
-            "upcoming": payload.get("upcoming_count", 0),
-            "risk": len(payload.get("risk_assessments", [])),
-            "trend": trend.get("direction"),
-            "consistency": consistency.get("rating"),
-        },
-
-        "best_assessment": (
-            {
-                "title": highest["title"],
-                # "score": highest["percentage"],
-                "grade": highest.get("grade"),
-            }
-            if highest else None
+        "marks_policy": (
+            "Marks, grades, scores and percentages must never be stated, and "
+            f"neither must performance verdicts. {PERFORMANCE_WITHHELD_NOTE} "
+            f"Work that has a result is referred to only as {GRADED_LABEL}."
         ),
 
-        "weakest_assessment": (
+        "counts": {
+            "upcoming": payload.get("upcoming_count", 0),
+            "pending": payload.get("pending_count", 0),
+        },
+
+        "upcoming": payload.get("upcoming", [])[:5],
+
+        "pending": payload.get("pending", [])[:5],
+
+        "latest_assessment": (
             {
-                "title": lowest["title"],
-                # "score": lowest["percentage"],
-                "grade": lowest.get("grade"),
+                "title": latest.get("title"),
+                "result": (
+                    GRADED_LABEL
+                    if is_graded(
+                        latest.get("grade")
+                        or latest.get("result")
+                    )
+                    else None
+                ),
             }
-            if lowest else None
+            if latest else None
         ),
 
         "highlights": payload.get("insights", [])[:4],
-
-        "focus": payload.get("recommended_focus", [])[:3],
 
         "actions": payload.get(
             "improvement_opportunities",

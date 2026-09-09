@@ -1,19 +1,26 @@
 from __future__ import annotations
 
+from core.marks_privacy import PERFORMANCE_WITHHELD_NOTE
+
 
 def build_subject_llm_context(
     payload: dict,
 ) -> dict:
+    """
+    The subject facts the LLM is allowed to see.
 
-    status = payload.get(
-        "status",
-        "building",
-    )
+    Subject scores, rankings and "high performing" / "needs attention" counts
+    are all read off the student's marks, so only the enrolled subjects and
+    their count leave this builder.
+    """
 
     return {
 
-        "status":
-            status,
+        "marks_policy": (
+            "Never state a subject score, mark, grade, percentage or ranking, "
+            f"and never name a strongest or weakest subject. "
+            f"{PERFORMANCE_WITHHELD_NOTE}"
+        ),
 
         "metrics": {
 
@@ -22,63 +29,14 @@ def build_subject_llm_context(
                     "subject_count",
                     0,
                 ),
-
-            "average_score":
-                payload.get(
-                    "average_score",
-                    0,
-                ),
-
-            "highest_score":
-                payload.get(
-                    "highest_score",
-                    0,
-                ),
-
-            "lowest_score":
-                payload.get(
-                    "lowest_score",
-                    0,
-                ),
-
-            "high_performing_subjects":
-                payload.get(
-                    "high_performing_subjects",
-                    0,
-                ),
-
-            "needs_attention_subjects":
-                payload.get(
-                    "needs_attention_subjects",
-                    0,
-                ),
         },
 
-        "strongest_subject":
-            payload.get(
-                "strongest_subject",
-            ),
-
-        "weakest_subject":
-            payload.get(
-                "weakest_subject",
-            ),
-
-        "highlights":
-            payload.get(
-                "insights",
-                [],
-            ),
-
-        "focus":
-            payload.get(
-                "recommended_focus",
-                [],
-            ),
-
-        "actions":
-            payload.get(
-                "recommended_actions",
-                [],
-            ),
+        "subjects": [
+            {
+                "subject_name": item.get("subject_name"),
+                "teacher_name": item.get("teacher_name"),
+            }
+            for item in (payload.get("subjects") or [])[:15]
+            if isinstance(item, dict)
+        ],
     }

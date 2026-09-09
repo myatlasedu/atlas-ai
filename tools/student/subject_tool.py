@@ -10,9 +10,29 @@ from llm.builders.subject_builder import (
     build_subject_llm_context,
 )
 
+from core.marks_privacy import (
+    performance_withheld_message,
+    redact_tool_payload,
+)
+
 class SubjectTool:
 
     async def run(
+        self,
+        context,
+        parsed_intent,
+    ):
+
+        # Subject scores are marks-derived, so they never leave the tool.
+
+        return redact_tool_payload(
+            await self._run(
+                context,
+                parsed_intent,
+            )
+        )
+
+    async def _run(
         self,
         context,
         parsed_intent,
@@ -109,13 +129,20 @@ class SubjectTool:
                 ]
             ):
 
-                payload["subject_analysis"] = True
+                payload[
+                    "direct_answer"
+                ] = performance_withheld_message(
+                    getattr(context, "role", "student")
+                )
 
                 return payload
 
             # =====================================
-            # STRONGEST SUBJECT
+            # STRONGEST / WEAKEST / COMPARISON
             # =====================================
+            #
+            # Every one of these ranks subjects by a marks-derived score, so
+            # naming a subject discloses where the student scored well or badly.
 
             if any(
                 phrase in query
@@ -128,35 +155,6 @@ class SubjectTool:
                     "highest scoring subject",
 
                     "top subject",
-                ]
-            ):
-
-                payload["direct_answer"] = (
-
-                    f"Your strongest subject is "
-
-                    f"{strongest['subject_name']} "
-
-                    f"with a score of "
-
-                    f"{strongest['score']}."
-
-                    if strongest
-
-                    else
-
-                    "No subject data available."
-                )
-
-                return payload
-
-            # =====================================
-            # WEAKEST SUBJECT
-            # =====================================
-
-            if any(
-                phrase in query
-                for phrase in [
 
                     "weakest subject",
 
@@ -165,35 +163,6 @@ class SubjectTool:
                     "lowest scoring subject",
 
                     "needs attention",
-                ]
-            ):
-
-                payload["direct_answer"] = (
-
-                    f"Your weakest subject is "
-
-                    f"{weakest['subject_name']} "
-
-                    f"with a score of "
-
-                    f"{weakest['score']}."
-
-                    if weakest
-
-                    else
-
-                    "No subject data available."
-                )
-
-                return payload
-
-            # =====================================
-            # SUBJECT COMPARISON
-            # =====================================
-
-            if any(
-                phrase in query
-                for phrase in [
 
                     "compare my subjects",
 
@@ -201,23 +170,10 @@ class SubjectTool:
                 ]
             ):
 
-                payload["direct_answer"] = (
-
-                    f"You have {payload['subject_count']} subjects. "
-
-                    f"Your strongest subject is "
-
-                    f"{strongest['subject_name']} "
-
-                    f"and your weakest subject is "
-
-                    f"{weakest['subject_name']}."
-
-                    if subjects
-
-                    else
-
-                    "No subject data available."
+                payload[
+                    "direct_answer"
+                ] = performance_withheld_message(
+                    getattr(context, "role", "student")
                 )
 
                 return payload
@@ -242,19 +198,7 @@ class SubjectTool:
 
                     f"You currently study "
 
-                    f"{payload['subject_count']} subjects. "
-
-                    f"Your average score is "
-
-                    f"{payload['average_score']}%. "
-
-                    f"Your strongest subject is "
-
-                    f"{strongest['subject_name']} "
-
-                    f"and your weakest subject is "
-
-                    f"{weakest['subject_name']}."
+                    f"{payload['subject_count']} subject(s)."
 
                     if subjects
 

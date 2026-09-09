@@ -15,9 +15,35 @@ from llm.builders.assessment_builder import (
     build_assessment_llm_context,
 )
 
+from core.marks_privacy import (
+    GRADED_LABEL,
+    REPORT_CARD_NOTE_PLURAL,
+    GUARDIAN_REPORT_CARD_NOTE_PLURAL,
+    graded_message,
+    has_grade,
+    performance_withheld_message,
+    redact_tool_payload,
+)
+
 class AssessmentTool:
 
     async def run(
+        self,
+        context,
+        parsed_intent
+    ):
+
+        # Marks, grades and percentages are computed for internal signals only
+        # (trend, consistency, risk) and stripped before the payload leaves.
+
+        return redact_tool_payload(
+            await self._build_payload(
+                context,
+                parsed_intent
+            )
+        )
+
+    async def _build_payload(
         self,
         context,
         parsed_intent
@@ -66,122 +92,15 @@ class AssessmentTool:
                 )
             )
 
-            performance = (
-                await repo.get_performance_summary(
-                    context.enrollment_id
-                )
-            )
-
-            highest_assessment = (
-                await repo.get_highest_scoring_assessment(
-                    context.enrollment_id
-                )
-            )
-
-            lowest_assessment = (
-                await repo.get_lowest_scoring_assessment(
-                    context.enrollment_id
-                )
-            )
-
             recent_feedback = (
                 await repo.get_recent_feedback(
                     context.enrollment_id
                 )
             )
 
-            trend_history = (
-                await repo.get_assessment_trend(
-                    context.enrollment_id
-                )
-            )
-
-            consistency = (
-                await repo.get_consistency_metrics(
-                    context.enrollment_id
-                )
-            )
-
-            risk_assessments = (
-                await repo.get_risk_assessments(
-                    context.enrollment_id
-                )
-            )
-
-            trend = {
-
-                "valid": False,
-
-                "direction": None,
-
-                "previous_average": 0,
-
-                "recent_average": 0
-            }
-
-            if len(trend_history) >= 5:
-
-                midpoint = (
-                    len(trend_history)
-                    //
-                    2
-                )
-
-                first_half = [
-                    row["percentage"]
-                    for row in trend_history[:midpoint]
-                ]
-
-                second_half = [
-                    row["percentage"]
-                    for row in trend_history[midpoint:]
-                ]
-
-                previous_average = round(
-                    sum(first_half)
-                    /
-                    len(first_half),
-                    2
-                )
-
-                recent_average = round(
-                    sum(second_half)
-                    /
-                    len(second_half),
-                    2
-                )
-
-                direction = "stable"
-
-                if (
-                    recent_average
-                    >
-                    previous_average + 5
-                ):
-
-                    direction = "improving"
-
-                elif (
-                    recent_average
-                    <
-                    previous_average - 5
-                ):
-
-                    direction = "declining"
-
-                trend = {
-
-                    "valid": True,
-
-                    "direction":
-                        direction,
-
-                    "previous_average":
-                        previous_average,
-
-                    "recent_average":
-                        recent_average
-                }
+            # No performance verdict is ever produced: status, trends,
+            # averages, rankings and "needs attention" flags are all derived
+            # from marks, so only schedule facts survive.
 
             insights = []
 
@@ -193,77 +112,14 @@ class AssessmentTool:
                     "There are upcoming assessments to prepare for."
                 )
 
-            if (
-                performance.get(
-                    "average_percentage",
-                    0
-                ) < 60
-            ):
-
-                insights.append(
-                    "Assessment average is below target."
-                )
-
-            if (
-                performance.get(
-                    "lowest_percentage",
-                    0
-                ) < 40
-            ):
-
-                insights.append(
-                    "One assessment score is below 40%."
-                )
-            if trend["direction"] == "declining":
-
-                insights.append(
-                    "Recent assessment performance is declining."
-                )
-
-            elif trend["direction"] == "improving":
-
-                insights.append(
-                    "Recent assessment performance is improving."
-                )
-
             assessment_flags = {
-
-                "below_target_average":
-                    performance.get(
-                        "average_percentage",
-                        0
-                    ) < 60,
-
-                "has_low_score":
-                    performance.get(
-                        "lowest_percentage",
-                        0
-                    ) < 40,
 
                 "has_pending":
                     len(pending) > 0,
 
-                "has_risk_assessments":
-                    len(risk_assessments) > 0,
-
-                "trend":
-                    trend["direction"]
+                "has_upcoming":
+                    len(upcoming) > 0,
             }
-
-            if lowest_assessment:
-
-                recommended_focus.append(
-                    lowest_assessment[
-                        "title"
-                    ]
-                )
-            
-            if risk_assessments:
-
-                insights.append(
-                    f"{len(risk_assessments)} "
-                    f"assessment(s) are below 50%."
-                )
 
             improvement_opportunities = []
 
@@ -273,62 +129,18 @@ class AssessmentTool:
                     "Prepare for upcoming assessments.",
                 )
 
-            if risk_assessments:
-
-                improvement_opportunities.append(
-                    "Focus on improving performance in lower-scoring assessments."
-                )
-
-            if (
-                    consistency.get("rating")
-                    in ["Moderate", "Poor"]
-            ):
-
-                improvement_opportunities.append(
-                     "Aim for more consistent performance across assessments."
-                )
-
             performance_summary = {
-
-                "average_percentage":
-                    performance.get(
-                        "average_percentage",
-                        0
-                    ),
-
-                "consistency_rating":
-                    consistency.get(
-                        "rating"
-                    ),
-
-                "best_assessment":
-                    (
-                        highest_assessment[
-                            "title"
-                        ]
-                        if highest_assessment
-                        else None
-                    ),
-
-                "weakest_assessment":
-                    (
-                        lowest_assessment[
-                            "title"
-                        ]
-                        if lowest_assessment
-                        else None
-                    ),
 
                 "pending_count":
                     len(pending),
 
-                "focus":
-                    recommended_focus,
+                "upcoming_count":
+                    len(upcoming),
 
                 "insights":
                     insights,
-                
-                "improvement_opportunities": improvement_opportunities
+
+                "improvement_opportunities": improvement_opportunities,
             }
 
             payload = {
@@ -351,38 +163,13 @@ class AssessmentTool:
                 "latest_result":
                     latest_result,
 
-                "highest_assessment":
-                    highest_assessment,
-
-                "lowest_assessment":
-                    lowest_assessment,
-
                 "recent_feedback":
                     recent_feedback,
 
-                "performance":
-                    performance,
-
-                "assessment_trend": trend,
-
-                "risk_assessments": risk_assessments,
-
                 "improvement_opportunities": improvement_opportunities,
-                
-                "trend":
-                    trend,
-
-                "consistency":
-                    consistency,
-
-                "trend_history":
-                    trend_history,
 
                 "insights":
                     insights,
-
-                "recommended_focus":
-                    recommended_focus,
 
                 "performance_summary":
                     performance_summary,
@@ -453,30 +240,44 @@ class AssessmentTool:
 
                 if graded_records:
 
-                    lines = []
+                    role = getattr(context, "role", "student")
 
-                    for r in graded_records:
-
-                        score_str = (
-                            f"{r['marks_obtained']}/{r['total_marks']} "
-                            f"({r['percentage']}%)"
-                        )
-
-                        grade_str = (
-                            f" - Grade: {r['grade']}"
-                            if r.get("grade")
-                            else ""
-                        )
-
-                        lines.append(
-                            f"• {r['title']} ({r['assessment_date']}): "
-                            f"{score_str}{grade_str}"
-                        )
-
-                    msg = (
-                        f"Here are your assessment marks for {period_label}:\n\n"
-                        + "\n".join(lines)
+                    report_card_note = (
+                        GUARDIAN_REPORT_CARD_NOTE_PLURAL
+                        if role == "guardian"
+                        else REPORT_CARD_NOTE_PLURAL
                     )
+
+                    if len(graded_records) == 1:
+
+                        msg = graded_message(
+                            graded_records[0]["title"],
+                            role=role,
+                        )
+
+                    else:
+
+                        lines = []
+
+                        for r in graded_records:
+
+                            lines.append(
+                                f"• {r['title']} ({r['assessment_date']}): "
+                                f"{GRADED_LABEL}"
+                            )
+
+                        heading_owner = (
+                            "the student's"
+                            if role == "guardian"
+                            else "your"
+                        )
+
+                        msg = (
+                            f"Here are {heading_owner} assessments for "
+                            f"{period_label}:\n\n"
+                            + "\n".join(lines)
+                            + f"\n\n{report_card_note}"
+                        )
 
                     if pending_records:
 
@@ -490,7 +291,7 @@ class AssessmentTool:
                 elif pending_records:
 
                     payload["direct_answer"] = (
-                        f"You have no graded assessment results for {period_label}. "
+                        f"You have no graded assessments for {period_label}. "
                         f"However, you have {len(pending_records)} pending "
                         f"assessment(s) scheduled for this period."
                     )
@@ -498,7 +299,7 @@ class AssessmentTool:
                 else:
 
                     payload["direct_answer"] = (
-                        f"No assessment results found for {period_label}."
+                        f"No assessments found for {period_label}."
                     )
 
                 payload["date_range_assessments"] = records
@@ -591,8 +392,12 @@ class AssessmentTool:
                 return payload
 
             # =====================================
-            # TREND
+            # PERFORMANCE QUESTIONS
             # =====================================
+            #
+            # Trends, consistency, rankings and averages are all read off the
+            # student's marks, so every one of them gets the same answer as a
+            # direct request for a grade.
 
             if any(
                 phrase in query
@@ -610,183 +415,119 @@ class AssessmentTool:
                     "am i getting better",
                     "are my grades improving",
                     "are my marks improving",
-                    "how are my scores changing"
-                ]
-            ):
-
-                if not trend["valid"]:
-
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        "There is not enough "
-                        "assessment history "
-                        "to determine a trend."
-                    )
-
-                else:
-
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        f"Your recent assessment "
-                        f"average is "
-                        f"{trend['recent_average']}%, "
-                        f"compared with "
-                        f"{trend['previous_average']}%. "
-                        f"Your assessment performance "
-                        f"is currently "
-                        f"{trend['direction']}."
-                    )
-
-                return payload
-
-            # =====================================
-            # CONSISTENCY
-            # =====================================
-
-            if any(
-                phrase in query
-                for phrase in [
+                    "how are my scores changing",
                     "consistent",
                     "consistency",
-                    "stable performance"
-                ]
-            ):
-
-                payload[
-                    "direct_answer"
-                ] = (
-                    f"You have completed "
-                    f"{consistency['count']} graded "
-                    f"assessment(s). "
-                    f"Consistency rating: "
-                    f"{consistency['rating']}. "
-                    f"Average score: "
-                    f"{consistency['average']}%."
-                )
-
-                return payload
-
-            # =====================================
-            # HIGHEST SCORE
-            # =====================================
-
-            if any(
-                phrase in query
-                for phrase in [
+                    "stable performance",
                     "highest",
                     "best assessment",
                     "top assessment",
                     "highest score",
-                    "highest scoring"
-                ]
-            ):
-
-                if highest_assessment:
-
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        f"Your highest scoring "
-                        f"assessment was "
-                        f"{highest_assessment['title']} "
-                        f"with "
-                        f"{highest_assessment['percentage']}%."
-                    )
-
-                else:
-
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        "No graded assessments "
-                        "found."
-                    )
-
-                return payload
-
-            # =====================================
-            # LOWEST SCORE
-            # =====================================
-
-            if any(
-                phrase in query
-                for phrase in [
+                    "highest scoring",
                     "lowest",
                     "worst assessment",
                     "lowest score",
                     "lowest scoring",
-                    "needs attention"
+                    "needs attention",
+                    "average",
+                    "averages",
+                    "status",
+                    "rank",
+                    "ranking",
+                    "position in class",
+                    "class position",
+                    "topper",
+                    "scorecard",
+                    "score card",
+                    "report card",
+                    "result card",
+                    "marksheet",
+                    "mark sheet",
+                    "how is my child doing",
+                    "how is my child performing",
+                    "how am i performing",
+                    "based on marks",
                 ]
             ):
 
-                if lowest_assessment:
+                role = getattr(context, "role", "student")
 
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        f"Your lowest scoring "
-                        f"assessment was "
-                        f"{lowest_assessment['title']} "
-                        f"with "
-                        f"{lowest_assessment['percentage']}%."
-                    )
-
-                else:
-
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        "No graded assessments "
-                        "found."
-                    )
+                payload[
+                    "direct_answer"
+                ] = performance_withheld_message(role)
 
                 return payload
 
             # =====================================
-            # LATEST RESULT
+            # LATEST RESULT / MARKS / GRADES
             # =====================================
 
-            if any(
-                phrase in query
-                for phrase in [
-                    "latest result",
-                    "latest assessment",
-                    "latest test",
-                    "what was my score",
-                    "what marks did i get",
-                    "show my grades",
-                    "latest grade",
-                    "assessment marks",
-                    "test marks",
-                    "exam marks",
-                    "my marks",
-                    "my grades",
-                ]
-            ):
+            is_marks_query = (
+                getattr(parsed_intent, "asks_for_marks", False)
+                or any(
+                    phrase in query
+                    for phrase in [
+                        "latest result",
+                        "latest assessment",
+                        "latest test",
+                        "what was my score",
+                        "what marks did i get",
+                        "show my grades",
+                        "latest grade",
+                        "marks",
+                        "assessment marks",
+                        "my marks",
+                        "show my marks",
+                        "show my assessment marks",
+                        "grade",
+                        "grades",
+                        "my grade",
+                        "my grades",
+                        "score",
+                        "my score",
+                        "scores",
+                    ]
+                )
+            )
+
+            if is_marks_query:
+
+                role = getattr(context, "role", "student")
+
+                owner = (
+                    "The student's"
+                    if role == "guardian"
+                    else "Your"
+                )
 
                 if latest_result:
 
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        f"Your latest assessment "
-                        f"was "
-                        f"{latest_result['title']}. "
-                        f"You scored "
-                        f"{latest_result['marks_obtained']}/"
-                        f"{latest_result['total_marks']} "
-                        f"({latest_result['percentage']}%)."
-                    )
+                    if has_grade(latest_result.get("grade")):
+
+                        payload[
+                            "direct_answer"
+                        ] = graded_message(
+                            latest_result["title"],
+                            role=role,
+                        )
+
+                    else:
+
+                        payload[
+                            "direct_answer"
+                        ] = (
+                            f"{owner} latest assessment, "
+                            f"{latest_result['title']}, has not "
+                            f"been graded yet."
+                        )
 
                 else:
 
                     payload[
                         "direct_answer"
                     ] = (
-                        "No assessment results "
-                        "available."
+                        "No graded assessments are "
+                        "available yet."
                     )
 
                 return payload
@@ -830,8 +571,11 @@ class AssessmentTool:
                 return payload
             
             # =====================================
-            # RISK ASSESSMENTS
+            # RISK / TREND / PERFORMANCE ANALYSIS
             # =====================================
+            #
+            # Naming the weak assessments, or analysing a trend, discloses the
+            # marks behind them just as plainly as printing the numbers.
 
             if any(
                 phrase in query
@@ -840,70 +584,14 @@ class AssessmentTool:
                     "at risk",
                     "weak assessments",
                     "low scoring assessments",
-                    "high risk assessments"
-                ]
-            ):
-
-                if risk_assessments:
-
-                    names = [
-
-                        item["title"]
-
-                        for item in risk_assessments[:3]
-                    ]
-
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        "Assessments needing "
-                        "attention: "
-                        +
-                        ", ".join(names)
-                        +
-                        "."
-                    )
-
-                else:
-
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        "No high-risk assessments "
-                        "were identified."
-                    )
-
-                return payload
-
-            # =====================================
-            # TREND ANALYSIS
-            # =====================================
-
-            if any(
-                phrase in query
-                for phrase in [
+                    "high risk assessments",
+                    "below 50",
                     "why are my grades dropping",
                     "analyze my assessment trend",
                     "analyse my assessment trend",
                     "what concerns do you see",
                     "what does my assessment trend indicate",
-                    "why is my performance declining"
-                ]
-            ):
-
-                payload[
-                    "assessment_trend_analysis"
-                ] = True
-
-                return payload
-
-            # =====================================
-            # ASSESSMENT ANALYSIS
-            # =====================================
-
-            if any(
-                phrase in query
-                for phrase in [
+                    "why is my performance declining",
                     "performing",
                     "performance",
                     "assessment performance",
@@ -912,18 +600,19 @@ class AssessmentTool:
                     "analyze my performance",
                     "how am i doing",
                     "average score",
-                    "assessment summary",
                     "assessment review",
-                    "improve my assessments"
+                    "improve my assessments",
                 ]
             ):
 
+                role = getattr(context, "role", "student")
+
                 payload[
-                    "assessment_analysis"
-                ] = True
+                    "direct_answer"
+                ] = performance_withheld_message(role)
 
                 return payload
-            
+
             payload["llm_context"] = (
                     build_assessment_llm_context(
                         payload

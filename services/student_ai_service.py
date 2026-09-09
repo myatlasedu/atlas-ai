@@ -218,7 +218,7 @@ class StudentAIService:
             )
         )
         print("=====Chat History======")
-        # print(turns)
+        print(turns)
 
         resolution = (
             await QueryResolutionService.resolve(
