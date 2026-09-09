@@ -2,6 +2,27 @@ from sqlalchemy import text
 import statistics
 
 
+def _safe_percentage(
+    obtained,
+    total,
+):
+
+    #
+    # A record can be marked graded while marks_obtained is still
+    # NULL. Returning None keeps that honest instead of crashing or
+    # inventing a zero.
+    #
+
+    if obtained is None or not total:
+
+        return None
+
+    return round(
+        (obtained / total) * 100,
+        2,
+    )
+
+
 class AssessmentRepository:
 
     def __init__(self, db):
@@ -313,6 +334,8 @@ class AssessmentRepository:
 
             AND a.total_marks > 0
 
+            AND r.marks_obtained IS NOT NULL
+
             ORDER BY
                 (
                     r.marks_obtained
@@ -337,13 +360,9 @@ class AssessmentRepository:
 
         row = dict(row)
 
-        row["percentage"] = round(
-            (
-                row["marks_obtained"]
-                /
-                row["total_marks"]
-            ) * 100,
-            2
+        row["percentage"] = _safe_percentage(
+            row.get("marks_obtained"),
+            row.get("total_marks"),
         )
 
         return row
@@ -382,6 +401,8 @@ class AssessmentRepository:
 
             AND a.total_marks > 0
 
+            AND r.marks_obtained IS NOT NULL
+
             ORDER BY
                 (
                     r.marks_obtained
@@ -406,13 +427,9 @@ class AssessmentRepository:
 
         row = dict(row)
 
-        row["percentage"] = round(
-            (
-                row["marks_obtained"]
-                /
-                row["total_marks"]
-            ) * 100,
-            2
+        row["percentage"] = _safe_percentage(
+            row.get("marks_obtained"),
+            row.get("total_marks"),
         )
 
         return row
@@ -508,6 +525,8 @@ class AssessmentRepository:
             AND r.status = 3
 
             AND a.total_marks > 0
+
+            AND r.marks_obtained IS NOT NULL
 
             ORDER BY r.graded_at ASC
         """)
@@ -655,6 +674,8 @@ class AssessmentRepository:
 
             AND a.total_marks > 0
 
+            AND r.marks_obtained IS NOT NULL
+
             ORDER BY a.assessment_date DESC
         """)
 
@@ -674,14 +695,16 @@ class AssessmentRepository:
 
             row = dict(row)
 
-            percentage = round(
-                (
-                    row["marks_obtained"]
-                    /
-                    row["total_marks"]
-                ) * 100,
-                2
+            percentage = _safe_percentage(
+                row.get("marks_obtained"),
+                row.get("total_marks"),
             )
+
+            if percentage is None:
+
+                # Not graded yet: it cannot be a risk signal.
+
+                continue
 
             if percentage < 50:
 
