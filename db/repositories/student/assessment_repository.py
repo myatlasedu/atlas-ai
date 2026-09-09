@@ -235,6 +235,8 @@ class AssessmentRepository:
             WHERE r.enrollment_id = :enrollment_id
 
             AND r.status = 3
+
+            AND r.marks_obtained IS NOT NULL
         """)
 
         result = await self.db.execute(
@@ -313,6 +315,8 @@ class AssessmentRepository:
 
             AND a.total_marks > 0
 
+            AND r.marks_obtained IS NOT NULL
+
             ORDER BY
                 (
                     r.marks_obtained
@@ -381,6 +385,8 @@ class AssessmentRepository:
             AND r.status = 3
 
             AND a.total_marks > 0
+
+            AND r.marks_obtained IS NOT NULL
 
             ORDER BY
                 (
@@ -508,6 +514,8 @@ class AssessmentRepository:
             AND r.status = 3
 
             AND a.total_marks > 0
+
+            AND r.marks_obtained IS NOT NULL
 
             ORDER BY r.graded_at ASC
         """)
@@ -654,6 +662,8 @@ class AssessmentRepository:
             AND r.status = 3
 
             AND a.total_marks > 0
+
+            AND r.marks_obtained IS NOT NULL
 
             ORDER BY a.assessment_date DESC
         """)
