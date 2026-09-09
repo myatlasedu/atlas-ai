@@ -188,6 +188,8 @@ def build_prompt(
 
     Do NOT:
 
+    - mention marks, scores, percentages, averages, grades, or numerical ratings
+    - say performance is critical, below target, or declining based on scores
     - calculate scores
     - infer trends
     - invent feedback
@@ -195,6 +197,8 @@ def build_prompt(
     - mention JSON
     - mention data fields
     - mention missing information
+
+    Grades will be available on the report card once declared.
 
     Use the supplied highlights and actions exactly as guidance.
 
@@ -1826,6 +1830,32 @@ async def summarize_response(
     ):
 
         return homework_context["direct_answer"]
+
+    assessment_context = (
+        llm_data.get("assessment")
+        if isinstance(llm_data, dict)
+        else None
+    ) or {}
+
+    if (
+        isinstance(assessment_context, dict)
+        and assessment_context.get("direct_answer") is not None
+    ):
+
+        return assessment_context["direct_answer"]
+
+    student_perf_context = (
+        llm_data.get("student_performance")
+        if isinstance(llm_data, dict)
+        else None
+    ) or {}
+
+    if (
+        isinstance(student_perf_context, dict)
+        and student_perf_context.get("direct_answer") is not None
+    ):
+
+        return student_perf_context["direct_answer"]
 
     is_titled_mark = (
         intent == StudentIntent.HOMEWORK_SUMMARY

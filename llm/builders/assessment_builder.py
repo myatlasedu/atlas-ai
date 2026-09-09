@@ -10,7 +10,6 @@ def build_assessment_llm_context(
     performance = payload.get("performance", {})
     consistency = payload.get("consistency", {})
     trend = payload.get("trend", {})
-    flags = payload.get("assessment_flags", {})
 
     highest = payload.get("highest_assessment")
     lowest = payload.get("lowest_assessment")
@@ -19,12 +18,20 @@ def build_assessment_llm_context(
 
     if graded == 0:
         status = "building"
-    elif flags.get("has_risk_assessments"):
-        status = "critical"
-    elif trend.get("direction") == "declining":
-        status = "attention"
     else:
         status = "good"
+
+    raw_highlights = payload.get("insights", [])
+    clean_highlights = [
+        h for h in raw_highlights
+        if not any(k in h.lower() for k in ["%", "score", "average", "target", "below", "declining", "attention", "poor"])
+    ]
+
+    raw_actions = payload.get("improvement_opportunities", [])
+    clean_actions = [
+        a for a in raw_actions
+        if not any(k in a.lower() for k in ["%", "score", "average", "lower-scoring", "below", "consistency"])
+    ]
 
     return {
 
@@ -32,19 +39,12 @@ def build_assessment_llm_context(
 
         "metrics": {
             "graded": graded,
-            "average": performance.get("average_percentage", 0),
-            "highest": performance.get("highest_percentage", 0),
-            "lowest": performance.get("lowest_percentage", 0),
             "upcoming": payload.get("upcoming_count", 0),
-            "risk": len(payload.get("risk_assessments", [])),
-            "trend": trend.get("direction"),
-            "consistency": consistency.get("rating"),
         },
 
         "best_assessment": (
             {
                 "title": highest["title"],
-                "score": highest["percentage"],
             }
             if highest else None
         ),
@@ -52,17 +52,13 @@ def build_assessment_llm_context(
         "weakest_assessment": (
             {
                 "title": lowest["title"],
-                "score": lowest["percentage"],
             }
             if lowest else None
         ),
 
-        "highlights": payload.get("insights", [])[:4],
+        "highlights": clean_highlights[:4],
 
         "focus": payload.get("recommended_focus", [])[:3],
 
-        "actions": payload.get(
-            "improvement_opportunities",
-            [],
-        )[:3],
+        "actions": clean_actions[:3],
     }

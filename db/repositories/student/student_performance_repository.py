@@ -607,8 +607,7 @@ class StudentPerformanceRepository:
 
                         (
                             f"Best assessment was "
-                            f"{highest_assessment['title']} "
-                            f"({highest_assessment['percentage']}%)."
+                            f"{highest_assessment['title']}."
                         )
 
                         if highest_assessment
@@ -665,8 +664,7 @@ class StudentPerformanceRepository:
 
                         (
                             f"Lowest assessment was "
-                            f"{lowest_assessment['title']} "
-                            f"({lowest_assessment['percentage']}%)."
+                            f"{lowest_assessment['title']}."
                         )
 
                         if lowest_assessment

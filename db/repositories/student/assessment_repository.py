@@ -165,7 +165,7 @@ class AssessmentRepository:
 
         percentage = 0
 
-        if total_marks:
+        if total_marks and obtained is not None:
 
             percentage = round(
                 (
@@ -235,6 +235,8 @@ class AssessmentRepository:
             WHERE r.enrollment_id = :enrollment_id
 
             AND r.status = 3
+
+            AND r.marks_obtained IS NOT NULL
         """)
 
         result = await self.db.execute(
@@ -313,6 +315,8 @@ class AssessmentRepository:
 
             AND a.total_marks > 0
 
+            AND r.marks_obtained IS NOT NULL
+
             ORDER BY
                 (
                     r.marks_obtained
@@ -381,6 +385,8 @@ class AssessmentRepository:
             AND r.status = 3
 
             AND a.total_marks > 0
+
+            AND r.marks_obtained IS NOT NULL
 
             ORDER BY
                 (
@@ -508,6 +514,8 @@ class AssessmentRepository:
             AND r.status = 3
 
             AND a.total_marks > 0
+
+            AND r.marks_obtained IS NOT NULL
 
             ORDER BY r.graded_at ASC
         """)
@@ -655,6 +663,8 @@ class AssessmentRepository:
 
             AND a.total_marks > 0
 
+            AND r.marks_obtained IS NOT NULL
+
             ORDER BY a.assessment_date DESC
         """)
 
@@ -710,3 +720,43 @@ class AssessmentRepository:
         )
 
         return risks
+
+    # =====================================================
+    # ALL STUDENT ASSESSMENTS (GRADED & UNGRADED)
+    # =====================================================
+
+    async def get_all_student_assessments(
+        self,
+        enrollment_id: int
+    ):
+
+        query = text("""
+            SELECT
+                a.id,
+                a.title,
+                a.total_marks,
+                a.assessment_date,
+                a.type,
+                r.marks_obtained,
+                r.grade,
+                r.status,
+                r.teacher_comment,
+                r.graded_at
+            FROM students_assessmentstudentrecord r
+            INNER JOIN students_assessment a
+                ON a.id = r.assessment_id
+            WHERE r.enrollment_id = :enrollment_id
+            ORDER BY a.assessment_date DESC, r.graded_at DESC
+        """)
+
+        result = await self.db.execute(
+            query,
+            {
+                "enrollment_id": enrollment_id
+            }
+        )
+
+        return [
+            dict(row)
+            for row in result.mappings().all()
+        ]
