@@ -32,9 +32,9 @@ def build_assessment_llm_context(
 
         "metrics": {
             "graded": graded,
-            "average": performance.get("average_percentage", 0),
-            "highest": performance.get("highest_percentage", 0),
-            "lowest": performance.get("lowest_percentage", 0),
+            # "average": performance.get("average_percentage", 0),
+            # "highest": performance.get("highest_percentage", 0),
+            # "lowest": performance.get("lowest_percentage", 0),
             "upcoming": payload.get("upcoming_count", 0),
             "risk": len(payload.get("risk_assessments", [])),
             "trend": trend.get("direction"),
@@ -44,7 +44,8 @@ def build_assessment_llm_context(
         "best_assessment": (
             {
                 "title": highest["title"],
-                "score": highest["percentage"],
+                # "score": highest["percentage"],
+                "grade": highest.get("grade"),
             }
             if highest else None
         ),
@@ -52,7 +53,8 @@ def build_assessment_llm_context(
         "weakest_assessment": (
             {
                 "title": lowest["title"],
-                "score": lowest["percentage"],
+                # "score": lowest["percentage"],
+                "grade": lowest.get("grade"),
             }
             if lowest else None
         ),

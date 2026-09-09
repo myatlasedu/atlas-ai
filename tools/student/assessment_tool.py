@@ -509,11 +509,12 @@ class AssessmentTool:
                     payload[
                         "direct_answer"
                     ] = (
-                        f"Your recent assessment "
-                        f"average is "
-                        f"{trend['recent_average']}%, "
-                        f"compared with "
-                        f"{trend['previous_average']}%. "
+                        # f"Your recent assessment "
+                        # f"average is "
+                        # f"{trend['recent_average']}%, "
+                        # f"compared with "
+                        # f"{trend['previous_average']}%. "
+
                         f"Your assessment performance "
                         f"is currently "
                         f"{trend['direction']}."
@@ -541,9 +542,7 @@ class AssessmentTool:
                     f"{consistency['count']} graded "
                     f"assessment(s). "
                     f"Consistency rating: "
-                    f"{consistency['rating']}. "
-                    f"Average score: "
-                    f"{consistency['average']}%."
+                    f"{consistency['rating']}."
                 )
 
                 return payload
@@ -565,15 +564,36 @@ class AssessmentTool:
 
                 if highest_assessment:
 
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        f"Your highest scoring "
-                        f"assessment was "
-                        f"{highest_assessment['title']} "
-                        f"with "
-                        f"{highest_assessment['percentage']}%."
-                    )
+                    role = getattr(context, "role", "student")
+                    grade = (highest_assessment.get("grade") or "").strip()
+
+                    if role == "student" and grade:
+
+                        payload[
+                            "direct_answer"
+                        ] = (
+                            f"Your highest scoring "
+                            f"assessment was "
+                            f"{highest_assessment['title']} "
+                            f"with grade {grade}."
+                        )
+                    
+                    elif role == "guardian" and grade:
+        
+                        payload["direct_answer"] = (
+                            f"The student's highest scoring assessment was "
+                            f"{highest_assessment['title']} "
+                            f"with grade {grade}."
+                        )
+
+                    else:
+
+                        payload[
+                            "direct_answer"
+                        ] = (
+                            "Grade will be shown "
+                            "once the results are declared."
+                        )
 
                 else:
 
@@ -603,15 +623,36 @@ class AssessmentTool:
 
                 if lowest_assessment:
 
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        f"Your lowest scoring "
-                        f"assessment was "
-                        f"{lowest_assessment['title']} "
-                        f"with "
-                        f"{lowest_assessment['percentage']}%."
-                    )
+                    role = getattr(context, "role", "student")
+                    grade = (lowest_assessment.get("grade") or "").strip()
+
+                    if role == "student" and grade:
+
+                        payload[
+                            "direct_answer"
+                        ] = (
+                            f"Your lowest scoring "
+                            f"assessment was "
+                            f"{lowest_assessment['title']} "
+                            f"with grade {grade}."
+                        )
+                    
+                    elif role == "guardian" and grade:
+        
+                        payload["direct_answer"] = (
+                            f"The student's lowest scoring assessment was "
+                            f"{lowest_assessment['title']} "
+                            f"with grade {grade}."
+                        )
+
+                    else:
+
+                        payload[
+                            "direct_answer"
+                        ] = (
+                            "Your grade will be shown "
+                            "once the results are declared."
+                        )
 
                 else:
 
@@ -625,43 +666,78 @@ class AssessmentTool:
                 return payload
 
             # =====================================
-            # LATEST RESULT
+            # LATEST RESULT / MARKS / GRADES
             # =====================================
 
-            if any(
-                phrase in query
-                for phrase in [
-                    "latest result",
-                    "latest assessment",
-                    "latest test",
-                    "what was my score",
-                    "what marks did i get",
-                    "show my grades",
-                    "latest grade"
-                ]
-            ):
+            is_marks_query = (
+                getattr(parsed_intent, "asks_for_marks", False)
+                or any(
+                    phrase in query
+                    for phrase in [
+                        "latest result",
+                        "latest assessment",
+                        "latest test",
+                        "what was my score",
+                        "what marks did i get",
+                        "show my grades",
+                        "latest grade",
+                        "marks",
+                        "assessment marks",
+                        "my marks",
+                        "show my marks",
+                        "show my assessment marks",
+                        "grade",
+                        "grades",
+                        "my grade",
+                        "my grades",
+                        "score",
+                        "my score",
+                        "scores",
+                    ]
+                )
+            )
+
+            if is_marks_query:
+
+                role = getattr(context, "role", "student")
 
                 if latest_result:
 
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        f"Your latest assessment "
-                        f"was "
-                        f"{latest_result['title']}. "
-                        f"You scored "
-                        f"{latest_result['marks_obtained']}/"
-                        f"{latest_result['total_marks']} "
-                        f"({latest_result['percentage']}%)."
-                    )
+                    grade = (latest_result.get("grade") or "").strip()
+
+                    if role == "student" and grade:
+
+                        payload[
+                            "direct_answer"
+                        ] = (
+                            f"Your grade for "
+                            f"{latest_result['title']} is {grade}."
+                        )
+                    
+                    elif role == "guardian" and grade:
+        
+                        payload["direct_answer"] = (
+                            f"The student's latest assessment was "
+                            f"{latest_result['title']} "
+                            f"with grade {grade}."
+                        )
+
+                    else:
+
+                        payload[
+                            "direct_answer"
+                        ] = (
+                            "Your grade will be shown "
+                            "once the results are declared."
+                        )
 
                 else:
 
                     payload[
                         "direct_answer"
                     ] = (
-                        "No assessment results "
-                        "available."
+                        "Your grade will be shown "
+                        "once the results are declared."
                     )
 
                 return payload
