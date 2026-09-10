@@ -42,19 +42,9 @@ def build_assessment_llm_context(
             "upcoming": payload.get("upcoming_count", 0),
         },
 
-        "best_assessment": (
-            {
-                "title": highest["title"],
-            }
-            if highest else None
-        ),
+        "best_assessment": None,
 
-        "weakest_assessment": (
-            {
-                "title": lowest["title"],
-            }
-            if lowest else None
-        ),
+        "weakest_assessment": None,
 
         "highlights": clean_highlights[:4],
 
