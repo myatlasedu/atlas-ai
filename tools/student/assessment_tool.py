@@ -10,6 +10,23 @@ from llm.builders.assessment_builder import (
     build_assessment_llm_context,
 )
 
+
+def format_graded_response(title: str, role: str) -> str:
+    if role == "guardian":
+        return f"Your child's {title} assessment has been Graded. The grade will be available on the report card."
+    return f"Your {title} assessment has been Graded. Your grade will be available on the report card."
+
+
+def format_ungraded_response(title: str | None, role: str) -> str:
+    if title:
+        if role == "guardian":
+            return f"Your child's {title} assessment has not been graded yet. The grade will be available on the report card once declared."
+        return f"Your {title} assessment has not been graded yet. Your grade will be available on the report card once declared."
+    if role == "guardian":
+        return "The grade will be available on the report card once declared."
+    return "Your grade will be available on the report card once declared."
+
+
 class AssessmentTool:
 
     async def run(
@@ -188,27 +205,6 @@ class AssessmentTool:
                     "There are upcoming assessments to prepare for."
                 )
 
-            if (
-                performance.get(
-                    "average_percentage",
-                    0
-                ) < 60
-            ):
-
-                insights.append(
-                    "Assessment average is below target."
-                )
-
-            if (
-                performance.get(
-                    "lowest_percentage",
-                    0
-                ) < 40
-            ):
-
-                insights.append(
-                    "One assessment score is below 40%."
-                )
             if trend["direction"] == "declining":
 
                 insights.append(
@@ -223,23 +219,8 @@ class AssessmentTool:
 
             assessment_flags = {
 
-                "below_target_average":
-                    performance.get(
-                        "average_percentage",
-                        0
-                    ) < 60,
-
-                "has_low_score":
-                    performance.get(
-                        "lowest_percentage",
-                        0
-                    ) < 40,
-
                 "has_pending":
                     len(pending) > 0,
-
-                "has_risk_assessments":
-                    len(risk_assessments) > 0,
 
                 "trend":
                     trend["direction"]
@@ -253,25 +234,12 @@ class AssessmentTool:
                     ]
                 )
             
-            if risk_assessments:
-
-                insights.append(
-                    f"{len(risk_assessments)} "
-                    f"assessment(s) are below 50%."
-                )
-
             improvement_opportunities = []
 
             if len(pending) > 0:
 
                 improvement_opportunities.append(
                     "Prepare for upcoming assessments.",
-                )
-
-            if risk_assessments:
-
-                improvement_opportunities.append(
-                    "Focus on improving performance in lower-scoring assessments."
                 )
 
             if (
@@ -471,278 +439,6 @@ class AssessmentTool:
                 return payload
 
             # =====================================
-            # TREND
-            # =====================================
-
-            if any(
-                phrase in query
-                for phrase in [
-                    "scores improving",
-                    "getting better",
-                    "assessment trend",
-                    "score trend",
-                    "performance trend",
-                    "improving in assessments",
-                    "am i improving",
-                    "are my scores improving",
-                    "how have my scores changed",
-                    "improvement trend",
-                    "am i getting better",
-                    "are my grades improving",
-                    "are my marks improving",
-                    "how are my scores changing"
-                ]
-            ):
-
-                if not trend["valid"]:
-
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        "There is not enough "
-                        "assessment history "
-                        "to determine a trend."
-                    )
-
-                else:
-
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        # f"Your recent assessment "
-                        # f"average is "
-                        # f"{trend['recent_average']}%, "
-                        # f"compared with "
-                        # f"{trend['previous_average']}%. "
-
-                        f"Your assessment performance "
-                        f"is currently "
-                        f"{trend['direction']}."
-                    )
-
-                return payload
-
-            # =====================================
-            # CONSISTENCY
-            # =====================================
-
-            if any(
-                phrase in query
-                for phrase in [
-                    "consistent",
-                    "consistency",
-                    "stable performance"
-                ]
-            ):
-
-                payload[
-                    "direct_answer"
-                ] = (
-                    f"You have completed "
-                    f"{consistency['count']} graded "
-                    f"assessment(s). "
-                    f"Consistency rating: "
-                    f"{consistency['rating']}."
-                )
-
-                return payload
-
-            # =====================================
-            # HIGHEST SCORE
-            # =====================================
-
-            if any(
-                phrase in query
-                for phrase in [
-                    "highest",
-                    "best assessment",
-                    "top assessment",
-                    "highest score",
-                    "highest scoring"
-                ]
-            ):
-
-                if highest_assessment:
-
-                    role = getattr(context, "role", "student")
-                    grade = (highest_assessment.get("grade") or "").strip()
-
-                    if role == "student" and grade:
-
-                        payload[
-                            "direct_answer"
-                        ] = (
-                            f"Your highest scoring "
-                            f"assessment was "
-                            f"{highest_assessment['title']} "
-                            f"with grade {grade}."
-                        )
-                    
-                    elif role == "guardian" and grade:
-        
-                        payload["direct_answer"] = (
-                            f"The student's highest scoring assessment was "
-                            f"{highest_assessment['title']} "
-                            f"with grade {grade}."
-                        )
-
-                    else:
-
-                        payload[
-                            "direct_answer"
-                        ] = (
-                            "Grade will be shown "
-                            "once the results are declared."
-                        )
-
-                else:
-
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        "No graded assessments "
-                        "found."
-                    )
-
-                return payload
-
-            # =====================================
-            # LOWEST SCORE
-            # =====================================
-
-            if any(
-                phrase in query
-                for phrase in [
-                    "lowest",
-                    "worst assessment",
-                    "lowest score",
-                    "lowest scoring",
-                    "needs attention"
-                ]
-            ):
-
-                if lowest_assessment:
-
-                    role = getattr(context, "role", "student")
-                    grade = (lowest_assessment.get("grade") or "").strip()
-
-                    if role == "student" and grade:
-
-                        payload[
-                            "direct_answer"
-                        ] = (
-                            f"Your lowest scoring "
-                            f"assessment was "
-                            f"{lowest_assessment['title']} "
-                            f"with grade {grade}."
-                        )
-                    
-                    elif role == "guardian" and grade:
-        
-                        payload["direct_answer"] = (
-                            f"The student's lowest scoring assessment was "
-                            f"{lowest_assessment['title']} "
-                            f"with grade {grade}."
-                        )
-
-                    else:
-
-                        payload[
-                            "direct_answer"
-                        ] = (
-                            "Your grade will be shown "
-                            "once the results are declared."
-                        )
-
-                else:
-
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        "No graded assessments "
-                        "found."
-                    )
-
-                return payload
-
-            # =====================================
-            # LATEST RESULT / MARKS / GRADES
-            # =====================================
-
-            is_marks_query = (
-                getattr(parsed_intent, "asks_for_marks", False)
-                or any(
-                    phrase in query
-                    for phrase in [
-                        "latest result",
-                        "latest assessment",
-                        "latest test",
-                        "what was my score",
-                        "what marks did i get",
-                        "show my grades",
-                        "latest grade",
-                        "marks",
-                        "assessment marks",
-                        "my marks",
-                        "show my marks",
-                        "show my assessment marks",
-                        "grade",
-                        "grades",
-                        "my grade",
-                        "my grades",
-                        "score",
-                        "my score",
-                        "scores",
-                    ]
-                )
-            )
-
-            if is_marks_query:
-
-                role = getattr(context, "role", "student")
-
-                if latest_result:
-
-                    grade = (latest_result.get("grade") or "").strip()
-
-                    if role == "student" and grade:
-
-                        payload[
-                            "direct_answer"
-                        ] = (
-                            f"Your grade for "
-                            f"{latest_result['title']} is {grade}."
-                        )
-                    
-                    elif role == "guardian" and grade:
-        
-                        payload["direct_answer"] = (
-                            f"The student's latest assessment was "
-                            f"{latest_result['title']} "
-                            f"with grade {grade}."
-                        )
-
-                    else:
-
-                        payload[
-                            "direct_answer"
-                        ] = (
-                            "Your grade will be shown "
-                            "once the results are declared."
-                        )
-
-                else:
-
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        "Your grade will be shown "
-                        "once the results are declared."
-                    )
-
-                return payload
-
-            # =====================================
             # FEEDBACK
             # =====================================
 
@@ -779,106 +475,134 @@ class AssessmentTool:
                     )
 
                 return payload
-            
-            # =====================================
-            # RISK ASSESSMENTS
-            # =====================================
 
-            if any(
-                phrase in query
-                for phrase in [
-                    "risk assessments",
-                    "at risk",
-                    "weak assessments",
-                    "low scoring assessments",
-                    "high risk assessments"
-                ]
-            ):
+            role = getattr(context, "role", "student")
 
-                if risk_assessments:
+            # =====================================================
+            # MARKS / GRADES / STATUS / SCORES / PERCENTAGES /
+            # AVERAGES / HIGHEST / LOWEST / RISK / SCORECARD /
+            # PERFORMANCE / SUMMARY / EVALUATION
+            # =====================================================
 
-                    names = [
+            all_assessments = await repo.get_all_student_assessments(
+                context.enrollment_id
+            )
 
-                        item["title"]
+            # Check if a specific assessment title is referenced in query
+            matched_assessment = None
+            for asm in all_assessments:
+                asm_title = (asm.get("title") or "").lower().strip()
+                if asm_title and asm_title in query:
+                    matched_assessment = asm
+                    break
 
-                        for item in risk_assessments[:3]
-                    ]
-
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        "Assessments needing "
-                        "attention: "
-                        +
-                        ", ".join(names)
-                        +
-                        "."
-                    )
-
-                else:
-
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        "No high-risk assessments "
-                        "were identified."
-                    )
-
-                return payload
-
-            # =====================================
-            # TREND ANALYSIS
-            # =====================================
-
-            if any(
-                phrase in query
-                for phrase in [
-                    "why are my grades dropping",
-                    "analyze my assessment trend",
-                    "analyse my assessment trend",
-                    "what concerns do you see",
-                    "what does my assessment trend indicate",
-                    "why is my performance declining"
-                ]
-            ):
-
-                payload[
-                    "assessment_trend_analysis"
-                ] = True
-
-                return payload
-
-            # =====================================
-            # ASSESSMENT ANALYSIS
-            # =====================================
-
-            if any(
-                phrase in query
-                for phrase in [
-                    "performing",
-                    "performance",
-                    "assessment performance",
-                    "assessment analysis",
-                    "analyze my assessments",
-                    "analyze my performance",
-                    "how am i doing",
-                    "average score",
-                    "assessment summary",
-                    "assessment review",
-                    "improve my assessments"
-                ]
-            ):
-
-                payload[
-                    "assessment_analysis"
-                ] = True
-
-                return payload
-            
-            payload["llm_context"] = (
-                    build_assessment_llm_context(
-                        payload
-                    )
+            if matched_assessment:
+                is_graded = (
+                    matched_assessment.get("status") == 3
+                    or matched_assessment.get("marks_obtained") is not None
+                    or bool(matched_assessment.get("grade"))
                 )
+                if is_graded:
+                    payload["direct_answer"] = format_graded_response(
+                        matched_assessment["title"], role
+                    )
+                else:
+                    payload["direct_answer"] = format_ungraded_response(
+                        matched_assessment["title"], role
+                    )
+                return payload
 
+            # Check if date range / month filter is requested
+            start_date = getattr(parsed_intent, "start_date", None)
+            end_date = getattr(parsed_intent, "end_date", None)
+            months = [
+                "january", "february", "march", "april", "may", "june",
+                "july", "august", "september", "october", "november", "december"
+            ]
+            has_month_word = any(m in query for m in months) or "month" in query
+
+            if start_date or end_date or has_month_word:
+                start_date_str = str(start_date)[:10] if start_date else None
+                end_date_str = str(end_date)[:10] if end_date else None
+                range_assessments = []
+                for asm in all_assessments:
+                    asm_date_str = str(asm.get("assessment_date") or "")[:10]
+                    if asm_date_str:
+                        if start_date_str and asm_date_str < start_date_str:
+                            continue
+                        if end_date_str and asm_date_str > end_date_str:
+                            continue
+                        range_assessments.append(asm)
+
+                graded_in_range = [
+                    asm for asm in range_assessments
+                    if (
+                        asm.get("status") == 3
+                        or asm.get("marks_obtained") is not None
+                        or bool(asm.get("grade"))
+                    )
+                ]
+                if graded_in_range:
+                    payload["direct_answer"] = format_graded_response(
+                        graded_in_range[0]["title"], role
+                    )
+                elif range_assessments:
+                    payload["direct_answer"] = format_ungraded_response(
+                        range_assessments[0]["title"], role
+                    )
+                else:
+                    payload["direct_answer"] = format_ungraded_response(
+                        None, role
+                    )
+                return payload
+
+            # Check if asking for highest scoring assessment
+            if any(p in query for p in ["highest", "best assessment", "top assessment"]):
+                target = highest_assessment or latest_result
+                if target:
+                    payload["direct_answer"] = format_graded_response(
+                        target["title"], role
+                    )
+                else:
+                    payload["direct_answer"] = format_ungraded_response(
+                        None, role
+                    )
+                return payload
+
+            # Check if asking for lowest scoring assessment
+            if any(p in query for p in ["lowest", "worst assessment", "weakest assessment"]):
+                target = lowest_assessment or latest_result
+                if target:
+                    payload["direct_answer"] = format_graded_response(
+                        target["title"], role
+                    )
+                else:
+                    payload["direct_answer"] = format_ungraded_response(
+                        None, role
+                    )
+                return payload
+
+            # Check if asking for below 50% / risk assessments
+            if any(p in query for p in ["below 50", "under 50", "less than 50", "at risk", "risk assessment", "risk assessments"]):
+                target = (risk_assessments[0] if risk_assessments else None) or latest_result
+                if target:
+                    payload["direct_answer"] = format_graded_response(
+                        target["title"], role
+                    )
+                else:
+                    payload["direct_answer"] = format_ungraded_response(
+                        None, role
+                    )
+                return payload
+
+            # All other assessment status, result, performance, marks, scorecard, average, percentage, trend, consistency queries
+            target = latest_result or highest_assessment or lowest_assessment
+            if target:
+                payload["direct_answer"] = format_graded_response(
+                    target["title"], role
+                )
+            else:
+                payload["direct_answer"] = format_ungraded_response(
+                    None, role
+                )
             return payload

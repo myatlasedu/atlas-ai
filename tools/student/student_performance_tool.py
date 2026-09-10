@@ -22,6 +22,40 @@ class StudentPerformanceTool:
                 "error": "Enrollment ID missing",
             }
 
+        query = (
+            getattr(
+                parsed_intent,
+                "original_query",
+                ""
+            )
+            .lower()
+            .replace("?", "")
+            .replace(".", "")
+            .strip()
+        )
+
+        role = getattr(context, "role", "student")
+
+        if any(w in query for w in ["mark", "marks", "scorecard", "score card"]):
+            async with AsyncSessionLocal() as db:
+                from db.repositories.student.assessment_repository import AssessmentRepository
+                asm_repo = AssessmentRepository(db)
+                latest = await asm_repo.get_latest_result(context.enrollment_id)
+                if latest:
+                    if role == "guardian":
+                        direct = f"Your child's {latest['title']} assessment has been Graded. The grade will be available on the report card."
+                    else:
+                        direct = f"Your {latest['title']} assessment has been Graded. Your grade will be available on the report card."
+                else:
+                    if role == "guardian":
+                        direct = "The grade will be available on the report card once declared."
+                    else:
+                        direct = "Your grade will be available on the report card once declared."
+                return {
+                    "module": "student_performance",
+                    "direct_answer": direct,
+                }
+
         async with AsyncSessionLocal() as db:
 
             repo = StudentPerformanceRepository(

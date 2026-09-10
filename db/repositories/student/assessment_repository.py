@@ -116,11 +116,11 @@ class AssessmentRepository:
 
                 a.id,
                 a.title,
-                -- a.total_marks,
+                a.total_marks,
                 a.assessment_date,
                 a.type,
 
-                -- r.marks_obtained,
+                r.marks_obtained,
                 r.grade,
                 r.teacher_comment,
                 r.graded_at
@@ -153,30 +153,30 @@ class AssessmentRepository:
 
         row = dict(row)
 
-        # total_marks = (
-        #     row.get("total_marks")
-        #     or 0
-        # )
+        total_marks = (
+            row.get("total_marks")
+            or 0
+        )
 
-        # obtained = (
-        #     row.get("marks_obtained")
-        #     or 0
-        # )
+        obtained = (
+            row.get("marks_obtained")
+            or 0
+        )
 
-        # percentage = 0
+        percentage = 0
 
-        # if total_marks:
+        if total_marks and obtained is not None:
 
-        #     percentage = round(
-        #         (
-        #             obtained
-        #             /
-        #             total_marks
-        #         ) * 100,
-        #         2
-        #     )
+            percentage = round(
+                (
+                    obtained
+                    /
+                    total_marks
+                ) * 100,
+                2
+            )
 
-        # row["percentage"] = percentage
+        row["percentage"] = percentage
 
         return row
 
@@ -440,7 +440,7 @@ class AssessmentRepository:
                 a.assessment_date,
 
                 r.teacher_comment,
-                -- r.marks_obtained,
+                r.marks_obtained,
                 r.grade,
                 r.graded_at
 
@@ -720,3 +720,43 @@ class AssessmentRepository:
         )
 
         return risks
+
+    # =====================================================
+    # ALL STUDENT ASSESSMENTS (GRADED & UNGRADED)
+    # =====================================================
+
+    async def get_all_student_assessments(
+        self,
+        enrollment_id: int
+    ):
+
+        query = text("""
+            SELECT
+                a.id,
+                a.title,
+                a.total_marks,
+                a.assessment_date,
+                a.type,
+                r.marks_obtained,
+                r.grade,
+                r.status,
+                r.teacher_comment,
+                r.graded_at
+            FROM students_assessmentstudentrecord r
+            INNER JOIN students_assessment a
+                ON a.id = r.assessment_id
+            WHERE r.enrollment_id = :enrollment_id
+            ORDER BY a.assessment_date DESC, r.graded_at DESC
+        """)
+
+        result = await self.db.execute(
+            query,
+            {
+                "enrollment_id": enrollment_id
+            }
+        )
+
+        return [
+            dict(row)
+            for row in result.mappings().all()
+        ]
