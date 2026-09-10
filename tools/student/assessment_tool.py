@@ -11,10 +11,14 @@ from llm.builders.assessment_builder import (
 )
 
 
-def format_graded_response(title: str, role: str) -> str:
+def format_graded_response(title: str | None, role: str) -> str:
+    if title:
+        if role == "guardian":
+            return f"Your child's {title} assessment has been Graded. The grade will be available on the report card."
+        return f"Your {title} assessment has been Graded. Your grade will be available on the report card."
     if role == "guardian":
-        return f"Your child's {title} assessment has been Graded. The grade will be available on the report card."
-    return f"Your {title} assessment has been Graded. Your grade will be available on the report card."
+        return "Your child's assessment has been graded. The grade will be available on the report card."
+    return "Your assessment has been graded. Your grade will be available on the report card."
 
 
 def format_ungraded_response(title: str | None, role: str) -> str:
@@ -226,14 +230,6 @@ class AssessmentTool:
                     trend["direction"]
             }
 
-            if lowest_assessment:
-
-                recommended_focus.append(
-                    lowest_assessment[
-                        "title"
-                    ]
-                )
-            
             improvement_opportunities = []
 
             if len(pending) > 0:
@@ -258,23 +254,9 @@ class AssessmentTool:
                         "rating"
                     ),
 
-                "best_assessment":
-                    (
-                        highest_assessment[
-                            "title"
-                        ]
-                        if highest_assessment
-                        else None
-                    ),
+                "best_assessment": None,
 
-                "weakest_assessment":
-                    (
-                        lowest_assessment[
-                            "title"
-                        ]
-                        if lowest_assessment
-                        else None
-                    ),
+                "weakest_assessment": None,
 
                 "pending_count":
                     len(pending),
@@ -553,11 +535,11 @@ class AssessmentTool:
                 return payload
 
             # Check if asking for highest scoring assessment
-            if any(p in query for p in ["highest", "best assessment", "top assessment"]):
+            if any(p in query for p in ["highest", "best assessment", "top assessment", "highest score", "highest scoring", "highest-scoring"]):
                 target = highest_assessment or latest_result
-                if target:
+                if target and (target.get("isGrade") or target.get("isGraded") or target.get("is_graded")):
                     payload["direct_answer"] = format_graded_response(
-                        target["title"], role
+                        None, role
                     )
                 else:
                     payload["direct_answer"] = format_ungraded_response(
@@ -566,11 +548,24 @@ class AssessmentTool:
                 return payload
 
             # Check if asking for lowest scoring assessment
-            if any(p in query for p in ["lowest", "worst assessment", "weakest assessment"]):
+            if any(p in query for p in ["lowest", "worst assessment", "weakest assessment", "lowest score", "lowest scoring", "lowest-scoring"]):
                 target = lowest_assessment or latest_result
-                if target:
+                if target and (target.get("isGrade") or target.get("isGraded") or target.get("is_graded")):
                     payload["direct_answer"] = format_graded_response(
-                        target["title"], role
+                        None, role
+                    )
+                else:
+                    payload["direct_answer"] = format_ungraded_response(
+                        None, role
+                    )
+                return payload
+
+            # Check if asking for average-scoring assessment or average score
+            if any(p in query for p in ["average", "avg score", "average score", "avg assessment", "average assessment", "average scoring", "average-scoring", "average marks"]):
+                target = latest_result or highest_assessment or lowest_assessment
+                if target and (target.get("isGrade") or target.get("isGraded") or target.get("is_graded")):
+                    payload["direct_answer"] = format_graded_response(
+                        None, role
                     )
                 else:
                     payload["direct_answer"] = format_ungraded_response(
@@ -581,9 +576,9 @@ class AssessmentTool:
             # Check if asking for below 50% / risk assessments
             if any(p in query for p in ["below 50", "under 50", "less than 50", "at risk", "risk assessment", "risk assessments"]):
                 target = (risk_assessments[0] if risk_assessments else None) or latest_result
-                if target:
+                if target and (target.get("isGrade") or target.get("isGraded") or target.get("is_graded")):
                     payload["direct_answer"] = format_graded_response(
-                        target["title"], role
+                        None, role
                     )
                 else:
                     payload["direct_answer"] = format_ungraded_response(
@@ -591,11 +586,29 @@ class AssessmentTool:
                     )
                 return payload
 
-            # All other assessment status, result, performance, marks, scorecard, average, percentage, trend, consistency queries
+            # If asking specifically for latest / recent / last assessment
+            if any(p in query for p in ["latest", "recent", "last"]):
+                target = latest_result
+                if target:
+                    if target.get("isGrade") or target.get("isGraded") or target.get("is_graded"):
+                        payload["direct_answer"] = format_graded_response(
+                            target.get("title"), role
+                        )
+                    else:
+                        payload["direct_answer"] = format_ungraded_response(
+                            target.get("title"), role
+                        )
+                else:
+                    payload["direct_answer"] = format_ungraded_response(
+                        None, role
+                    )
+                return payload
+
+            # All other assessment status, result, performance, marks, scorecard queries
             target = latest_result or highest_assessment or lowest_assessment
-            if target:
+            if target and (target.get("isGrade") or target.get("isGraded") or target.get("is_graded")):
                 payload["direct_answer"] = format_graded_response(
-                    target["title"], role
+                    None, role
                 )
             else:
                 payload["direct_answer"] = format_ungraded_response(

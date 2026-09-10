@@ -180,8 +180,6 @@ def build_prompt(
 
     - status
     - metrics
-    - best_assessment
-    - weakest_assessment
     - highlights
     - focus
     - actions
@@ -189,6 +187,7 @@ def build_prompt(
     Do NOT:
 
     - mention marks, scores, percentages, averages, grades, or numerical ratings
+    - reveal or name the highest, lowest, or average-scoring assessment
     - say performance is critical, below target, or declining based on scores
     - calculate scores
     - infer trends

@@ -43,14 +43,14 @@ class StudentPerformanceTool:
                 latest = await asm_repo.get_latest_result(context.enrollment_id)
                 if latest and (latest.get("isGrade") or latest.get("isGraded") or latest.get("is_graded")):
                     if role == "guardian":
-                        direct = f"Your child's {latest['title']} assessment has been Graded. The grade will be available on the report card."
+                        direct = "Your child's assessment has been graded. The grade will be available on the report card."
                     else:
-                        direct = f"Your {latest['title']} assessment has been Graded. Your grade will be available on the report card."
+                        direct = "Your assessment has been graded. Your grade will be available on the report card."
                 elif latest:
                     if role == "guardian":
-                        direct = f"Your child's {latest['title']} assessment has not been graded yet. The grade will be available on the report card once declared."
+                        direct = "The grade will be available on the report card once declared."
                     else:
-                        direct = f"Your {latest['title']} assessment has not been graded yet. Your grade will be available on the report card once declared."
+                        direct = "Your grade will be available on the report card once declared."
                 else:
                     if role == "guardian":
                         direct = "The grade will be available on the report card once declared."
