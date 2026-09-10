@@ -131,7 +131,7 @@ class AssessmentTool:
                 "recent_average": 0
             }
 
-            if len(trend_history) >= 5:
+            if len(trend_history) >= 5 and all("percentage" in row for row in trend_history):
 
                 midpoint = (
                     len(trend_history)
@@ -252,12 +252,6 @@ class AssessmentTool:
                 )
 
             performance_summary = {
-
-                "average_percentage":
-                    performance.get(
-                        "average_percentage",
-                        0
-                    ),
 
                 "consistency_rating":
                     consistency.get(
@@ -497,10 +491,11 @@ class AssessmentTool:
                     break
 
             if matched_assessment:
-                is_graded = (
-                    matched_assessment.get("status") == 3
-                    or matched_assessment.get("marks_obtained") is not None
-                    or bool(matched_assessment.get("grade"))
+                is_graded = bool(
+                    matched_assessment.get("isGrade")
+                    or matched_assessment.get("isGraded")
+                    or matched_assessment.get("is_graded")
+                    or matched_assessment.get("status") == 3
                 )
                 if is_graded:
                     payload["direct_answer"] = format_graded_response(
@@ -537,9 +532,10 @@ class AssessmentTool:
                 graded_in_range = [
                     asm for asm in range_assessments
                     if (
-                        asm.get("status") == 3
-                        or asm.get("marks_obtained") is not None
-                        or bool(asm.get("grade"))
+                        asm.get("isGrade")
+                        or asm.get("isGraded")
+                        or asm.get("is_graded")
+                        or asm.get("status") == 3
                     )
                 ]
                 if graded_in_range:
