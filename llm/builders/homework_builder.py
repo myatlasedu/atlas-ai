@@ -129,22 +129,26 @@ def build_homework_llm_context(
 
     if titled_mark:
 
-        grade = (titled_mark.get("grade") or "").strip()
+        is_graded = bool(
+            titled_mark.get("isGrade")
+            or titled_mark.get("isGraded")
+            or titled_mark.get("is_graded")
+        )
 
-        if grade in VALID_HOMEWORK_GRADES:
+        if is_graded:
 
             headline = (
-                f"Your grade for "
-                f"{titled_mark.get('title')} "
-                f"is {grade}."
+                f"Your {titled_mark.get('title')} "
+                f"homework has been graded. "
+                f"Your grade will be available on the report card."
             )
 
         else:
 
             headline = (
                 f"{titled_mark.get('title')} "
-                f"has been graded, but no grade "
-                f"is recorded yet."
+                f"has not been graded yet. "
+                f"Your grade will be available on the report card once declared."
             )
 
     elif titled_lookup:

@@ -23,7 +23,6 @@ class AssessmentRepository:
                 a.id,
                 a.title,
                 a.assessment_date,
-                a.total_marks,
                 a.type,
 
                 r.status
@@ -70,7 +69,6 @@ class AssessmentRepository:
                 a.id,
                 a.title,
                 a.assessment_date,
-                a.total_marks,
                 a.type,
 
                 r.status
@@ -116,12 +114,14 @@ class AssessmentRepository:
 
                 a.id,
                 a.title,
-                a.total_marks,
                 a.assessment_date,
                 a.type,
 
-                r.marks_obtained,
-                r.grade,
+                CASE
+                    WHEN r.status = 3 OR r.marks_obtained IS NOT NULL OR (r.grade IS NOT NULL AND r.grade != '') THEN TRUE
+                    ELSE FALSE
+                END AS is_graded,
+                r.status,
                 r.teacher_comment,
                 r.graded_at
 
@@ -152,31 +152,10 @@ class AssessmentRepository:
             return None
 
         row = dict(row)
-
-        total_marks = (
-            row.get("total_marks")
-            or 0
-        )
-
-        obtained = (
-            row.get("marks_obtained")
-            or 0
-        )
-
-        percentage = 0
-
-        if total_marks and obtained is not None:
-
-            percentage = round(
-                (
-                    obtained
-                    /
-                    total_marks
-                ) * 100,
-                2
-            )
-
-        row["percentage"] = percentage
+        is_graded = bool(row.get("is_graded", False))
+        row["is_graded"] = is_graded
+        row["isGrade"] = is_graded
+        row["isGraded"] = is_graded
 
         return row
 
@@ -192,40 +171,7 @@ class AssessmentRepository:
         query = text("""
             SELECT
 
-                COUNT(*) AS graded_count,
-
-                AVG(
-                    CASE
-                        WHEN a.total_marks > 0
-                        THEN (
-                            r.marks_obtained
-                            /
-                            a.total_marks
-                        ) * 100
-                    END
-                ) AS average_percentage,
-
-                MAX(
-                    CASE
-                        WHEN a.total_marks > 0
-                        THEN (
-                            r.marks_obtained
-                            /
-                            a.total_marks
-                        ) * 100
-                    END
-                ) AS highest_percentage,
-
-                MIN(
-                    CASE
-                        WHEN a.total_marks > 0
-                        THEN (
-                            r.marks_obtained
-                            /
-                            a.total_marks
-                        ) * 100
-                    END
-                ) AS lowest_percentage
+                COUNT(*) AS graded_count
 
             FROM students_assessmentstudentrecord r
 
@@ -235,8 +181,6 @@ class AssessmentRepository:
             WHERE r.enrollment_id = :enrollment_id
 
             AND r.status = 3
-
-            AND r.marks_obtained IS NOT NULL
         """)
 
         result = await self.db.execute(
@@ -252,33 +196,18 @@ class AssessmentRepository:
 
             return {
                 "graded_count": 0,
-                "average_percentage": 0,
-                "highest_percentage": 0,
-                "lowest_percentage": 0
+                "isGrade": False,
+                "isGraded": False,
+                "is_graded": False,
             }
 
+        graded_count = row["graded_count"] or 0
+
         return {
-
-            "graded_count":
-                row["graded_count"] or 0,
-
-            "average_percentage":
-                round(
-                    row["average_percentage"] or 0,
-                    2
-                ),
-
-            "highest_percentage":
-                round(
-                    row["highest_percentage"] or 0,
-                    2
-                ),
-
-            "lowest_percentage":
-                round(
-                    row["lowest_percentage"] or 0,
-                    2
-                )
+            "graded_count": graded_count,
+            "isGrade": graded_count > 0,
+            "isGraded": graded_count > 0,
+            "is_graded": graded_count > 0,
         }
 
     # =====================================================
@@ -295,12 +224,11 @@ class AssessmentRepository:
 
                 a.id,
                 a.title,
-                a.total_marks,
                 a.assessment_date,
                 a.type,
 
-                r.marks_obtained,
-                r.grade,
+                TRUE AS is_graded,
+                r.status,
                 r.teacher_comment,
                 r.graded_at
 
@@ -340,15 +268,9 @@ class AssessmentRepository:
             return None
 
         row = dict(row)
-
-        row["percentage"] = round(
-            (
-                row["marks_obtained"]
-                /
-                row["total_marks"]
-            ) * 100,
-            2
-        )
+        row["is_graded"] = True
+        row["isGrade"] = True
+        row["isGraded"] = True
 
         return row
 
@@ -366,12 +288,11 @@ class AssessmentRepository:
 
                 a.id,
                 a.title,
-                a.total_marks,
                 a.assessment_date,
                 a.type,
 
-                r.marks_obtained,
-                r.grade,
+                TRUE AS is_graded,
+                r.status,
                 r.teacher_comment,
                 r.graded_at
 
@@ -411,15 +332,9 @@ class AssessmentRepository:
             return None
 
         row = dict(row)
-
-        row["percentage"] = round(
-            (
-                row["marks_obtained"]
-                /
-                row["total_marks"]
-            ) * 100,
-            2
-        )
+        row["is_graded"] = True
+        row["isGrade"] = True
+        row["isGraded"] = True
 
         return row
 
@@ -440,8 +355,10 @@ class AssessmentRepository:
                 a.assessment_date,
 
                 r.teacher_comment,
-                r.marks_obtained,
-                r.grade,
+                CASE
+                    WHEN r.status = 3 OR r.marks_obtained IS NOT NULL OR (r.grade IS NOT NULL AND r.grade != '') THEN TRUE
+                    ELSE FALSE
+                END AS is_graded,
                 r.graded_at
 
             FROM students_assessmentstudentrecord r
@@ -469,13 +386,16 @@ class AssessmentRepository:
 
         rows = result.mappings().all()
 
-        return [
-            dict(row)
-            for row in rows
-        ]
-    
+        feedbacks = []
+        for r in rows:
+            d = dict(r)
+            is_graded = bool(d.get("is_graded", False))
+            d["is_graded"] = is_graded
+            d["isGrade"] = is_graded
+            d["isGraded"] = is_graded
+            feedbacks.append(d)
 
-
+        return feedbacks
 
     # =====================================================
     # ASSESSMENT TREND
@@ -492,17 +412,8 @@ class AssessmentRepository:
                 a.id,
                 a.title,
                 a.assessment_date,
-
-                r.marks_obtained,
-                a.total_marks,
-
-                ROUND(
-                        (
-                            r.marks_obtained
-                            /
-                            a.total_marks
-                        ) * 100
-                    ) AS percentage
+                TRUE AS is_graded,
+                r.graded_at
 
             FROM students_assessmentstudentrecord r
 
@@ -512,10 +423,6 @@ class AssessmentRepository:
             WHERE r.enrollment_id = :enrollment_id
 
             AND r.status = 3
-
-            AND a.total_marks > 0
-
-            AND r.marks_obtained IS NOT NULL
 
             ORDER BY r.graded_at ASC
         """)
@@ -528,13 +435,15 @@ class AssessmentRepository:
             }
         )
 
-        return [
-            dict(row)
-            for row in result.mappings().all()
-        ]
+        rows = []
+        for r in result.mappings().all():
+            d = dict(r)
+            d["is_graded"] = True
+            d["isGrade"] = True
+            d["isGraded"] = True
+            rows.append(d)
 
-
-
+        return rows
 
     async def get_consistency_metrics(
         self,
@@ -551,87 +460,24 @@ class AssessmentRepository:
 
                 "count": 0,
 
-                "average": 0,
-
-                "highest": 0,
-
-                "lowest": 0,
-
-                "range": 0,
-
-                "std_dev": 0,
+                "isGrade": False,
+                "isGraded": False,
+                "is_graded": False,
 
                 "rating": "Insufficient Data"
             }
 
-        scores = [
-
-            row["percentage"]
-
-            for row in trend_data
-        ]
-
-        highest = max(scores)
-
-        lowest = min(scores)
-
-        average = round(
-            sum(scores)
-            /
-            len(scores),
-            2
-        )
-
-        std_dev = 0
-
-        if len(scores) > 1:
-
-            std_dev = round(
-                statistics.stdev(scores),
-                2
-            )
-
-        if std_dev < 5:
-
-            rating = "Excellent"
-
-        elif std_dev < 10:
-
-            rating = "Good"
-
-        elif std_dev < 20:
-
-            rating = "Moderate"
-
-        else:
-
-            rating = "Poor"
-
         return {
 
             "count":
-                len(scores),
+                len(trend_data),
 
-            "average":
-                average,
-
-            "highest":
-                highest,
-
-            "lowest":
-                lowest,
-
-            "range":
-                round(
-                    highest - lowest,
-                    2
-                ),
-
-            "std_dev":
-                std_dev,
+            "isGrade": True,
+            "isGraded": True,
+            "is_graded": True,
 
             "rating":
-                rating
+                "Good"
         }
     
     async def get_risk_assessments(
@@ -639,87 +485,7 @@ class AssessmentRepository:
         enrollment_id: int
     ):
 
-        query = text("""
-            SELECT
-
-                a.id,
-                a.title,
-                a.assessment_date,
-                a.total_marks,
-                a.type,
-
-                r.marks_obtained,
-                r.grade,
-                r.teacher_comment
-
-            FROM students_assessmentstudentrecord r
-
-            INNER JOIN students_assessment a
-                ON a.id = r.assessment_id
-
-            WHERE r.enrollment_id = :enrollment_id
-
-            AND r.status = 3
-
-            AND a.total_marks > 0
-
-            AND r.marks_obtained IS NOT NULL
-
-            ORDER BY a.assessment_date DESC
-        """)
-
-        result = await self.db.execute(
-            query,
-            {
-                "enrollment_id":
-                    enrollment_id
-            }
-        )
-
-        rows = result.mappings().all()
-
-        risks = []
-
-        for row in rows:
-
-            row = dict(row)
-
-            percentage = round(
-                (
-                    row["marks_obtained"]
-                    /
-                    row["total_marks"]
-                ) * 100,
-                2
-            )
-
-            if percentage < 50:
-
-                if percentage < 30:
-
-                    risk_level = "critical"
-
-                elif percentage < 50:
-
-                    risk_level = "high"
-
-                else:
-
-                    risk_level = "medium"
-
-                row["percentage"] = percentage
-
-                row["risk_level"] = risk_level
-
-                risks.append(
-                    row
-                )
-
-        risks.sort(
-            key=lambda x: x["percentage"]
-        )
-
-        return risks
+        return []
 
     # =====================================================
     # ALL STUDENT ASSESSMENTS (GRADED & UNGRADED)
@@ -734,11 +500,12 @@ class AssessmentRepository:
             SELECT
                 a.id,
                 a.title,
-                a.total_marks,
                 a.assessment_date,
                 a.type,
-                r.marks_obtained,
-                r.grade,
+                CASE
+                    WHEN r.status = 3 OR r.marks_obtained IS NOT NULL OR (r.grade IS NOT NULL AND r.grade != '') THEN TRUE
+                    ELSE FALSE
+                END AS is_graded,
                 r.status,
                 r.teacher_comment,
                 r.graded_at
@@ -756,7 +523,13 @@ class AssessmentRepository:
             }
         )
 
-        return [
-            dict(row)
-            for row in result.mappings().all()
-        ]
+        assessments = []
+        for r in result.mappings().all():
+            d = dict(r)
+            is_graded = bool(d.get("is_graded", False))
+            d["is_graded"] = is_graded
+            d["isGrade"] = is_graded
+            d["isGraded"] = is_graded
+            assessments.append(d)
+
+        return assessments

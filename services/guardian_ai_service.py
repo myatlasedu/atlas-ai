@@ -38,6 +38,10 @@ from intents.common.prompt_categories import (
     build_unknown_intent_summary,
 )
 
+from utils import (
+    process_and_sanitize_grades,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -351,6 +355,8 @@ class GuardianAIService:
             tool_latency_ms += (
                 current_tool_latency_ms
             )
+
+            result = process_and_sanitize_grades(result)
 
             results[
                 tool_name

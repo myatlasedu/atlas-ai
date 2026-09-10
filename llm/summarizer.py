@@ -522,39 +522,18 @@ Explain that Atlas Score is still calibrating.
 
         if isinstance(titled_mark, dict):
 
-            grade = (titled_mark.get("grade") or "").strip()
+            is_graded = bool(
+                titled_mark.get("isGrade")
+                or titled_mark.get("isGraded")
+                or titled_mark.get("is_graded")
+            )
 
-            if grade in ("A*", "A"):
-
-                encouragement = (
-                    "End with one short sentence praising "
-                    "the result and encouraging the student "
-                    "to keep up the good work."
-                )
-
-            elif grade == "B":
-
-                encouragement = (
-                    "End with one short sentence acknowledging "
-                    "the decent result and encouraging the "
-                    "student to keep pushing."
-                )
-
-            elif grade in VALID_HOMEWORK_GRADES:
-
-                encouragement = (
-                    "End with one short sentence encouraging "
-                    "the student to strive harder next time."
-                )
-
-            else:
-
-                encouragement = ""
+            encouragement = ""
 
             owner = (
-                "Your child's latest homework grade"
+                "Your child's homework"
                 if role == "guardian"
-                else "Your latest homework grade"
+                else "Your homework"
             )
 
             subject_line = (
@@ -599,30 +578,36 @@ Explain that Atlas Score is still calibrating.
                 if line
             )
 
-            if grade in VALID_HOMEWORK_GRADES:
+            if is_graded:
 
                 fact_block = (
                     f"""
 - title: {titled_mark.get('title')}
-- grade: {grade}"""
+- status: graded
+- isGraded: true"""
                     + ("\n" + extra_facts if extra_facts else "")
                 )
 
                 start = (
-                    f'"{owner} for <title> is <grade>."'
+                    f'"{owner} for <title> has been graded. The grade will be available on the report card."'
+                    if role == "guardian"
+                    else f'"{owner} for <title> has been graded. Your grade will be available on the report card."'
                 )
 
             else:
 
                 fact_block = (
                     f"""
-- title: {titled_mark.get('title')}"""
+- title: {titled_mark.get('title')}
+- status: not graded yet
+- isGraded: false"""
                     + ("\n" + extra_facts if extra_facts else "")
                 )
 
                 start = (
-                    '"<title> has been graded, but no grade '
-                    'is recorded yet."'
+                    f'"{owner} for <title> has not been graded yet. The grade will be available on the report card once declared."'
+                    if role == "guardian"
+                    else f'"{owner} for <title> has not been graded yet. Your grade will be available on the report card once declared."'
                 )
 
             detail_note = (
@@ -1826,7 +1811,10 @@ async def summarize_response(
     if (
         isinstance(homework_context, dict)
         and homework_context.get("direct_answer") is not None
-        and homework_context.get("focus") is None
+        and (
+            homework_context.get("focus") is None
+            or isinstance(homework_context.get("titled_mark"), dict)
+        )
     ):
 
         return homework_context["direct_answer"]
