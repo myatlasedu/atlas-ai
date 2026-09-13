@@ -40,3 +40,7 @@ class ParsedGuardianIntent(BaseModel):
     confidence: float = 0.95
 
     original_query: str = ""
+
+    raw_query: str | None = None
+
+    is_follow_up: bool = False

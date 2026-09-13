@@ -9,7 +9,10 @@ from decimal import Decimal
 
 from uuid import UUID
 
-from sqlalchemy import text
+from sqlalchemy import (
+    bindparam,
+    text,
+)
 
 
 def make_json_safe(value):
@@ -72,6 +75,55 @@ def make_json_safe(value):
         ]
 
     return value
+
+
+
+def _coerce_json(
+    value,
+    default,
+):
+
+    # jsonb columns normally arrive decoded, but a raw driver
+    # (or a NULL column) can hand back a string or None.
+
+    if value is None:
+
+        return default
+
+    if isinstance(
+        value,
+        str,
+    ):
+
+        try:
+
+            value = json.loads(
+                value
+            )
+
+        except (
+            ValueError,
+            TypeError,
+        ):
+
+            return default
+
+    if isinstance(
+        default,
+        list,
+    ):
+
+        return (
+            list(value)
+            if isinstance(value, (list, tuple))
+            else default
+        )
+
+    return (
+        value
+        if isinstance(value, dict)
+        else default
+    )
 
 
 class AIConversationAuditRepository:
@@ -205,3 +257,67 @@ class AIConversationAuditRepository:
         await db.commit()
 
         return result.scalar_one()
+
+    # ==================================================
+    # RECENT TURNS (CONVERSATION CONTEXT)
+    # ==================================================
+    NON_CONTEXTUAL_INTENTS = ("unknown", "action_confirmation", "")
+
+    async def list_recent_turns(
+        self,
+        db,
+        *,
+        user_id: int,
+        role: str,
+        limit: int = 5,
+    ) -> list[dict]:
+        statement = text(
+            """
+            SELECT
+                id AS turn_id,
+                query,
+                predicted_intent,
+                parsed_intent,
+                selected_tools,
+                summary,
+                created_at
+            FROM ai_conversation_audit
+            WHERE
+                user_id = :user_id
+                AND role = :role
+                AND query IS NOT NULL
+                AND TRIM(query) != ''
+                AND LOWER(COALESCE(predicted_intent, '')) NOT IN :ignored_intents
+            ORDER BY
+                created_at DESC,
+                id DESC
+            LIMIT :limit
+            """
+        ).bindparams(
+            bindparam(
+                "ignored_intents",
+                expanding=True,
+            )
+        )
+
+        result = await db.execute(
+            statement,
+            {
+                "user_id": user_id,
+                "role": role,
+                "ignored_intents": list(
+                    self.NON_CONTEXTUAL_INTENTS
+                ),
+                "limit": limit,
+            },
+        )
+
+        rows = []
+        for row in result.mappings().all():
+            item = dict(row)
+            # Ensure JSON columns deserialize safely
+            item["parsed_intent"] = _coerce_json(item.get("parsed_intent"), default={})
+            item["selected_tools"] = _coerce_json(item.get("selected_tools"), default=[])
+            rows.append(item)
+        
+        return rows

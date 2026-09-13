@@ -16,6 +16,15 @@ from intents.guardian.classifier import (
     classify_guardian_intent
 )
 
+from intents.common.conversation_context import (
+    inherit_parameters,
+    is_follow_up_query,
+)
+
+from schemas.conversation import (
+    ConversationTurn
+)
+
 from intents.guardian.enums import (
     GuardianIntent
 )
@@ -532,19 +541,45 @@ def normalize_dates(
 async def parse_guardian_intent(
     query: str,
     enrollment_id: int | None = None,
+    turns: list[ConversationTurn] | None = None,
 ) -> ParsedGuardianIntent:
 
     try:
 
         normalized_query = query.strip().lower()
 
-        classified_intent = (
+        classification = (
             await classify_guardian_intent(
-                normalized_query
+                normalized_query,
+                turns=turns,
             )
         )
 
-        query_lower = normalized_query
+        classified_intent = classification.intent
+
+        context_turn = classification.context_turn
+
+        # A follow-up is answered as its self-contained rewrite; a
+        # stand-alone query keeps the user's own words untouched.
+
+        resolved_query = (
+            classification.resolved_query
+            if (
+                classification.is_follow_up
+                and classification.resolved_query
+                and classification.resolved_query
+                != normalized_query
+            )
+            else query
+        )
+
+        parse_query = (
+            resolved_query
+            .strip()
+            .lower()
+        )
+
+        query_lower = parse_query
 
         if (
             classified_intent == GuardianIntent.UNKNOWN
@@ -561,6 +596,40 @@ async def parse_guardian_intent(
 
             classified_intent = GuardianIntent.HOMEWORK_SUMMARY
 
+        # An unplaceable query right after a real turn is a follow-up
+        # to it ("and last week?"), not an unknown intent.
+
+        if (
+            classified_intent == GuardianIntent.UNKNOWN
+            and turns
+            and (
+                classification.is_follow_up
+                or is_follow_up_query(parse_query)
+            )
+        ):
+
+            context_turn = context_turn or turns[0]
+
+            try:
+
+                classified_intent = GuardianIntent(
+                    context_turn.predicted_intent
+                )
+
+                logger.info(
+                    "Guardian UNKNOWN resolved to %s from conversation turn %s.",
+                    classified_intent.value,
+                    context_turn.turn_id,
+                )
+
+            except ValueError:
+
+                context_turn = None
+
+        if classified_intent == GuardianIntent.UNKNOWN:
+
+            context_turn = None
+
         logger.info(
             "Guardian classified intent: %s",
             classified_intent.value
@@ -576,7 +645,7 @@ async def parse_guardian_intent(
                 },
                 {
                     "role": "user",
-                    "content": normalized_query
+                    "content": parse_query
                 }
             ],
             expect_json=True
@@ -718,7 +787,22 @@ async def parse_guardian_intent(
 
         parsed["intent"] = intent
 
-        parsed["original_query"] = query
+        # Tools, date resolution and focus rules all read
+        # original_query: for a follow-up that must be the resolved
+        # text, or "what about this month?" carries no module at all.
+
+        parsed["original_query"] = resolved_query
+
+        parsed["raw_query"] = query
+
+        parsed["is_follow_up"] = (
+            classification.is_follow_up
+        )
+
+        parsed = inherit_parameters(
+            parsed,
+            context_turn,
+        )
 
         parsed = normalize_dates(
             parsed

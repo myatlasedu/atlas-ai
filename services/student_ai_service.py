@@ -34,6 +34,10 @@ from llm.summarizer import (
     summarize_response,
 )
 
+from services.context_service import (
+    ConversationContextService,
+)
+
 from services.date_service import (
     DateService,
 )
@@ -208,6 +212,16 @@ class StudentAIService:
         summary = ""
 
         # ==================================================
+        # CONVERSATION CONTEXT
+        # ==================================================
+
+        recent_turns = (
+            await ConversationContextService.load_recent_turns(
+                context=context,
+            )
+        )
+
+        # ==================================================
         # CONFIRMATION SHORT CIRCUIT
         # ==================================================
 
@@ -356,6 +370,7 @@ class StudentAIService:
                         query=query,
                         role=context.role,
                         enrollment_id=context.enrollment_id,
+                        turns=recent_turns,
                     )
                 )
 
@@ -388,6 +403,7 @@ class StudentAIService:
                     query=query,
                     role=context.role,
                     enrollment_id=context.enrollment_id,
+                    turns=recent_turns,
                 )
             )
 

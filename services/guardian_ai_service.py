@@ -30,6 +30,10 @@ from llm.summarizer import (
     summarize_response,
 )
 
+from services.context_service import (
+    ConversationContextService,
+)
+
 from services.date_service import (
     DateService,
 )
@@ -194,6 +198,16 @@ class GuardianAIService:
         summary = ""
 
         # ==================================================
+        # CONVERSATION CONTEXT
+        # ==================================================
+
+        recent_turns = (
+            await ConversationContextService.load_recent_turns(
+                context=context,
+            )
+        )
+
+        # ==================================================
         # INTENT PARSING
         # ==================================================
 
@@ -205,6 +219,7 @@ class GuardianAIService:
             await parse_guardian_intent(
                 query,
                 enrollment_id=context.enrollment_id,
+                turns=recent_turns,
             )
         )
 

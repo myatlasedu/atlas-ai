@@ -30,6 +30,10 @@ from intents.student.schemas import (
     ParsedStudentIntent,
 )
 
+from schemas.conversation import (
+    ConversationTurn,
+)
+
 from utils import (
     resolve_dates,
     ist_today,
@@ -588,6 +592,7 @@ def normalize_focus(
 async def parse_student_intent(
     query: str,
     enrollment_id: int | None = None,
+    turns: list[ConversationTurn] | None = None,
 ) -> ParsedStudentIntent:
 
     try:
@@ -599,13 +604,38 @@ async def parse_student_intent(
 
         normalized_query = query.strip().lower()
 
-        classified_intent = (
+        classification = (
             await classify_student_intent(
-                normalized_query
+                normalized_query,
+                turns=turns,
             )
         )
 
-        query_lower = normalized_query
+        classified_intent = classification.intent
+
+        context_turn = classification.context_turn
+
+        # A follow-up is answered as its self-contained rewrite; a
+        # stand-alone query keeps the user's own words untouched.
+
+        resolved_query = (
+            classification.resolved_query
+            if (
+                classification.is_follow_up
+                and classification.resolved_query
+                and classification.resolved_query
+                != normalized_query
+            )
+            else query
+        )
+
+        parse_query = (
+            resolved_query
+            .strip()
+            .lower()
+        )
+
+        query_lower = parse_query
 
         if (
             classified_intent == StudentIntent.UNKNOWN
@@ -645,7 +675,7 @@ async def parse_student_intent(
                 },
                 {
                     "role": "user",
-                    "content": normalized_query,
+                    "content": parse_query,
                 },
             ],
             expect_json=True,
@@ -792,7 +822,17 @@ async def parse_student_intent(
         # ORIGINAL QUERY
         # ==================================================
 
-        parsed["original_query"] = query
+        # Tools, date resolution and focus rules all read
+        # original_query: for a follow-up that must be the resolved
+        # text, or "what about this month?" carries no module at all.
+
+        parsed["original_query"] = resolved_query
+
+        parsed["raw_query"] = query
+
+        parsed["is_follow_up"] = (
+            classification.is_follow_up
+        )
 
         # ==================================================
         # STEP 6
