@@ -22,6 +22,45 @@ class StudentPerformanceTool:
                 "error": "Enrollment ID missing",
             }
 
+        query = (
+            getattr(
+                parsed_intent,
+                "original_query",
+                ""
+            )
+            .lower()
+            .replace("?", "")
+            .replace(".", "")
+            .strip()
+        )
+
+        role = getattr(context, "role", "student")
+
+        if any(w in query for w in ["mark", "marks", "scorecard", "score card"]):
+            async with AsyncSessionLocal() as db:
+                from db.repositories.student.assessment_repository import AssessmentRepository
+                asm_repo = AssessmentRepository(db)
+                latest = await asm_repo.get_latest_result(context.enrollment_id)
+                if latest and (latest.get("isGrade") or latest.get("isGraded") or latest.get("is_graded")):
+                    if role == "guardian":
+                        direct = "Your child's assessment has been graded. The grade will be available on the report card."
+                    else:
+                        direct = "Your assessment has been graded. Your grade will be available on the report card."
+                elif latest:
+                    if role == "guardian":
+                        direct = "The grade will be available on the report card once declared."
+                    else:
+                        direct = "Your grade will be available on the report card once declared."
+                else:
+                    if role == "guardian":
+                        direct = "The grade will be available on the report card once declared."
+                    else:
+                        direct = "Your grade will be available on the report card once declared."
+                return {
+                    "module": "student_performance",
+                    "direct_answer": direct,
+                }
+
         async with AsyncSessionLocal() as db:
 
             repo = StudentPerformanceRepository(

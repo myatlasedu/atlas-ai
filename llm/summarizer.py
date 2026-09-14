@@ -180,14 +180,15 @@ def build_prompt(
 
     - status
     - metrics
-    - best_assessment
-    - weakest_assessment
     - highlights
     - focus
     - actions
 
     Do NOT:
 
+    - mention marks, scores, percentages, averages, grades, or numerical ratings
+    - reveal or name the highest, lowest, or average-scoring assessment
+    - say performance is critical, below target, or declining based on scores
     - calculate scores
     - infer trends
     - invent feedback
@@ -195,6 +196,8 @@ def build_prompt(
     - mention JSON
     - mention data fields
     - mention missing information
+
+    Grades will be available on the report card once declared.
 
     Use the supplied highlights and actions exactly as guidance.
 
@@ -518,39 +521,18 @@ Explain that Atlas Score is still calibrating.
 
         if isinstance(titled_mark, dict):
 
-            grade = (titled_mark.get("grade") or "").strip()
+            is_graded = bool(
+                titled_mark.get("isGrade")
+                or titled_mark.get("isGraded")
+                or titled_mark.get("is_graded")
+            )
 
-            if grade in ("A*", "A"):
-
-                encouragement = (
-                    "End with one short sentence praising "
-                    "the result and encouraging the student "
-                    "to keep up the good work."
-                )
-
-            elif grade == "B":
-
-                encouragement = (
-                    "End with one short sentence acknowledging "
-                    "the decent result and encouraging the "
-                    "student to keep pushing."
-                )
-
-            elif grade in VALID_HOMEWORK_GRADES:
-
-                encouragement = (
-                    "End with one short sentence encouraging "
-                    "the student to strive harder next time."
-                )
-
-            else:
-
-                encouragement = ""
+            encouragement = ""
 
             owner = (
-                "Your child's latest homework grade"
+                "Your child's homework"
                 if role == "guardian"
-                else "Your latest homework grade"
+                else "Your homework"
             )
 
             subject_line = (
@@ -595,30 +577,36 @@ Explain that Atlas Score is still calibrating.
                 if line
             )
 
-            if grade in VALID_HOMEWORK_GRADES:
+            if is_graded:
 
                 fact_block = (
                     f"""
 - title: {titled_mark.get('title')}
-- grade: {grade}"""
+- status: graded
+- isGraded: true"""
                     + ("\n" + extra_facts if extra_facts else "")
                 )
 
                 start = (
-                    f'"{owner} for <title> is <grade>."'
+                    f'"{owner} for <title> has been graded. The grade will be available on the report card."'
+                    if role == "guardian"
+                    else f'"{owner} for <title> has been graded. Your grade will be available on the report card."'
                 )
 
             else:
 
                 fact_block = (
                     f"""
-- title: {titled_mark.get('title')}"""
+- title: {titled_mark.get('title')}
+- status: not graded yet
+- isGraded: false"""
                     + ("\n" + extra_facts if extra_facts else "")
                 )
 
                 start = (
-                    '"<title> has been graded, but no grade '
-                    'is recorded yet."'
+                    f'"{owner} for <title> has not been graded yet. The grade will be available on the report card once declared."'
+                    if role == "guardian"
+                    else f'"{owner} for <title> has not been graded yet. Your grade will be available on the report card once declared."'
                 )
 
             detail_note = (
@@ -1822,10 +1810,39 @@ async def summarize_response(
     if (
         isinstance(homework_context, dict)
         and homework_context.get("direct_answer") is not None
-        and homework_context.get("focus") is None
+        and (
+            homework_context.get("focus") is None
+            or isinstance(homework_context.get("titled_mark"), dict)
+        )
     ):
 
         return homework_context["direct_answer"]
+
+    assessment_context = (
+        llm_data.get("assessment")
+        if isinstance(llm_data, dict)
+        else None
+    ) or {}
+
+    if (
+        isinstance(assessment_context, dict)
+        and assessment_context.get("direct_answer") is not None
+    ):
+
+        return assessment_context["direct_answer"]
+
+    student_perf_context = (
+        llm_data.get("student_performance")
+        if isinstance(llm_data, dict)
+        else None
+    ) or {}
+
+    if (
+        isinstance(student_perf_context, dict)
+        and student_perf_context.get("direct_answer") is not None
+    ):
+
+        return student_perf_context["direct_answer"]
 
     is_titled_mark = (
         intent == StudentIntent.HOMEWORK_SUMMARY
@@ -1862,6 +1879,9 @@ async def summarize_response(
     if context.role == "guardian" and not is_titled_mark:
 
         system_prompt = GUARDIAN_SYSTEM_PROMPT
+
+    if len(prompt) > 12000:
+        prompt = prompt[:12000] + "\n\n[Note: Content truncated to stay within context limits]"
 
     response = await chat_completion(
         [

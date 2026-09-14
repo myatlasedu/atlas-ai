@@ -580,3 +580,85 @@ def resolve_canonical_name(raw, names, cutoff=0.6):
     if match:
         return next(n for n in names if str(n).lower() == match[0])
     return None
+
+
+def format_homework_graded_response(title: str, role: str = "student", close_match_note: str = "") -> str:
+    if role == "guardian":
+        return f"{close_match_note}Your child's {title} homework has been graded. The grade will be available on the report card."
+    return f"{close_match_note}Your {title} homework has been graded. Your grade will be available on the report card."
+
+
+def format_homework_ungraded_response(title: str, role: str = "student", close_match_note: str = "") -> str:
+    if role == "guardian":
+        return f"{close_match_note}Your child's {title} homework has not been graded yet. The grade will be available on the report card once declared."
+    return f"{close_match_note}Your {title} homework has not been graded yet. Your grade will be available on the report card once declared."
+
+
+_MARKS_KEYS_TO_REMOVE = {
+    "grade",
+    "marks",
+    "marks_obtained",
+    "total_marks",
+    "score",
+    "final_grade",
+    "percentage",
+    "average_percentage",
+    "highest_percentage",
+    "lowest_percentage",
+}
+
+
+def process_and_sanitize_grades(data):
+    """
+    Recursively inspects data structures returned by tools.
+    If marks or grade keys are present, sets boolean isGrade/isGraded/is_graded,
+    and removes all raw marks, grades, and percentages.
+    """
+    if isinstance(data, dict):
+        has_grade_mark_indicator = any(
+            k in data for k in (
+                "grade",
+                "marks",
+                "marks_obtained",
+                "total_marks",
+                "score",
+                "final_grade",
+                "percentage",
+                "is_graded",
+                "isGrade",
+                "isGraded",
+            )
+        ) or (
+            data.get("status") in (2, 3)
+            or data.get("status_tag") in ("graded", "submitted_not_graded")
+        )
+
+        if has_grade_mark_indicator:
+            is_graded = False
+            if "isGrade" in data and isinstance(data["isGrade"], bool):
+                is_graded = data["isGrade"]
+            elif "isGraded" in data and isinstance(data["isGraded"], bool):
+                is_graded = data["isGraded"]
+            elif "is_graded" in data and isinstance(data["is_graded"], bool):
+                is_graded = data["is_graded"]
+            elif data.get("status") in (2, 3) or data.get("status_tag") == "graded":
+                is_graded = True
+            elif data.get("marks_obtained") is not None or (data.get("grade") and str(data.get("grade")).strip()):
+                is_graded = True
+
+            data["isGrade"] = is_graded
+            data["isGraded"] = is_graded
+            data["is_graded"] = is_graded
+
+            for key in _MARKS_KEYS_TO_REMOVE:
+                data.pop(key, None)
+
+        for k, v in list(data.items()):
+            data[k] = process_and_sanitize_grades(v)
+
+        return data
+
+    elif isinstance(data, list):
+        return [process_and_sanitize_grades(item) for item in data]
+
+    return data

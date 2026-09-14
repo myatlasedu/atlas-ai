@@ -622,10 +622,13 @@ async def parse_guardian_intent(
                 classified_intent.value
             )
 
-        # Safety net: marks for a specific homework must route to homework_summary.
+        # Safety net: marks for a specific homework must route to homework_summary,
+        # but NEVER when the user explicitly asked about an assessment/test/exam,
+        # and only if the topic actually matches a known homework title.
 
         if (
-            intent
+            enrollment_id
+            and intent
             ==
             GuardianIntent.ASSESSMENT_SUMMARY.value
             and
@@ -638,16 +641,44 @@ async def parse_guardian_intent(
                 "topic",
                 None,
             )
+            and not any(
+                w in query_lower
+                for w in ["assessment", "assessments", "exam", "exams"]
+            )
         ):
 
-            logger.info(
-                "Reclassifying guardian assessment intent to homework_summary: %r",
-                query,
+            async with AsyncSessionLocal() as db:
+
+                hw_repo = HomeworkRepository(db)
+
+                hw_titles = [
+                    t["title"]
+                    for t in (
+                        await hw_repo.list_enrollment_homework_titles(
+                            enrollment_id
+                        )
+                    )
+                ]
+
+            canonical_hw = resolve_canonical_name(
+                str(parsed["topic"]),
+                hw_titles,
             )
 
-            intent = (
-                GuardianIntent.HOMEWORK_SUMMARY.value
-            )
+            if canonical_hw:
+
+                logger.info(
+                    "Reclassifying guardian assessment intent to homework_summary "
+                    "(matches homework title %r): %r",
+                    canonical_hw,
+                    query,
+                )
+
+                intent = (
+                    GuardianIntent.HOMEWORK_SUMMARY.value
+                )
+
+                parsed["topic"] = canonical_hw
 
         # Safety net: an unknown with a homework topic routes to homework_summary.
 
