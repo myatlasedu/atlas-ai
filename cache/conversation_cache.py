@@ -17,9 +17,6 @@ class ConversationCache:
 
     PREFIX = "ai_conversation"
 
-    # Turns survive a day of inactivity. Anything older is
-    # rebuilt from the tables on the next query.
-
     TTL_SECONDS = (
         60 * 60 * 24
     )

@@ -40,7 +40,8 @@ async def classify_guardian_intent(
             base_prompt=CLASSIFIER_PROMPT,
             query=query,
             turns=turns,
-        )
+        ),
+        expect_json=True,
     )
 
     parsed = parse_llm_json(

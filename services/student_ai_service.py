@@ -253,7 +253,7 @@ class StudentAIService:
         context,
         session_id: str | None = None,
     ):
-        print("\n****Start to get TURN****\n")
+
         turn = await ChatSessionService.start_turn(
             context=context,
             query=query,
@@ -261,12 +261,12 @@ class StudentAIService:
             role="student",
         )
 
-        print("\n****Turn receive****")
+        print("\n****Turn setting into redis****")
         print(turn)
         token = current_turn.set(
             turn
         )
-        print("\n***TOKEN***\n", token)
+
         try:
 
             response = await self._answer(
@@ -344,7 +344,6 @@ class StudentAIService:
 
         recent_turns = (
             await ConversationContextService.load_recent_turns(
-                context=context,
                 turn=current_turn.get(),
             )
         )

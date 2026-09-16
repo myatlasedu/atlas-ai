@@ -7,9 +7,14 @@ actually refers to, while a self-contained query keeps its own intent.
 """
 
 import logging
+import re
 
 from schemas.conversation import (
     ConversationTurn,
+)
+
+from utils import (
+    DATE_WINDOW_PHRASES,
 )
 
 
@@ -69,6 +74,22 @@ the CURRENT QUERY states.
 
 If the CURRENT QUERY names its own module, subject,
 person or time window, that value is final.
+
+A resolved_query must NEVER contain two time windows.
+
+If the CURRENT QUERY names its own time window, the
+recent turn's time window is DROPPED - not kept
+alongside it.
+
+recent:  "show this week homework"
+current: "show for last week"
+
+WRONG -> "show this week homework for last week"
+         (two windows: "this week" was carried over)
+
+RIGHT -> "show homework for last week"
+         (the module is borrowed, the window is the
+          current query's own)
 
 --------------------------------------------------
 
@@ -581,6 +602,57 @@ def inherit_parameters(
 # ==================================================
 
 
+def _strip_stale_windows(
+    candidate: str,
+    query: str,
+) -> str:
+
+    lowered = query.lower()
+
+    current_windows = [
+        phrase
+        for phrase in DATE_WINDOW_PHRASES
+        if phrase in lowered
+    ]
+
+    if not current_windows:
+
+        return candidate
+
+    cleaned = candidate
+
+    for phrase in DATE_WINDOW_PHRASES:
+
+        if phrase in current_windows:
+
+            continue
+
+        if phrase in cleaned.lower():
+
+            cleaned = re.sub(
+                re.escape(phrase),
+                "",
+                cleaned,
+                flags=re.IGNORECASE,
+            )
+
+    cleaned = re.sub(
+        r"\s+",
+        " ",
+        cleaned,
+    ).strip()
+
+    if cleaned != candidate:
+
+        logger.info(
+            "Dropped a carried-over time window: %r -> %r",
+            candidate,
+            cleaned,
+        )
+
+    return cleaned or candidate
+
+
 def resolve_followup_query(
     *,
     query: str,
@@ -606,9 +678,11 @@ def resolve_followup_query(
 
         return query
 
-    # A rewrite that merely echoes the turn being followed has dropped
-    # the current query entirely ("what about this month?" ->
-    # "show me the homework of last month").
+    candidate = _strip_stale_windows(
+        candidate,
+        query,
+    )
+
 
     if context_turn and _same_text(
         candidate,

@@ -82,7 +82,7 @@ class ChatSessionService:
                     session_id=session_id,
                     query=query,
                 )
-
+                print("\n===Session finally created===")
                 message = await cls.repository.create_message(
                     db,
                     session_id=session["id"],
@@ -94,9 +94,6 @@ class ChatSessionService:
                 print("\n=====Message Created in DB====")
                 print(message)
 
-                # A session created before this turn already
-                # carries the title. An existing session that
-                # never got one (first turn failed) gets it now.
 
                 if not session.get("title"):
 

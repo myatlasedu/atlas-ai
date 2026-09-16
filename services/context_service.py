@@ -1,11 +1,5 @@
 import logging
 
-from datetime import (
-    datetime,
-    timedelta,
-    timezone,
-)
-
 from cache.conversation_cache import (
     ConversationCache,
 )
@@ -14,9 +8,6 @@ from db.repositories.ai_chat_session_repository import (
     AIChatSessionRepository,
 )
 
-from db.repositories.ai_conversation_audit_repository import (
-    AIConversationAuditRepository,
-)
 from db.session import AsyncSessionLocal
 
 from schemas.conversation import ConversationTurn
@@ -28,12 +19,10 @@ class ConversationContextService:
 
     MAX_TURNS = 5
 
-    # Older turns are a different conversation, not context for this one.
-    # Only applies to the legacy path - a session is its own boundary.
-
-    MAX_AGE = timedelta(hours=24)
-
-    repository = AIConversationAuditRepository()
+    # History is session scoped: Redis holds it, and ai_chat_message
+    # rebuilds it when the key has expired. ai_conversation_audit is a
+    # debug table and is never read here - a query with no session is
+    # a fresh chat, not a query to be answered from someone's past.
 
     session_repository = AIChatSessionRepository()
 
@@ -41,7 +30,6 @@ class ConversationContextService:
     async def load_recent_turns(
         cls,
         *,
-        context,
         turn=None,
         limit: int | None = None,
     ) -> list[ConversationTurn]:
@@ -54,34 +42,32 @@ class ConversationContextService:
             None,
         )
 
-        if session_id:
-            print("\n====Session Present====")
-            print(session_id)
+        if not session_id:
 
-            if (
-                getattr(
-                    turn,
-                    "turn_index",
-                    0,
-                )
-                <= 1
-            ):
-
-                logger.info(
-                    "First turn of session=%s; skipping history lookup.",
-                    session_id,
-                )
-
-                return []
-
-            return await cls._load_session_turns(
-                session_id=session_id,
-                limit=target_limit,
+            logger.info(
+                "No session on this turn; answering as a fresh chat."
             )
 
-        print("\n====Session Not Present=====")
-        return await cls._load_user_turns(
-            context=context,
+            return []
+
+        if (
+            getattr(
+                turn,
+                "turn_index",
+                0,
+            )
+            <= 1
+        ):
+
+            logger.info(
+                "First turn of session=%s; skipping history lookup.",
+                session_id,
+            )
+
+            return []
+
+        return await cls._load_session_turns(
+            session_id=session_id,
             limit=target_limit,
         )
 
@@ -103,8 +89,6 @@ class ConversationContextService:
         )
 
         if rows is None:
-            print("\n=====Session Cache Expire/not build in redis=====")
-            print()
 
             rows = await cls._rebuild_cache(
                 session_id=session_id,
@@ -134,15 +118,12 @@ class ConversationContextService:
         try:
 
             async with AsyncSessionLocal() as db:
-                print("\n====Listing recent turn====")
 
                 rows = await cls.session_repository.list_recent_turns(
                     db,
                     session_id=session_id,
                     limit=limit,
                 )
-                print("\n==== Recent Turns during building cache====")
-                print(rows)
 
         except Exception:
 
@@ -153,7 +134,7 @@ class ConversationContextService:
             return []
 
         logger.info(
-            "Rebuilt %s turn(s) from Postgres for session=%s",
+            "Rebuilt %s turn(s) from ai_chat_message for session=%s",
             len(rows),
             session_id,
         )
@@ -164,57 +145,6 @@ class ConversationContextService:
         )
 
         return rows
-
-    # ==================================================
-    # USER SCOPED (LEGACY FALLBACK)
-    # ==================================================
-
-    @classmethod
-    async def _load_user_turns(
-        cls,
-        *,
-        context,
-        limit: int,
-    ) -> list[ConversationTurn]:
-
-        try:
-            async with AsyncSessionLocal() as db:
-                rows = await cls.repository.list_recent_turns(
-                    db,
-                    user_id=context.user_id,
-                    role=context.role,
-                    limit=limit,
-                )
-        except Exception:
-            logger.exception(
-                "Failed to load conversation context; continuing without history."
-            )
-            return []
-
-        turns: list[ConversationTurn] = []
-        for row in rows:
-            try:
-                turn = ConversationTurn(**row)
-            except Exception:
-                logger.warning(
-                    "Skipping malformed turn ID: %s",
-                    row.get("turn_id"),
-                )
-                continue
-
-            if cls._is_stale(turn):
-                # Newest-first ordering: everything below is older still.
-                break
-
-            turns.append(turn)
-
-        logger.info(
-            "Loaded %s genuine turn(s) for user=%s role=%s",
-            len(turns),
-            context.user_id,
-            context.role,
-        )
-        return turns
 
     # ==================================================
     # HELPERS
@@ -248,27 +178,9 @@ class ConversationContextService:
 
         return turns
 
-    @classmethod
-    def _is_stale(
-        cls,
-        turn: ConversationTurn,
-    ) -> bool:
-
-        if turn.created_at is None:
-            return False
-
-        created_at = turn.created_at
-
-        # The column is naive UTC in some environments, aware in others.
-        if created_at.tzinfo is None:
-            created_at = created_at.replace(tzinfo=timezone.utc)
-
-        return (
-            datetime.now(timezone.utc) - created_at
-        ) > cls.MAX_AGE
-
     @staticmethod
     def previous_turn(
         turns: list[ConversationTurn],
     ) -> ConversationTurn | None:
+
         return turns[0] if turns else None

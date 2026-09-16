@@ -35,6 +35,8 @@ from schemas.conversation import (
 )
 
 from utils import (
+    date_query,
+    month_window,
     resolve_dates,
     ist_today,
     MARKS_QUERY_KEYWORDS,
@@ -235,23 +237,34 @@ def normalize_focus(
             "topic_status"
         )
 
-    # Week/month: force due_range for the full window (homework-only; resolve_dates stays end-at-today).
 
     query_lower = (
         parsed.get("original_query", "")
         .lower()
     )
 
-    window_phrase = any(
-        phrase in query_lower
-        for phrase in (
-            "this week",
-            "last week",
-            "next week",
-            "this month",
-            "last month",
-            "next month",
+    window_query = date_query(
+        parsed
+    )
+
+
+    named_month = month_window(
+        window_query
+    )
+
+    window_phrase = (
+        any(
+            phrase in window_query
+            for phrase in (
+                "this week",
+                "last week",
+                "next week",
+                "this month",
+                "last month",
+                "next month",
+            )
         )
+        or named_month is not None
     )
 
     if (
@@ -268,7 +281,7 @@ def normalize_focus(
 
         parsed["homework_focus"] = "due_range"
 
-        if "this week" in query_lower:
+        if "this week" in window_query:
 
             today = ist_today()
 
@@ -282,7 +295,7 @@ def normalize_focus(
 
             parsed["end_date"] = sunday.isoformat()
 
-        elif "last week" in query_lower:
+        elif "last week" in window_query:
 
             today = ist_today()
 
@@ -298,7 +311,7 @@ def normalize_focus(
 
             parsed["end_date"] = sunday.isoformat()
 
-        elif "next week" in query_lower:
+        elif "next week" in window_query:
 
             today = ist_today()
 
@@ -314,7 +327,7 @@ def normalize_focus(
 
             parsed["end_date"] = sunday.isoformat()
 
-        elif "this month" in query_lower:
+        elif "this month" in window_query:
 
             today = ist_today()
 
@@ -331,7 +344,7 @@ def normalize_focus(
                 day=last_day,
             ).isoformat()
 
-        elif "last month" in query_lower:
+        elif "last month" in window_query:
 
             today = ist_today()
 
@@ -362,7 +375,7 @@ def normalize_focus(
                 last_day,
             ).isoformat()
 
-        elif "next month" in query_lower:
+        elif "next month" in window_query:
 
             today = ist_today()
 
@@ -393,7 +406,16 @@ def normalize_focus(
                 last_day,
             ).isoformat()
 
-    # Late submissions ("late homework submitted last week") = handed in after the due date.
+        elif named_month:
+
+            parsed["start_date"] = (
+                named_month[0].isoformat()
+            )
+
+            parsed["end_date"] = (
+                named_month[1].isoformat()
+            )
+
 
     if (
         parsed.get("intent")
@@ -523,7 +545,7 @@ def normalize_focus(
         focus in (None, "general", "due_range")
     ):
 
-        if "next year" in query_lower:
+        if "next year" in window_query:
 
             year = ist_today().year + 1
 
@@ -533,7 +555,7 @@ def normalize_focus(
 
             parsed["end_date"] = f"{year}-12-31"
 
-        elif "last year" in query_lower:
+        elif "last year" in window_query:
 
             year = ist_today().year - 1
 
@@ -614,9 +636,6 @@ async def parse_student_intent(
         classified_intent = classification.intent
 
         context_turn = classification.context_turn
-
-        # A follow-up is answered as its self-contained rewrite; a
-        # stand-alone query keeps the user's own words untouched.
 
         resolved_query = (
             classification.resolved_query

@@ -44,6 +44,7 @@ async def classify_student_intent(
 
     response = await chat_completion(
         messages=messages,
+        expect_json=True,
         thinking=False
     )
 
@@ -51,11 +52,11 @@ async def classify_student_intent(
         "Classifier response: %s",
         response,
     )
-
+    print("\n====Chat Completion complete for intent classification===")
     parsed = parse_llm_json(
         response["message"]["content"]
     )
-
+    print("\n====Parsed LLM JSON pass===")
     intent = (
         str(
             parsed.get(
@@ -69,9 +70,7 @@ async def classify_student_intent(
 
     print("\n====Parsed (LLM Response) contain all thing====")
     print(parsed)
-    print(parsed.get(
-            "context_turn")
-    )
+
     context_turn = resolve_context_turn(
         turns=turns,
         context_turn=parsed.get(

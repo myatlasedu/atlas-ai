@@ -334,7 +334,6 @@ class GuardianAIService:
 
         recent_turns = (
             await ConversationContextService.load_recent_turns(
-                context=context,
                 turn=current_turn.get(),
             )
         )

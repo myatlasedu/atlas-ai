@@ -101,11 +101,13 @@ class AIChatSessionRepository:
             },
         )
 
-        await db.commit()
-
-        return dict(
+        row = dict(
             result.mappings().one()
         )
+
+        await db.commit()
+
+        return row
 
     async def get_session(
         self,
@@ -265,12 +267,14 @@ class AIChatSessionRepository:
             },
         )
 
-        await db.commit()
-
-        return (
+        updated = (
             result.first()
             is not None
         )
+
+        await db.commit()
+
+        return updated
 
     async def set_session_status(
         self,
@@ -311,21 +315,18 @@ class AIChatSessionRepository:
             },
         )
 
-        await db.commit()
-
-        return (
+        updated = (
             result.first()
             is not None
         )
 
+        await db.commit()
+
+        return updated
+
     # ==================================================
     # TURNS
     # ==================================================
-
-    # turn_index is derived from the session's current max.
-    # Two writes racing on the same session collide on the
-    # (session_id, turn_index) unique constraint, so the
-    # insert is retried instead of failing the request.
 
     INSERT_RETRIES = 3
 
@@ -397,11 +398,13 @@ class AIChatSessionRepository:
                     parameters,
                 )
 
-                await db.commit()
-
-                return dict(
+                row = dict(
                     result.mappings().one()
                 )
+
+                await db.commit()
+
+                return row
 
             except IntegrityError:
 
@@ -458,12 +461,14 @@ class AIChatSessionRepository:
             },
         )
 
-        await db.commit()
-
-        return (
+        updated = (
             result.first()
             is not None
         )
+
+        await db.commit()
+
+        return updated
 
     async def attach_intent(
         self,
@@ -475,13 +480,6 @@ class AIChatSessionRepository:
         selected_tools: list | None = None,
         audit_id: int | None = None,
     ) -> bool:
-
-        #
-        # Everything the turn only learns after it has been
-        # answered, written in one round trip: the intent the
-        # cache rebuild replays, and the audit row a support
-        # query joins back to.
-        #
 
         statement = text(
             """
@@ -540,12 +538,14 @@ class AIChatSessionRepository:
             },
         )
 
-        await db.commit()
-
-        return (
+        updated = (
             result.first()
             is not None
         )
+
+        await db.commit()
+
+        return updated
 
     async def list_messages(
         self,
@@ -663,9 +663,6 @@ class AIChatSessionRepository:
                 )
                 or ""
             )
-
-            # jsonb normally arrives decoded, but a NULL column
-            # or a raw driver can hand back None or a string.
 
             item["parsed_intent"] = _coerce_json(
                 item.get(
