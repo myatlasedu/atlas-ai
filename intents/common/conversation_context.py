@@ -362,9 +362,15 @@ def _turn_line(
         else ""
     )
 
+    intent = (
+        f" | intent: {turn.predicted_intent}"
+        if turn.predicted_intent
+        else ""
+    )
+
     return (
         f"{position}. query: \"{turn_text(turn)}\""
-        f" | intent: {turn.predicted_intent}"
+        f"{intent}"
         f"{suffix}"
     )
 
@@ -389,6 +395,9 @@ def build_history_block(
             start=1,
         )
     ]
+    
+    print("\n====Lines in building History====")
+    print(lines)
 
     return (
         "==================================================\n"
@@ -419,6 +428,9 @@ def build_classifier_messages(
                 "content": query,
             },
         ]
+    
+    print("\n====TURNS In CLASSIFIER MESSAGE====")
+    print(turns)
 
     return [
         {

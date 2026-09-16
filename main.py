@@ -2,6 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes.ai import router as ai_router
+from api.routes.chat_session import (
+    router as chat_session_router
+)
 
 from middleware import (
     RequestLockMiddleware
@@ -27,6 +30,12 @@ app.include_router(
     ai_router,
     prefix="/api/ai",
     tags=["AI"]
+)
+
+app.include_router(
+    chat_session_router,
+    prefix="/api/ai",
+    tags=["AI Sessions"]
 )
 
 

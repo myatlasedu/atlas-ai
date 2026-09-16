@@ -2,6 +2,11 @@ import asyncio
 import logging
 import time
 
+from datetime import (
+    datetime,
+    timezone,
+)
+
 from db.repositories.ai_conversation_audit_repository import (
     AIConversationAuditRepository,
 )
@@ -46,8 +51,18 @@ from cache.pending_action_cache import (
     PendingActionCache,
 )
 
+from cache.conversation_cache import (
+    ConversationCache,
+)
+
 from intents.common.prompt_categories import (
     build_unknown_intent_summary,
+)
+
+
+from services.chat_session_service import (
+    ChatSessionService,
+    current_turn,
 )
 
 
@@ -81,11 +96,58 @@ class StudentAIService:
         summarizer_latency_ms: int,
     ):
 
+        turn = current_turn.get()
+
+        predicted_intent = (
+            parsed_intent.intent.value
+            if isinstance(
+                parsed_intent.intent,
+                StudentIntent,
+            )
+            else str(
+                parsed_intent.intent
+            )
+        )
+
+        # The next turn reads its context from Redis, so the
+        # cache is written before the slower audit insert.
+
+        await ConversationCache.append(
+            getattr(
+                turn,
+                "session_id",
+                None,
+            ),
+            {
+                "turn_id": getattr(
+                    turn,
+                    "message_id",
+                    None,
+                ),
+
+                "query": query,
+
+                "predicted_intent": predicted_intent,
+
+                "parsed_intent": (
+                    parsed_intent.model_dump()
+                ),
+
+                "selected_tools": selected_tools,
+
+                "summary": summary or "",
+
+                "created_at": datetime.now(
+                    timezone.utc
+                ),
+            },
+        )
+
         try:
 
             async with AsyncSessionLocal() as db:
 
-                await self.audit_repository.create(
+                audit_id = await self.audit_repository.create(
 
                     db=db,
 
@@ -95,16 +157,7 @@ class StudentAIService:
 
                     query=query,
 
-                    predicted_intent=(
-                        parsed_intent.intent.value
-                        if isinstance(
-                            parsed_intent.intent,
-                            StudentIntent,
-                        )
-                        else str(
-                            parsed_intent.intent
-                        )
-                    ),
+                    predicted_intent=predicted_intent,
 
                     parsed_intent=(
                         parsed_intent.model_dump()
@@ -138,6 +191,21 @@ class StudentAIService:
                         summarizer_latency_ms
                     ),
                 )
+
+
+            # One update closes the turn out: the intent the
+            # cache rebuild replays, and the debug row support
+            # joins back to.
+
+            await ChatSessionService.attach_intent(
+                turn,
+                predicted_intent=predicted_intent,
+                parsed_intent=(
+                    parsed_intent.model_dump()
+                ),
+                selected_tools=selected_tools,
+                audit_id=audit_id,
+            )
 
         except Exception:
 
@@ -183,6 +251,65 @@ class StudentAIService:
         self,
         query: str,
         context,
+        session_id: str | None = None,
+    ):
+        print("\n****Start to get TURN****\n")
+        turn = await ChatSessionService.start_turn(
+            context=context,
+            query=query,
+            session_id=session_id,
+            role="student",
+        )
+
+        print("\n****Turn receive****")
+        print(turn)
+        token = current_turn.set(
+            turn
+        )
+        print("\n***TOKEN***\n", token)
+        try:
+
+            response = await self._answer(
+                query=query,
+                context=context,
+            )
+
+        except Exception as error:
+
+            await ChatSessionService.fail_turn(
+                turn,
+                error_message=str(
+                    error
+                ),
+            )
+
+            raise
+
+        finally:
+
+            current_turn.reset(
+                token
+            )
+
+        await ChatSessionService.complete_turn(
+            turn,
+            answer=response.get(
+                "summary"
+            ),
+        )
+
+        if turn is not None:
+
+            response["session_id"] = (
+                turn.session_id
+            )
+
+        return response
+
+    async def _answer(
+        self,
+        query: str,
+        context,
     ):
 
         request_start = time.perf_counter()
@@ -218,9 +345,12 @@ class StudentAIService:
         recent_turns = (
             await ConversationContextService.load_recent_turns(
                 context=context,
+                turn=current_turn.get(),
             )
         )
 
+        print("\n====Recent Turn at Final in _answer====")
+        print(recent_turns)
         # ==================================================
         # CONFIRMATION SHORT CIRCUIT
         # ==================================================

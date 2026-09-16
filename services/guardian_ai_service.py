@@ -2,6 +2,11 @@ import asyncio
 import logging
 import time
 
+from datetime import (
+    datetime,
+    timezone,
+)
+
 from db.repositories.ai_conversation_audit_repository import (
     AIConversationAuditRepository,
 )
@@ -42,6 +47,16 @@ from intents.common.prompt_categories import (
     build_unknown_intent_summary,
 )
 
+from cache.conversation_cache import (
+    ConversationCache,
+)
+
+
+from services.chat_session_service import (
+    ChatSessionService,
+    current_turn,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -73,11 +88,58 @@ class GuardianAIService:
         summarizer_latency_ms: int,
     ):
 
+        turn = current_turn.get()
+
+        predicted_intent = (
+            parsed_intent.intent.value
+            if hasattr(
+                parsed_intent.intent,
+                "value",
+            )
+            else str(
+                parsed_intent.intent
+            )
+        )
+
+        # The next turn reads its context from Redis, so the
+        # cache is written before the slower audit insert.
+
+        await ConversationCache.append(
+            getattr(
+                turn,
+                "session_id",
+                None,
+            ),
+            {
+                "turn_id": getattr(
+                    turn,
+                    "message_id",
+                    None,
+                ),
+
+                "query": query,
+
+                "predicted_intent": predicted_intent,
+
+                "parsed_intent": (
+                    parsed_intent.model_dump()
+                ),
+
+                "selected_tools": selected_tools,
+
+                "summary": summary or "",
+
+                "created_at": datetime.now(
+                    timezone.utc
+                ),
+            },
+        )
+
         try:
 
             async with AsyncSessionLocal() as db:
 
-                await self.audit_repository.create(
+                audit_id = await self.audit_repository.create(
 
                     db=db,
 
@@ -87,16 +149,7 @@ class GuardianAIService:
 
                     query=query,
 
-                    predicted_intent=(
-                        parsed_intent.intent.value
-                        if hasattr(
-                            parsed_intent.intent,
-                            "value",
-                        )
-                        else str(
-                            parsed_intent.intent
-                        )
-                    ),
+                    predicted_intent=predicted_intent,
 
                     parsed_intent=(
                         parsed_intent.model_dump()
@@ -130,6 +183,23 @@ class GuardianAIService:
                         summarizer_latency_ms
                     ),
                 )
+
+            # Link the debug row to the turn the frontend
+            # renders, so support can jump between them.
+
+            # One update closes the turn out: the intent the
+            # cache rebuild replays, and the debug row support
+            # joins back to.
+
+            await ChatSessionService.attach_intent(
+                turn,
+                predicted_intent=predicted_intent,
+                parsed_intent=(
+                    parsed_intent.model_dump()
+                ),
+                selected_tools=selected_tools,
+                audit_id=audit_id,
+            )
 
         except Exception:
 
@@ -175,6 +245,67 @@ class GuardianAIService:
         self,
         query: str,
         context,
+        session_id: str | None = None,
+    ):
+
+        # The conversation thread is opened before any work
+        # happens, so a query survives in the transcript even
+        # if answering it blows up.
+
+        turn = await ChatSessionService.start_turn(
+            context=context,
+            query=query,
+            session_id=session_id,
+            role="guardian",
+        )
+
+        token = current_turn.set(
+            turn
+        )
+
+        try:
+
+            response = await self._answer(
+                query=query,
+                context=context,
+            )
+
+        except Exception as error:
+
+            await ChatSessionService.fail_turn(
+                turn,
+                error_message=str(
+                    error
+                ),
+            )
+
+            raise
+
+        finally:
+
+            current_turn.reset(
+                token
+            )
+
+        await ChatSessionService.complete_turn(
+            turn,
+            answer=response.get(
+                "summary"
+            ),
+        )
+
+        if turn is not None:
+
+            response["session_id"] = (
+                turn.session_id
+            )
+
+        return response
+
+    async def _answer(
+        self,
+        query: str,
+        context,
     ):
 
         request_start = (
@@ -204,6 +335,7 @@ class GuardianAIService:
         recent_turns = (
             await ConversationContextService.load_recent_turns(
                 context=context,
+                turn=current_turn.get(),
             )
         )
 

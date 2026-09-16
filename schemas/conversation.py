@@ -17,7 +17,10 @@ class ConversationTurn(BaseModel):
 
     query: str
 
-    predicted_intent: str
+    # Empty for a turn rebuilt from the transcript after the
+    # cache expired: ai_chat_message stores no intent.
+
+    predicted_intent: str = ""
 
     parsed_intent: dict = Field(
         default_factory=dict,

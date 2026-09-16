@@ -24,12 +24,77 @@ from services.date_service import (
     DateService
 )
 
+from services.chat_session_service import (
+    ChatSessionService,
+    current_turn,
+)
+
 logger = logging.getLogger(__name__)
 
 
 class MentorAIService:
 
     async def answer(
+        self,
+        query: str,
+        context,
+        session_id: str | None = None,
+    ):
+
+        # MentorContext carries no role field, so the thread
+        # is tagged explicitly.
+
+        turn = await ChatSessionService.start_turn(
+            context=context,
+            query=query,
+            session_id=session_id,
+            role="mentor",
+        )
+
+        token = current_turn.set(
+            turn
+        )
+
+        try:
+
+            response = await self._answer(
+                query=query,
+                context=context,
+            )
+
+        except Exception as error:
+
+            await ChatSessionService.fail_turn(
+                turn,
+                error_message=str(
+                    error
+                ),
+            )
+
+            raise
+
+        finally:
+
+            current_turn.reset(
+                token
+            )
+
+        await ChatSessionService.complete_turn(
+            turn,
+            answer=response.get(
+                "summary"
+            ),
+        )
+
+        if turn is not None:
+
+            response["session_id"] = (
+                turn.session_id
+            )
+
+        return response
+
+    async def _answer(
         self,
         query: str,
         context
