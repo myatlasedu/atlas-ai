@@ -15,6 +15,8 @@ from schemas.conversation import (
 
 from utils import (
     DATE_WINDOW_PHRASES,
+    _MONTH_NUMBERS,
+    month_window,
 )
 
 
@@ -75,11 +77,21 @@ the CURRENT QUERY states.
 If the CURRENT QUERY names its own module, subject,
 person or time window, that value is final.
 
-A resolved_query must NEVER contain two time windows.
+--------------------------------------------------
 
-If the CURRENT QUERY names its own time window, the
-recent turn's time window is DROPPED - not kept
-alongside it.
+THE TIME WINDOW
+
+A resolved_query must NEVER contain two time
+windows, and must NEVER contain a pointer like
+"that month" that has not been replaced.
+
+There are exactly three cases.
+
+CASE A - the CURRENT QUERY names its own window
+("for last week", "in july", "on 26 august").
+
+That window is final. The recent turn's window is
+DROPPED, not kept alongside it.
 
 recent:  "show this week homework"
 current: "show for last week"
@@ -88,8 +100,34 @@ WRONG -> "show this week homework for last week"
          (two windows: "this week" was carried over)
 
 RIGHT -> "show homework for last week"
-         (the module is borrowed, the window is the
-          current query's own)
+
+CASE B - the CURRENT QUERY POINTS AT a window
+without naming it ("that month", "that week",
+"then", "the same day", "the same period").
+
+REPLACE the pointer with the recent turn's real
+window. Never leave the pointer in place.
+
+recent:  "Homework of July"
+current: "Event on that month?"
+
+WRONG -> "Event on that month?"
+         (the pointer was never resolved)
+
+RIGHT -> "Event in July"
+
+CASE C - the CURRENT QUERY says NOTHING about time.
+
+BORROW the recent turn's window unchanged.
+
+recent:  "show my homework from August"
+current: "which ones have been submitted?"
+
+WRONG -> "which homework have been submitted?"
+         (August was dropped)
+
+RIGHT -> "which August homework have been
+          submitted?"
 
 --------------------------------------------------
 
@@ -125,12 +163,15 @@ word. Change nothing.
 If is_follow_up is true:
 
 Rewrite the CURRENT QUERY into one complete question
-by borrowing ONLY the missing parts (the module, the
-subject, the person) from the recent turn it follows
-up on.
+by borrowing ONLY the missing parts - the module, the
+subject, the person, the time window - from the
+recent turn it follows up on.
 
-Keep every detail the CURRENT QUERY states - above
-all its time window.
+Keep every detail the CURRENT QUERY states.
+
+A resolved_query that still contains "that", "those",
+"them", "the same" or "ones" has not been rewritten.
+Replace every one of them with what it refers to.
 
 Keep it short and natural, in the user's own words.
 
@@ -192,6 +233,60 @@ matter is different.
 The time window "this month" comes from the CURRENT QUERY
 and must be preserved.
 
+Example 5 - a filter inherits the subject
+
+recent: "Show my Science homework"
+        (homework_summary)
+current: "Which ones have feedback?"
+
+-> is_follow_up: true
+-> resolved_query: "Which Science homework has
+   feedback"
+
+Example 6 - a filter inherits the window too
+
+recent: "Show my homework from August"
+        (homework_summary)
+current: "Which ones have been submitted?"
+
+-> is_follow_up: true
+-> resolved_query: "Which August homework has been
+   submitted"
+
+Example 7
+
+recent: "Show my attendance for 26 August"
+        (attendance_summary)
+current: "Which lessons was I late for?"
+
+-> is_follow_up: true
+-> resolved_query: "Which lessons was I late for on
+   26 August"
+
+Example 8 - subject and window are both inherited
+
+recent: "Show my English attendance this month"
+        (attendance_summary)
+current: "Which ones was I absent for?"
+
+-> is_follow_up: true
+-> resolved_query: "Which English attendance this
+   month was I absent for"
+
+Example 9 - a pointer is resolved, and the intent
+is the CURRENT query's own
+
+recent: "Homework of July"
+        (homework_summary)
+current: "Event on that month?"
+
+-> is_follow_up: true
+-> resolved_query: "Event in July"
+-> intent: calendar_summary
+
+The window is borrowed, but "event" names its own
+subject, so the intent is NOT homework_summary.
+
 --------------------------------------------------
 
 STEP 3 - intent
@@ -207,17 +302,41 @@ its own intent.
 
 CHOOSING THE TURN TO FOLLOW
 
-The recent turns may have different intents.
+Turn 1 is the most recent turn. It is the DEFAULT.
 
-Follow the recent turn whose SUBJECT MATTER is
-closest to the CURRENT QUERY, not simply the newest
-one.
+Follow turn 1 whenever the CURRENT QUERY could be
+continuing it.
 
-If the CURRENT QUERY fits two recent turns with
-DIFFERENT intents equally well, follow the MORE
-RECENT turn.
+Only follow an older turn when the CURRENT QUERY
+names a subject that the older turn is about and
+turn 1 is not.
 
-Report that turn's number as context_turn.
+A CURRENT QUERY that is ONLY a filter - a time
+window, a subject, a status - names no subject of
+its own. It can only be continuing the last thing
+that was asked, so it ALWAYS follows turn 1.
+
+Never reach past turn 1 for a bare filter.
+
+Report the turn's number as context_turn.
+
+Example 10
+
+recent conversation:
+1. query: "Homework of june?"   (homework_summary)
+2. query: "Homework of july?"   (homework_summary)
+3. query: "Show attendance"     (attendance_summary)
+
+current: "for july?"
+
+-> is_follow_up: true
+-> context_turn: 1
+-> resolved_query: "Homework of july"
+-> intent: homework_summary
+
+"for july?" is only a time filter, so it continues
+turn 1 (homework). Turn 3 is older and must not be
+reached for.
 
 ==================================================
 OUTPUT (overrides any earlier output format)
@@ -473,16 +592,117 @@ def build_classifier_messages(
     ]
 
 
+SUBJECT_KEYWORDS = (
+    "homework", "assignment", "worksheet", "hw", "submission", "submit",
+    "attendance", "present", "absent", "leave",
+    "marks", "grade", "score", "result", "test", "exam", "assessment",
+    "announcement", "notice", "circular",
+    "forum", "discussion",
+    "timetable", "schedule", "period",
+    "calendar", "event", "holiday",
+    "journal", "diary",
+    "atlas score",
+    "report", "performance",
+    "feedback", "remarks",
+    "teacher",
+)
+
+
+def names_a_subject(
+    query: str,
+) -> bool:
+
+    normalized = (
+        query
+        or ""
+    ).lower()
+
+    words = set(
+        re.findall(
+            r"[a-z]+",
+            normalized,
+        )
+    )
+
+    return any(
+        keyword in words
+        if " " not in keyword
+        else keyword in normalized
+        for keyword in SUBJECT_KEYWORDS
+    )
+
+
+def align_intent_with_context_turn(
+    *,
+    intent: str,
+    context_turn: ConversationTurn | None,
+    is_follow_up: bool,
+    query: str,
+) -> str:
+
+    if (
+        not is_follow_up
+        or context_turn is None
+        or names_a_subject(query)
+    ):
+
+        return intent
+
+    previous = str(
+        context_turn.predicted_intent
+        or ""
+    ).strip().lower()
+
+    current = str(
+        intent
+        or ""
+    ).strip().lower()
+
+    if (
+        previous
+        and previous != current
+    ):
+
+        logger.info(
+            "Bare follow-up %r: intent %s -> %s (turn %s)",
+            query,
+            intent,
+            previous,
+            context_turn.turn_id,
+        )
+
+        return previous
+
+    return intent
+
+
 def resolve_context_turn(
     *,
     turns: list[ConversationTurn] | None,
     context_turn,
+    query: str | None = None,
 ) -> ConversationTurn | None:
 
     # The classifier answers with a 1-based position into the
     # history block it was shown; map it back to the real turn.
 
-    if not turns or context_turn in (None, "", "null"):
+    if not turns:
+
+        return None
+
+    if query is not None and not names_a_subject(query):
+
+        if str(context_turn) not in ("1", "None"):
+
+            logger.info(
+                "Bare follow-up %r: overriding context_turn %r with the most recent turn.",
+                query,
+                context_turn,
+            )
+
+        return turns[0]
+
+    if context_turn in (None, "", "null"):
 
         return None
 
@@ -602,6 +822,29 @@ def inherit_parameters(
 # ==================================================
 
 
+_WINDOW_PREPOSITIONS = (
+    "of", "in", "for", "during",
+    "from", "since", "till", "until", "through",
+)
+
+
+def _drop_phrase(
+    text: str,
+    phrase: str,
+) -> str:
+
+    return re.sub(
+        r"(?:\b(?:"
+        + "|".join(_WINDOW_PREPOSITIONS)
+        + r")\s+)?\b"
+        + re.escape(phrase)
+        + r"\b",
+        " ",
+        text,
+        flags=re.IGNORECASE,
+    )
+
+
 def _strip_stale_windows(
     candidate: str,
     query: str,
@@ -615,7 +858,12 @@ def _strip_stale_windows(
         if phrase in lowered
     ]
 
-    if not current_windows:
+    names_month = (
+        month_window(lowered)
+        is not None
+    )
+
+    if not current_windows and not names_month:
 
         return candidate
 
@@ -629,11 +877,29 @@ def _strip_stale_windows(
 
         if phrase in cleaned.lower():
 
-            cleaned = re.sub(
-                re.escape(phrase),
-                "",
+            cleaned = _drop_phrase(
                 cleaned,
-                flags=re.IGNORECASE,
+                phrase,
+            )
+
+    for name in _MONTH_NUMBERS:
+
+        if (
+            len(name) <= 3
+            or name in lowered
+        ):
+
+            continue
+
+        if re.search(
+            rf"\b{name}\b",
+            cleaned,
+            flags=re.IGNORECASE,
+        ):
+
+            cleaned = _drop_phrase(
+                cleaned,
+                name,
             )
 
     cleaned = re.sub(
@@ -660,10 +926,6 @@ def resolve_followup_query(
     is_follow_up: bool,
     context_turn: ConversationTurn | None,
 ) -> str:
-
-    # The rewrite is only ever allowed to ADD context. Anything that
-    # looks like the model answering a different question falls back
-    # to the user's own words.
 
     if not is_follow_up:
 
@@ -740,9 +1002,6 @@ def _same_text(
 
 
 class IntentClassification:
-
-    # Classifier answer: the intent, the self-contained query it was
-    # classified from, and the recent turn it followed (if any).
 
     __slots__ = (
         "intent",

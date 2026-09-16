@@ -18,6 +18,7 @@ from intents.guardian.classifier_prompt import (
 
 from intents.common.conversation_context import (
     IntentClassification,
+    align_intent_with_context_turn,
     build_classifier_messages,
     resolve_context_turn,
     resolve_followup_query,
@@ -53,13 +54,6 @@ async def classify_guardian_intent(
         "unknown"
     )
 
-    context_turn = resolve_context_turn(
-        turns=turns,
-        context_turn=parsed.get(
-            "context_turn"
-        ),
-    )
-
     is_follow_up = bool(
         turns
         and
@@ -67,6 +61,25 @@ async def classify_guardian_intent(
             "is_follow_up",
             False,
         )
+    )
+
+    context_turn = resolve_context_turn(
+        turns=turns,
+        context_turn=parsed.get(
+            "context_turn"
+        ),
+        query=(
+            query
+            if is_follow_up
+            else None
+        ),
+    )
+
+    intent = align_intent_with_context_turn(
+        intent=intent,
+        context_turn=context_turn,
+        is_follow_up=is_follow_up,
+        query=query,
     )
 
     resolved_query = resolve_followup_query(

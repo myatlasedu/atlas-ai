@@ -144,9 +144,12 @@ def date_query(
         or ""
     ).lower().strip()
 
-    if raw and any(
-        phrase in raw
-        for phrase in DATE_WINDOW_PHRASES
+    if raw and (
+        any(
+            phrase in raw
+            for phrase in DATE_WINDOW_PHRASES
+        )
+        or month_window(raw) is not None
     ):
 
         return raw
