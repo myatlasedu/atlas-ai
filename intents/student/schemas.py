@@ -2,6 +2,7 @@ from datetime import date
 
 from pydantic import (
     BaseModel,
+    Field,
 )
 
 
@@ -24,7 +25,12 @@ class ParsedStudentIntent(BaseModel):
     raw_query: str | None = None
 
     is_follow_up: bool = False
-    
+
+    context_resolution: dict = Field(
+        default_factory=dict,
+        exclude=True,
+    )
+
     topic: str | None = None
 
     subject: str | None = None

@@ -1,4 +1,7 @@
-from pydantic import BaseModel
+from pydantic import (
+    BaseModel,
+    Field,
+)
 
 
 class ParsedGuardianIntent(BaseModel):
@@ -44,3 +47,8 @@ class ParsedGuardianIntent(BaseModel):
     raw_query: str | None = None
 
     is_follow_up: bool = False
+
+    context_resolution: dict = Field(
+        default_factory=dict,
+        exclude=True,
+    )

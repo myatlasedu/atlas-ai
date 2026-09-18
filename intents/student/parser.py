@@ -853,6 +853,10 @@ async def parse_student_intent(
             classification.is_follow_up
         )
 
+        parsed["context_resolution"] = (
+            classification.context_resolution
+        )
+
         # ==================================================
         # STEP 6
         # NORMALIZE DATES

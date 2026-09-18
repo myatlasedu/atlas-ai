@@ -163,6 +163,14 @@ class StudentAIService:
                         parsed_intent.model_dump()
                     ),
 
+                    context_resolution=(
+                        getattr(
+                            parsed_intent,
+                            "context_resolution",
+                            None,
+                        )
+                    ),
+
                     selected_tools=(
                         selected_tools
                     ),

@@ -155,6 +155,14 @@ class GuardianAIService:
                         parsed_intent.model_dump()
                     ),
 
+                    context_resolution=(
+                        getattr(
+                            parsed_intent,
+                            "context_resolution",
+                            None,
+                        )
+                    ),
+
                     selected_tools=(
                         selected_tools
                     ),
@@ -247,10 +255,6 @@ class GuardianAIService:
         context,
         session_id: str | None = None,
     ):
-
-        # The conversation thread is opened before any work
-        # happens, so a query survives in the transcript even
-        # if answering it blows up.
 
         turn = await ChatSessionService.start_turn(
             context=context,

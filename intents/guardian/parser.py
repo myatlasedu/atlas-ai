@@ -810,16 +810,16 @@ async def parse_guardian_intent(
 
         parsed["intent"] = intent
 
-        # Tools, date resolution and focus rules all read
-        # original_query: for a follow-up that must be the resolved
-        # text, or "what about this month?" carries no module at all.
-
         parsed["original_query"] = resolved_query
 
         parsed["raw_query"] = query
 
         parsed["is_follow_up"] = (
             classification.is_follow_up
+        )
+
+        parsed["context_resolution"] = (
+            classification.context_resolution
         )
 
         parsed = inherit_parameters(

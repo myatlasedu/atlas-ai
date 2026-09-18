@@ -1001,6 +1001,45 @@ def _same_text(
 # ==================================================
 
 
+def build_context_resolution(
+    *,
+    is_follow_up: bool,
+    resolved_query: str,
+    intent,
+    context_turn: ConversationTurn | None,
+) -> dict:
+
+    # One audit payload per turn: what the classifier decided,
+    # after the pointer and the turn number were resolved.
+
+    return {
+        "is_follow_up": bool(
+            is_follow_up
+        ),
+
+        "resolved_query": str(
+            resolved_query
+            or ""
+        ),
+
+        "intent": str(
+            getattr(
+                intent,
+                "value",
+                intent,
+            )
+            or ""
+        ),
+
+        "context_turn": (
+            context_turn.turn_id
+            if context_turn
+            else None
+        ),
+    }
+
+
+
 class IntentClassification:
 
     __slots__ = (
@@ -1008,6 +1047,7 @@ class IntentClassification:
         "context_turn",
         "resolved_query",
         "is_follow_up",
+        "context_resolution",
     )
 
     def __init__(
@@ -1016,6 +1056,7 @@ class IntentClassification:
         context_turn: ConversationTurn | None = None,
         resolved_query: str = "",
         is_follow_up: bool = False,
+        context_resolution: dict | None = None,
     ):
 
         self.intent = intent
@@ -1025,6 +1066,11 @@ class IntentClassification:
         self.resolved_query = resolved_query
 
         self.is_follow_up = is_follow_up
+
+        self.context_resolution = (
+            context_resolution
+            or {}
+        )
 
     def __iter__(self):
 

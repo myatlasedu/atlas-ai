@@ -137,6 +137,7 @@ class AIConversationAuditRepository:
         query: str,
         predicted_intent: str,
         parsed_intent: dict | None = None,
+        context_resolution: dict | None = None,
         selected_tools: list | None = None,
         tool_results: dict | None = None,
         summary: str = "",
@@ -148,6 +149,10 @@ class AIConversationAuditRepository:
 
         safe_parsed_intent = make_json_safe(
             parsed_intent or {}
+        )
+
+        safe_context_resolution = make_json_safe(
+            context_resolution or {}
         )
 
         safe_selected_tools = make_json_safe(
@@ -168,6 +173,7 @@ class AIConversationAuditRepository:
 
                 predicted_intent,
                 parsed_intent,
+                context_resolution,
                 selected_tools,
                 tool_results,
                 summary,
@@ -191,6 +197,7 @@ class AIConversationAuditRepository:
 
                 :predicted_intent,
                 CAST(:parsed_intent AS jsonb),
+                CAST(:context_resolution AS jsonb),
                 CAST(:selected_tools AS jsonb),
                 CAST(:tool_results AS jsonb),
                 :summary,
@@ -225,6 +232,11 @@ class AIConversationAuditRepository:
                 "parsed_intent":
                     json.dumps(
                         safe_parsed_intent
+                    ),
+
+                "context_resolution":
+                    json.dumps(
+                        safe_context_resolution
                     ),
 
                 "selected_tools":
