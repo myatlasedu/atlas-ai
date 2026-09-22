@@ -144,15 +144,16 @@ class HomeworkRepository:
                 SELECT
                     h.id,
                     h.title,
-                    h.total_marks,
                     h.due_date,
                     hs.status AS latest_status,
-                    hs.marks_obtained,
+                    CASE
+                        WHEN hs.status = 2 OR hs.grade IS NOT NULL OR hs.marks_obtained IS NOT NULL THEN TRUE
+                        ELSE FALSE
+                    END AS is_graded,
                     hs.submitted_at,
                     hs.reviewed_at,
                     hs.teacher_note,
                     hs.attempt_number,
-                    hs.grade,
                     {SUBJECT_TEACHER_COLUMNS}
                     CASE
                         WHEN hm.enrollment_id IS NOT NULL THEN TRUE
@@ -199,13 +200,13 @@ class HomeworkRepository:
 
         # --------------------------------------------------
         # 2. Decide the state from the LATEST attempt only:
-        #    graded -> real marks, submitted -> awaiting
+        #    graded -> isGrade True, submitted -> awaiting
         #    review, resubmit -> teacher asked for a redo,
         #    otherwise assigned / not-assigned.
         # --------------------------------------------------
 
         def build_marks(row):
-
+            is_graded = bool(row.get("is_graded") or row.get("latest_status") == 2)
             return {
                 "state": "marks",
                 "id": row["id"],
@@ -213,7 +214,9 @@ class HomeworkRepository:
                 "due_date": row["due_date"],
                 "subject_name": row["subject_name"],
                 "teacher_name": row["teacher_name"],
-                "grade": row["grade"],
+                "is_graded": is_graded,
+                "isGrade": is_graded,
+                "isGraded": is_graded,
                 "submitted_at": row["submitted_at"],
                 "reviewed_at": row["reviewed_at"],
                 "teacher_note": row["teacher_note"],
@@ -256,6 +259,9 @@ class HomeworkRepository:
                     ),
                     "submitted": bool(duplicate_row.get("latest_status")),
                     "graded": duplicate_row.get("latest_status") == 2,
+                    "is_graded": duplicate_row.get("latest_status") == 2,
+                    "isGrade": duplicate_row.get("latest_status") == 2,
+                    "isGraded": duplicate_row.get("latest_status") == 2,
                 }
                 for duplicate_row in rows
             ]
@@ -282,6 +288,9 @@ class HomeworkRepository:
                 "subject_name": row["subject_name"],
                 "teacher_name": row["teacher_name"],
                 "teacher_note": row["teacher_note"],
+                "is_graded": False,
+                "isGrade": False,
+                "isGraded": False,
                 "attempt_number": row["attempt_number"],
                 "matches": matches_meta,
             }
@@ -393,8 +402,6 @@ class HomeworkRepository:
 
                 h.due_date,
 
-                h.total_marks,
-
                 CASE WHEN h.due_date < date_trunc('day', NOW())
                      THEN TRUE ELSE FALSE
                 END AS is_overdue,
@@ -403,9 +410,10 @@ class HomeworkRepository:
 
                 hs.status AS latest_status,
 
-                hs.marks_obtained,
-
-                hs.grade,
+                CASE
+                    WHEN hs.status = 2 OR hs.grade IS NOT NULL OR hs.marks_obtained IS NOT NULL THEN TRUE
+                    ELSE FALSE
+                END AS is_graded,
 
                 hs.submitted_at,
 
@@ -453,6 +461,11 @@ class HomeworkRepository:
             dict(row)
             for row in result.mappings()
         ]
+        for r in rows:
+            is_graded = bool(r.get("is_graded") or r.get("latest_status") == 2 or r.get("status_tag") == "graded")
+            r["is_graded"] = is_graded
+            r["isGrade"] = is_graded
+            r["isGraded"] = is_graded
         return filter_homework_rows(
             rows,
             teacher,
@@ -729,7 +742,10 @@ class HomeworkRepository:
 
                 hs.teacher_note,
 
-                hs.marks_obtained,
+                CASE
+                    WHEN hs.status = 2 OR hs.grade IS NOT NULL OR hs.marks_obtained IS NOT NULL THEN TRUE
+                    ELSE FALSE
+                END AS is_graded,
 
                 hs.reviewed_at
 
@@ -769,6 +785,11 @@ class HomeworkRepository:
             dict(row)
             for row in result.mappings()
         ]
+        for r in rows:
+            is_graded = bool(r.get("is_graded", False))
+            r["is_graded"] = is_graded
+            r["isGrade"] = is_graded
+            r["isGraded"] = is_graded
         return filter_homework_rows(
             rows,
             subject=subject,

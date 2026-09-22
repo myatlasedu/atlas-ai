@@ -57,6 +57,10 @@ from services.chat_session_service import (
     current_turn,
 )
 
+from utils import (
+    process_and_sanitize_grades,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -501,6 +505,8 @@ class GuardianAIService:
             tool_latency_ms += (
                 current_tool_latency_ms
             )
+
+            result = process_and_sanitize_grades(result)
 
             results[
                 tool_name
