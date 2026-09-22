@@ -681,3 +681,91 @@ class AIChatSessionRepository:
             rows.append(item)
 
         return rows
+
+    # ==================================================
+    # SESSION MEMORY (CACHE REBUILD)
+    # ==================================================
+
+    ACTION_INTENTS = (
+        "journal_create",
+        "personal_event_create",
+        "action_confirmation",
+    )
+
+    async def list_action_turns(
+        self,
+        db,
+        *,
+        session_id,
+        limit: int = 50,
+    ) -> list[dict]:
+
+        statement = text(
+            """
+            SELECT
+                m.id AS turn_id,
+                m.query,
+                LOWER(
+                    COALESCE(
+                        m.predicted_intent,
+                        ''
+                    )
+                ) AS predicted_intent,
+                m.answer,
+                m.created_at,
+                a.tool_results
+            FROM ai_chat_message m
+            LEFT JOIN ai_conversation_audit a
+                ON a.id = m.audit_id
+            WHERE
+                m.session_id = CAST(:session_id AS uuid)
+                AND m.status = 'completed'
+                AND LOWER(
+                    COALESCE(
+                        m.predicted_intent,
+                        ''
+                    )
+                ) IN :action_intents
+            ORDER BY
+                m.turn_index DESC,
+                m.id DESC
+            LIMIT :limit
+            """
+        ).bindparams(
+            bindparam(
+                "action_intents",
+                expanding=True,
+            )
+        )
+
+        result = await db.execute(
+            statement,
+            {
+                "session_id": str(session_id),
+                "action_intents": list(
+                    self.ACTION_INTENTS
+                ),
+                "limit": limit,
+            },
+        )
+
+        rows = []
+
+        for row in result.mappings().all():
+
+            item = dict(row)
+
+            item["tool_results"] = _coerce_json(
+                item.get(
+                    "tool_results"
+                ),
+                default={},
+            )
+
+            rows.append(item)
+
+        # The query took the newest rows; replay them oldest first.
+
+        rows.reverse()
+
+        return rows

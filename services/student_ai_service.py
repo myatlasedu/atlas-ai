@@ -69,6 +69,12 @@ from services.chat_session_service import (
     current_turn,
 )
 
+from services.session_memory_service import (
+    SessionMemoryService,
+    STATUS_CANCELLED,
+    STATUS_COMPLETED,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -256,6 +262,65 @@ class StudentAIService:
             )
 
     # ==================================================
+    # SESSION MEMORY (ACTIONS)
+    # ==================================================
+
+    @staticmethod
+    async def _remember_pending_action(
+        *,
+        query: str,
+        tool_result: dict,
+    ):
+
+        turn = current_turn.get()
+
+        try:
+
+            await SessionMemoryService.record_pending(
+                getattr(turn, "session_id", None),
+                action_type=tool_result.get("action_type"),
+                payload=SessionMemoryService.payload_from_result(
+                    tool_result
+                ),
+                query=query,
+                turn_id=getattr(turn, "message_id", None),
+            )
+
+        except Exception:
+
+            logger.exception(
+                "Failed to record pending action in session memory."
+            )
+
+    @staticmethod
+    async def _remember_resolved_action(
+        *,
+        query: str,
+        action_type: str | None,
+        status: str,
+        payload: dict | None = None,
+    ):
+
+        turn = current_turn.get()
+
+        try:
+
+            await SessionMemoryService.resolve_pending(
+                getattr(turn, "session_id", None),
+                action_type=action_type,
+                status=status,
+                payload=payload,
+                turn_id=getattr(turn, "message_id", None),
+                query=query,
+            )
+
+        except Exception:
+
+            logger.exception(
+                "Failed to resolve action in session memory."
+            )
+
+    # ==================================================
     # ANSWER
     # ==================================================
 
@@ -360,32 +425,49 @@ class StudentAIService:
             )
         )
 
-        print("\n====Recent Turn at Final in _answer====")
-        print(recent_turns)
         # ==================================================
         # CONFIRMATION SHORT CIRCUIT
         # ==================================================
 
+        session_id = getattr(
+            current_turn.get(),
+            "session_id",
+            None,
+        )
+
         pending_action = (
             await PendingActionCache.get(
-                context.user_id
+                context.user_id,
+                session_id=session_id,
             )
         )
 
         if pending_action:
 
-            if normalized_query in [
+            if normalized_query.strip("?!., ") in [
 
                 "yes",
                 "y",
                 "yeah",
                 "yep",
+                "yup",
+                "sure",
+                "yes please",
                 "confirm",
                 "ok",
                 "okay",
                 "proceed",
                 "go ahead",
                 "do it",
+                "create it",
+                "save it",
+                "yes create it",
+                "yes save it",
+                "yes do it",
+                "ok create it",
+                "okay create it",
+                "ok save it",
+                "okay save it",
             ]:
 
                 logger.info(
@@ -411,20 +493,48 @@ class StudentAIService:
                     )
                 )
 
-            elif normalized_query in [
+            elif normalized_query.strip("?!., ") in [
 
                 "no",
                 "n",
+                "nope",
                 "cancel",
                 "stop",
                 "don't",
                 "dont",
                 "never mind",
+                "nevermind",
+                "no thanks",
+                "cancel it",
             ]:
 
                 await PendingActionCache.delete(
-                    context.user_id
+                    context.user_id,
+                    session_id=session_id,
                 )
+
+                cancelled_action_type = pending_action.get(
+                    "action_type"
+                )
+
+                await self._remember_resolved_action(
+                    query=query,
+                    action_type=cancelled_action_type,
+                    status=STATUS_CANCELLED,
+                )
+
+
+                cancel_results = {
+                    "action_executor_tool": {
+                        "module": "action",
+                        "action_cancelled": True,
+                        "action_type": cancelled_action_type,
+                        "payload": pending_action.get(
+                            "payload",
+                            {},
+                        ),
+                    }
+                }
 
                 summary = (
                     "The pending action has been cancelled."
@@ -467,7 +577,7 @@ class StudentAIService:
 
                     selected_tools=[],
 
-                    tool_results={},
+                    tool_results=cancel_results,
 
                     summary=summary,
 
@@ -703,6 +813,32 @@ class StudentAIService:
             )
 
         # ==================================================
+        # SESSION MEMORY: EXECUTED ACTION
+        # ==================================================
+
+        executed = results.get(
+            "action_executor_tool"
+        )
+
+        if (
+            isinstance(
+                executed,
+                dict,
+            )
+            and
+            executed.get(
+                "action_completed"
+            )
+        ):
+
+            await self._remember_resolved_action(
+                query=query,
+                action_type=executed.get("action_type"),
+                status=STATUS_COMPLETED,
+                payload=executed.get("payload"),
+            )
+
+        # ==================================================
         # ACTION REQUIRED SHORT CIRCUIT
         # ==================================================
 
@@ -718,6 +854,11 @@ class StudentAIService:
                     "action_required"
                 )
             ):
+
+                await self._remember_pending_action(
+                    query=query,
+                    tool_result=tool_result,
+                )
 
                 summary = (
                     tool_result.get(

@@ -273,7 +273,13 @@ class AIConversationAuditRepository:
     # ==================================================
     # RECENT TURNS (CONVERSATION CONTEXT)
     # ==================================================
-    NON_CONTEXTUAL_INTENTS = ("unknown", "action_confirmation", "")
+
+    NON_CONTEXTUAL_INTENTS = (
+        "unknown",
+        "action_confirmation",
+        "conversation_recall",
+        "",
+    )
 
     async def list_recent_turns(
         self,

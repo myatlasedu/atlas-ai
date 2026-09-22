@@ -13,6 +13,7 @@ from intents.common.conversation_context import (
     align_intent_with_context_turn,
     build_classifier_messages,
     build_context_resolution,
+    is_meta_intent,
     resolve_context_turn,
     resolve_followup_query,
 )
@@ -79,6 +80,10 @@ async def classify_student_intent(
         parsed.get(
             "is_follow_up",
             False,
+        )
+        and
+        not is_meta_intent(
+            intent
         )
     )
 

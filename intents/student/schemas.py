@@ -44,3 +44,5 @@ class ParsedStudentIntent(BaseModel):
     late_only: bool = False
 
     homework_focus: str | None = None
+
+    recall_scope: str | None = None
