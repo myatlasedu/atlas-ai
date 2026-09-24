@@ -17,6 +17,10 @@ from cache.conversation_cache import (
     ConversationCache,
 )
 
+from cache.session_memory_cache import (
+    SessionMemoryCache,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -352,6 +356,10 @@ class ChatSessionService:
             # A deleted thread must not keep feeding context.
 
             await ConversationCache.clear(
+                session_id
+            )
+
+            await SessionMemoryCache.clear(
                 session_id
             )
 

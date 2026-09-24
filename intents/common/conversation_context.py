@@ -26,6 +26,31 @@ logger = logging.getLogger(__name__)
 MAX_CONTEXT_TURNS = 5
 
 
+META_INTENTS = frozenset(
+    {
+        "conversation_recall",
+        "action_confirmation",
+    }
+)
+
+
+def is_meta_intent(
+    intent,
+) -> bool:
+
+    return (
+        str(
+            getattr(
+                intent,
+                "value",
+                intent,
+            )
+            or ""
+        ).strip().lower()
+        in META_INTENTS
+    )
+
+
 # Fields a follow-up may inherit from the turn it refers to.
 # The current query always wins; inheritance only fills blanks.
 
@@ -128,6 +153,24 @@ WRONG -> "which homework have been submitted?"
 
 RIGHT -> "which August homework have been
           submitted?"
+
+--------------------------------------------------
+
+QUESTIONS ABOUT THE CONVERSATION ITSELF
+
+A CURRENT QUERY that asks what was said, asked,
+created, saved or done in this chat, or asks for a
+recap of the chat, is NOT a follow-up.
+
+- "what did you create now?"
+- "what did I ask you?"
+- "summarize our conversation"
+
+For these: is_follow_up is false, resolved_query is
+the CURRENT QUERY copied word for word, and the
+intent is the one the definitions above give to
+questions about the chat itself. Never rewrite them
+into the subject of a recent turn.
 
 --------------------------------------------------
 

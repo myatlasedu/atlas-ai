@@ -1,4 +1,5 @@
 import logging
+import re
 import calendar
 from datetime import date
 from datetime import timedelta
@@ -611,6 +612,222 @@ def normalize_focus(
     return parsed
 
 
+JOURNAL_CREATE_MARKERS = (
+    "remember this",
+    "save this",
+    "journal this",
+    "note this",
+    "log this",
+    "write a journal",
+    "write journal",
+    "write this in my journal",
+    "add this to my journal",
+    "add to my journal",
+    "create a journal",
+    "make a journal",
+)
+
+
+CONFIRMATION_WORDS = (
+    "yes", "y", "yeah", "yep", "yup", "sure", "ok", "okay",
+    "confirm", "confirmed", "proceed", "continue", "go ahead",
+    "do it", "create it", "save it", "please do",
+    "no", "n", "nope", "cancel", "stop", "don't", "dont",
+    "never mind", "nevermind",
+)
+
+
+MAX_CONFIRMATION_WORDS = 4
+
+
+def looks_like_confirmation(
+    query: str,
+) -> bool:
+
+    normalized = (
+        query
+        .strip()
+        .lower()
+        .strip("?!., ")
+    )
+
+    if not normalized:
+
+        return False
+
+    if len(normalized.split()) > MAX_CONFIRMATION_WORDS:
+
+        return False
+
+    # Whole words only: "now" must not match "no".
+
+    return any(
+        re.search(
+            rf"(?<![a-z']){re.escape(word)}(?![a-z'])",
+            normalized,
+        )
+        for word in CONFIRMATION_WORDS
+    )
+
+
+def carries_journal_content(
+    query: str,
+) -> bool:
+
+    normalized = (
+        query
+        .strip()
+        .lower()
+        .lstrip("?!., ")
+    )
+
+    return any(
+        normalized.startswith(marker)
+        for marker in JOURNAL_CREATE_MARKERS
+    )
+
+
+def guard_journal_create(
+    intent: StudentIntent,
+    query: str,
+) -> StudentIntent:
+
+    # "Remember this I need to complete session" has been seen
+    # landing on action_confirmation and on conversation_recall.
+    # It opens with a save phrase and is not a bare yes/no, so it
+    # is a journal request whatever the classifier said.
+
+    # The mirror case: a bare "okay create it" that landed on a
+    # create intent is the confirmation of whatever is pending.
+
+    if (
+        intent in (
+            StudentIntent.JOURNAL_CREATE,
+            StudentIntent.PERSONAL_EVENT_CREATE,
+        )
+        and looks_like_confirmation(query)
+        and not carries_journal_content(query)
+    ):
+
+        logger.info(
+            "%s overridden to action_confirmation: %r",
+            intent.value,
+            query,
+        )
+
+        return StudentIntent.ACTION_CONFIRMATION
+
+    if intent not in (
+        StudentIntent.ACTION_CONFIRMATION,
+        StudentIntent.CONVERSATION_RECALL,
+        StudentIntent.UNKNOWN,
+    ):
+
+        return intent
+
+    if looks_like_confirmation(query):
+
+        # A bare "no" the classifier could not place is still a
+        # confirmation reply; the executor answers honestly when
+        # nothing is pending.
+
+        if intent == StudentIntent.UNKNOWN:
+
+            logger.info(
+                "unknown overridden to action_confirmation: %r",
+                query,
+            )
+
+            return StudentIntent.ACTION_CONFIRMATION
+
+        return intent
+
+    if carries_journal_content(query):
+
+        logger.info(
+            "%s overridden to journal_create: %r",
+            intent.value,
+            query,
+        )
+
+        return StudentIntent.JOURNAL_CREATE
+
+    return intent
+
+
+VALID_RECALL_SCOPES = {
+    "created",
+    "asked",
+    "summary",
+}
+
+
+def normalize_recall_scope(
+    parsed: dict,
+) -> dict:
+
+    if (
+        parsed.get("intent")
+        !=
+        StudentIntent.CONVERSATION_RECALL.value
+    ):
+
+        parsed["recall_scope"] = None
+
+        return parsed
+
+    scope = str(
+        parsed.get("recall_scope")
+        or ""
+    ).strip().lower()
+
+    if scope in VALID_RECALL_SCOPES:
+
+        parsed["recall_scope"] = scope
+
+        return parsed
+
+    query_lower = str(
+        parsed.get("original_query", "")
+    ).lower()
+
+    if any(
+        phrase in query_lower
+        for phrase in (
+            "summar",
+            "recap",
+            "discuss",
+            "talk about",
+            "talked about",
+            "so far",
+        )
+    ):
+
+        parsed["recall_scope"] = "summary"
+
+    elif any(
+        phrase in query_lower
+        for phrase in (
+            "did i ",
+            "i ask",
+            "i say",
+            "i said",
+            "i tell",
+            "i told",
+            "my question",
+            "my last",
+        )
+    ):
+
+        parsed["recall_scope"] = "asked"
+
+    else:
+
+        parsed["recall_scope"] = "created"
+
+    return parsed
+
+
 async def parse_student_intent(
     query: str,
     enrollment_id: int | None = None,
@@ -670,6 +887,11 @@ async def parse_student_intent(
             )
 
             classified_intent = StudentIntent.HOMEWORK_SUMMARY
+
+        classified_intent = guard_journal_create(
+            classified_intent,
+            query_lower,
+        )
 
         logger.info(
             "Classified intent: %s",
@@ -872,10 +1094,6 @@ async def parse_student_intent(
         # ORIGINAL QUERY
         # ==================================================
 
-        # Tools, date resolution and focus rules all read
-        # original_query: for a follow-up that must be the resolved
-        # text, or "what about this month?" carries no module at all.
-
         parsed["original_query"] = resolved_query
 
         parsed["raw_query"] = query
@@ -912,6 +1130,15 @@ async def parse_student_intent(
         # ==================================================
 
         parsed = normalize_focus(
+            parsed
+        )
+
+        # ==================================================
+        # STEP 7c
+        # NORMALIZE RECALL SCOPE
+        # ==================================================
+
+        parsed = normalize_recall_scope(
             parsed
         )
 

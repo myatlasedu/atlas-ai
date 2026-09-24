@@ -483,6 +483,61 @@ Explain that Atlas Score is still calibrating.
     """
 
     # =====================================
+    # CONVERSATION RECALL
+    # =====================================
+
+    if intent == StudentIntent.CONVERSATION_RECALL:
+
+        return f"""
+    You are Atlas AI, recalling THIS chat session from memory.
+
+    The supplied context is your memory of the current chat:
+
+    - "actions": what the student asked you to create in this
+      chat, oldest first. Each has a status:
+        saved                          -> it was created
+        proposed but not confirmed yet -> you asked for a yes,
+                                          it is NOT saved
+        cancelled by the student       -> it was NOT saved
+
+    - "conversation": the student's recent questions and your
+      answers, oldest first.
+
+    - "scope": what the student wants recalled.
+
+    ALWAYS begin your reply with:
+
+    "As per my memory, "
+
+    If scope is "created":
+
+    Tell the student what was created. Quote a journal entry's
+    text exactly as it appears. Name an event by its title and
+    time. Mention anything proposed but not confirmed as not
+    saved yet, and anything cancelled as cancelled. Do not
+    describe the conversation.
+
+    If scope is "asked":
+
+    List EVERY "student_asked" text in "conversation", in order,
+    in the student's own words. Do not skip any of them and do
+    not add anything that is not there. Do not repeat your own
+    answers.
+
+    If scope is "summary":
+
+    Give a short recap of the conversation in order: what the
+    student asked, what you answered, and what was created or
+    cancelled.
+
+    Use ONLY the supplied memory. Never invent a question, an
+    answer, an entry or an event. Never mention JSON, fields,
+    intents or scopes.
+
+    {common}
+    """
+
+    # =====================================
     # UNKNOWN
     # =====================================
 
@@ -1788,6 +1843,28 @@ async def summarize_response(
         )
     )
 
+    # A tool that answered outright (extraction failed, nothing
+    # pending to confirm) supplies only a direct_answer. That
+    # text is the reply; there is nothing for the LLM to
+    # summarize and create intents have no prompt of their own.
+
+    if isinstance(llm_data, dict) and llm_data:
+
+        direct_only = [
+            module_context["direct_answer"]
+            for module_context in llm_data.values()
+            if isinstance(module_context, dict)
+            and set(module_context) == {"direct_answer"}
+            and module_context["direct_answer"] is not None
+        ]
+
+        if len(direct_only) == len(llm_data):
+
+            return "\n\n".join(
+                str(answer)
+                for answer in direct_only
+            )
+
     prompt = build_prompt(
         query=query,
         data=llm_data,
@@ -1830,6 +1907,19 @@ async def summarize_response(
     ):
 
         return assessment_context["direct_answer"]
+
+    recall_context = (
+        llm_data.get("conversation_recall")
+        if isinstance(llm_data, dict)
+        else None
+    ) or {}
+
+    if (
+        isinstance(recall_context, dict)
+        and recall_context.get("direct_answer") is not None
+    ):
+
+        return recall_context["direct_answer"]
 
     student_perf_context = (
         llm_data.get("student_performance")
