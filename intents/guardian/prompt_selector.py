@@ -20,7 +20,7 @@ async def build_prompt_for_query(
     )
 
     intent = GuardianIntent(
-        result["intent"]
+        result.intent
     )
 
     return get_guardian_intent_prompt(

@@ -2,6 +2,11 @@ import asyncio
 import logging
 import time
 
+from datetime import (
+    datetime,
+    timezone,
+)
+
 from db.repositories.ai_conversation_audit_repository import (
     AIConversationAuditRepository,
 )
@@ -34,6 +39,10 @@ from llm.summarizer import (
     summarize_response,
 )
 
+from services.context_service import (
+    ConversationContextService,
+)
+
 from services.date_service import (
     DateService,
 )
@@ -42,8 +51,28 @@ from cache.pending_action_cache import (
     PendingActionCache,
 )
 
+from cache.conversation_cache import (
+    ConversationCache,
+)
+
 from intents.common.prompt_categories import (
     build_unknown_intent_summary,
+)
+
+from utils import (
+    process_and_sanitize_grades,
+)
+
+
+from services.chat_session_service import (
+    ChatSessionService,
+    current_turn,
+)
+
+from services.session_memory_service import (
+    SessionMemoryService,
+    STATUS_CANCELLED,
+    STATUS_COMPLETED,
 )
 
 
@@ -77,6 +106,53 @@ class StudentAIService:
         summarizer_latency_ms: int,
     ):
 
+        turn = current_turn.get()
+
+        predicted_intent = (
+            parsed_intent.intent.value
+            if isinstance(
+                parsed_intent.intent,
+                StudentIntent,
+            )
+            else str(
+                parsed_intent.intent
+            )
+        )
+
+        # The next turn reads its context from Redis, so the
+        # cache is written before the slower audit insert.
+
+        await ConversationCache.append(
+            getattr(
+                turn,
+                "session_id",
+                None,
+            ),
+            {
+                "turn_id": getattr(
+                    turn,
+                    "session_id",
+                    None,
+                ),
+
+                "query": query,
+
+                "predicted_intent": predicted_intent,
+
+                "parsed_intent": (
+                    parsed_intent.model_dump()
+                ),
+
+                "selected_tools": selected_tools,
+
+                "summary": summary or "",
+
+                "created_at": datetime.now(
+                    timezone.utc
+                ),
+            },
+        )
+
         try:
 
             async with AsyncSessionLocal() as db:
@@ -91,19 +167,18 @@ class StudentAIService:
 
                     query=query,
 
-                    predicted_intent=(
-                        parsed_intent.intent.value
-                        if isinstance(
-                            parsed_intent.intent,
-                            StudentIntent,
-                        )
-                        else str(
-                            parsed_intent.intent
-                        )
-                    ),
+                    predicted_intent=predicted_intent,
 
                     parsed_intent=(
                         parsed_intent.model_dump()
+                    ),
+
+                    context_resolution=(
+                        getattr(
+                            parsed_intent,
+                            "context_resolution",
+                            None,
+                        )
                     ),
 
                     selected_tools=(
@@ -172,6 +247,65 @@ class StudentAIService:
             )
 
     # ==================================================
+    # SESSION MEMORY (ACTIONS)
+    # ==================================================
+
+    @staticmethod
+    async def _remember_pending_action(
+        *,
+        query: str,
+        tool_result: dict,
+    ):
+
+        turn = current_turn.get()
+
+        try:
+
+            await SessionMemoryService.record_pending(
+                getattr(turn, "session_id", None),
+                action_type=tool_result.get("action_type"),
+                payload=SessionMemoryService.payload_from_result(
+                    tool_result
+                ),
+                query=query,
+                turn_id=getattr(turn, "session_id", None),
+            )
+
+        except Exception:
+
+            logger.exception(
+                "Failed to record pending action in session memory."
+            )
+
+    @staticmethod
+    async def _remember_resolved_action(
+        *,
+        query: str,
+        action_type: str | None,
+        status: str,
+        payload: dict | None = None,
+    ):
+
+        turn = current_turn.get()
+
+        try:
+
+            await SessionMemoryService.resolve_pending(
+                getattr(turn, "session_id", None),
+                action_type=action_type,
+                status=status,
+                payload=payload,
+                turn_id=getattr(turn, "session_id", None),
+                query=query,
+            )
+
+        except Exception:
+
+            logger.exception(
+                "Failed to resolve action in session memory."
+            )
+
+    # ==================================================
     # ANSWER
     # ==================================================
 
@@ -179,6 +313,40 @@ class StudentAIService:
         self,
         query: str,
         context,
+        session_id: int,
+    ):
+
+        turn = ChatSessionService.start_turn(
+            session_id=session_id,
+        )
+        print("\n====Turn====\n", turn)
+        token = current_turn.set(
+            turn
+        )
+
+        try:
+
+            response = await self._answer(
+                query=query,
+                context=context,
+                session_id=session_id,
+            )
+
+        finally:
+
+            current_turn.reset(
+                token
+            )
+
+        response["session_id"] = session_id
+
+        return response
+
+    async def _answer(
+        self,
+        query: str,
+        context,
+        session_id: int,
     ):
 
         request_start = time.perf_counter()
@@ -208,29 +376,52 @@ class StudentAIService:
         summary = ""
 
         # ==================================================
+        # CONVERSATION CONTEXT
+        # ==================================================
+
+        recent_turns = (
+            await ConversationContextService.load_recent_turns(
+                session_id=session_id,
+            )
+        )
+
+        # ==================================================
         # CONFIRMATION SHORT CIRCUIT
         # ==================================================
 
         pending_action = (
             await PendingActionCache.get(
-                context.user_id
+                context.user_id,
+                session_id=session_id,
             )
         )
 
         if pending_action:
 
-            if normalized_query in [
+            if normalized_query.strip("?!., ") in [
 
                 "yes",
                 "y",
                 "yeah",
                 "yep",
+                "yup",
+                "sure",
+                "yes please",
                 "confirm",
                 "ok",
                 "okay",
                 "proceed",
                 "go ahead",
                 "do it",
+                "create it",
+                "save it",
+                "yes create it",
+                "yes save it",
+                "yes do it",
+                "ok create it",
+                "okay create it",
+                "ok save it",
+                "okay save it",
             ]:
 
                 logger.info(
@@ -256,20 +447,48 @@ class StudentAIService:
                     )
                 )
 
-            elif normalized_query in [
+            elif normalized_query.strip("?!., ") in [
 
                 "no",
                 "n",
+                "nope",
                 "cancel",
                 "stop",
                 "don't",
                 "dont",
                 "never mind",
+                "nevermind",
+                "no thanks",
+                "cancel it",
             ]:
 
                 await PendingActionCache.delete(
-                    context.user_id
+                    context.user_id,
+                    session_id=session_id,
                 )
+
+                cancelled_action_type = pending_action.get(
+                    "action_type"
+                )
+
+                await self._remember_resolved_action(
+                    query=query,
+                    action_type=cancelled_action_type,
+                    status=STATUS_CANCELLED,
+                )
+
+
+                cancel_results = {
+                    "action_executor_tool": {
+                        "module": "action",
+                        "action_cancelled": True,
+                        "action_type": cancelled_action_type,
+                        "payload": pending_action.get(
+                            "payload",
+                            {},
+                        ),
+                    }
+                }
 
                 summary = (
                     "The pending action has been cancelled."
@@ -312,7 +531,7 @@ class StudentAIService:
 
                     selected_tools=[],
 
-                    tool_results={},
+                    tool_results=cancel_results,
 
                     summary=summary,
 
@@ -331,14 +550,32 @@ class StudentAIService:
 
                     "success": True,
 
+                    "session_id":
+                        session_id,
+
+                    "role":
+                        context.role,
+
                     "query":
                         query,
 
-                    "data":
-                        {},
-
                     "summary":
                         summary,
+
+                    "parsed_intent":
+                        parsed_intent.model_dump(),
+
+                    "selected_tools":
+                        [],
+
+                    "context_resolution":
+                        None,
+
+                    "status":
+                        "completed",
+
+                    "data":
+                        {},
                 }
 
             else:
@@ -356,6 +593,7 @@ class StudentAIService:
                         query=query,
                         role=context.role,
                         enrollment_id=context.enrollment_id,
+                        turns=recent_turns,
                     )
                 )
 
@@ -388,6 +626,7 @@ class StudentAIService:
                     query=query,
                     role=context.role,
                     enrollment_id=context.enrollment_id,
+                    turns=recent_turns,
                 )
             )
 
@@ -465,17 +704,39 @@ class StudentAIService:
 
                 "success": True,
 
+                "session_id":
+                    session_id,
+
+                "role":
+                    context.role,
+
                 "query":
                     query,
+
+                "summary":
+                    summary,
+
+                "parsed_intent":
+                    parsed_intent.model_dump(),
+
+                "selected_tools":
+                    [],
+
+                "context_resolution":
+                    getattr(
+                        parsed_intent,
+                        "context_resolution",
+                        None,
+                    ),
+
+                "status":
+                    "completed",
 
                 "intent":
                     parsed_intent.model_dump(),
 
                 "data":
                     {},
-
-                "summary":
-                    summary,
             }
 
         # ==================================================
@@ -535,12 +796,40 @@ class StudentAIService:
                 current_tool_latency_ms
             )
 
+            result = process_and_sanitize_grades(result)
+
             results[tool_name] = result
 
             logger.info(
                 "Tool result [%s]: %s",
                 tool_name,
                 result
+            )
+
+        # ==================================================
+        # SESSION MEMORY: EXECUTED ACTION
+        # ==================================================
+
+        executed = results.get(
+            "action_executor_tool"
+        )
+
+        if (
+            isinstance(
+                executed,
+                dict,
+            )
+            and
+            executed.get(
+                "action_completed"
+            )
+        ):
+
+            await self._remember_resolved_action(
+                query=query,
+                action_type=executed.get("action_type"),
+                status=STATUS_COMPLETED,
+                payload=executed.get("payload"),
             )
 
         # ==================================================
@@ -559,6 +848,11 @@ class StudentAIService:
                     "action_required"
                 )
             ):
+
+                await self._remember_pending_action(
+                    query=query,
+                    tool_result=tool_result,
+                )
 
                 summary = (
                     tool_result.get(
@@ -608,17 +902,39 @@ class StudentAIService:
 
                     "success": True,
 
+                    "session_id":
+                        session_id,
+
+                    "role":
+                        context.role,
+
                     "query":
                         query,
+
+                    "summary":
+                        summary,
+
+                    "parsed_intent":
+                        parsed_intent.model_dump(),
+
+                    "selected_tools":
+                        selected_tools,
+
+                    "context_resolution":
+                        getattr(
+                            parsed_intent,
+                            "context_resolution",
+                            None,
+                        ),
+
+                    "status":
+                        "completed",
 
                     "intent":
                         parsed_intent.model_dump(),
 
                     "data":
                         results,
-
-                    "summary":
-                        summary,
 
                     "action_required":
                         True,
@@ -686,17 +1002,39 @@ class StudentAIService:
 
                 "success": True,
 
+                "session_id":
+                    session_id,
+
+                "role":
+                    context.role,
+
                 "query":
                     query,
+
+                "summary":
+                    None,
+
+                "parsed_intent":
+                    parsed_intent.model_dump(),
+
+                "selected_tools":
+                    selected_tools,
+
+                "context_resolution":
+                    getattr(
+                        parsed_intent,
+                        "context_resolution",
+                        None,
+                    ),
+
+                "status":
+                    "completed",
 
                 "intent":
                     parsed_intent.model_dump(),
 
                 "data":
                     results,
-
-                "summary":
-                    None,
             }
 
         # ==================================================
@@ -777,15 +1115,37 @@ class StudentAIService:
 
             "success": True,
 
+            "session_id":
+                session_id,
+
+            "role":
+                context.role,
+
             "query":
                 query,
+
+            "summary":
+                summary,
+
+            "parsed_intent":
+                parsed_intent.model_dump(),
+
+            "selected_tools":
+                selected_tools,
+
+            "context_resolution":
+                getattr(
+                    parsed_intent,
+                    "context_resolution",
+                    None,
+                ),
+
+            "status":
+                "completed",
 
             "intent":
                 parsed_intent.model_dump(),
 
             "data":
                 results,
-
-            "summary":
-                summary,
         }

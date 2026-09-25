@@ -1,4 +1,5 @@
 import logging
+import re
 import calendar
 from datetime import date
 from datetime import timedelta
@@ -30,7 +31,13 @@ from intents.student.schemas import (
     ParsedStudentIntent,
 )
 
+from schemas.conversation import (
+    ConversationTurn,
+)
+
 from utils import (
+    date_query,
+    month_window,
     resolve_dates,
     ist_today,
     MARKS_QUERY_KEYWORDS,
@@ -231,23 +238,34 @@ def normalize_focus(
             "topic_status"
         )
 
-    # Week/month: force due_range for the full window (homework-only; resolve_dates stays end-at-today).
 
     query_lower = (
         parsed.get("original_query", "")
         .lower()
     )
 
-    window_phrase = any(
-        phrase in query_lower
-        for phrase in (
-            "this week",
-            "last week",
-            "next week",
-            "this month",
-            "last month",
-            "next month",
+    window_query = date_query(
+        parsed
+    )
+
+
+    named_month = month_window(
+        window_query
+    )
+
+    window_phrase = (
+        any(
+            phrase in window_query
+            for phrase in (
+                "this week",
+                "last week",
+                "next week",
+                "this month",
+                "last month",
+                "next month",
+            )
         )
+        or named_month is not None
     )
 
     if (
@@ -264,7 +282,7 @@ def normalize_focus(
 
         parsed["homework_focus"] = "due_range"
 
-        if "this week" in query_lower:
+        if "this week" in window_query:
 
             today = ist_today()
 
@@ -278,7 +296,7 @@ def normalize_focus(
 
             parsed["end_date"] = sunday.isoformat()
 
-        elif "last week" in query_lower:
+        elif "last week" in window_query:
 
             today = ist_today()
 
@@ -294,7 +312,7 @@ def normalize_focus(
 
             parsed["end_date"] = sunday.isoformat()
 
-        elif "next week" in query_lower:
+        elif "next week" in window_query:
 
             today = ist_today()
 
@@ -310,7 +328,7 @@ def normalize_focus(
 
             parsed["end_date"] = sunday.isoformat()
 
-        elif "this month" in query_lower:
+        elif "this month" in window_query:
 
             today = ist_today()
 
@@ -327,7 +345,7 @@ def normalize_focus(
                 day=last_day,
             ).isoformat()
 
-        elif "last month" in query_lower:
+        elif "last month" in window_query:
 
             today = ist_today()
 
@@ -358,7 +376,7 @@ def normalize_focus(
                 last_day,
             ).isoformat()
 
-        elif "next month" in query_lower:
+        elif "next month" in window_query:
 
             today = ist_today()
 
@@ -389,7 +407,16 @@ def normalize_focus(
                 last_day,
             ).isoformat()
 
-    # Late submissions ("late homework submitted last week") = handed in after the due date.
+        elif named_month:
+
+            parsed["start_date"] = (
+                named_month[0].isoformat()
+            )
+
+            parsed["end_date"] = (
+                named_month[1].isoformat()
+            )
+
 
     if (
         parsed.get("intent")
@@ -519,7 +546,7 @@ def normalize_focus(
         focus in (None, "general", "due_range")
     ):
 
-        if "next year" in query_lower:
+        if "next year" in window_query:
 
             year = ist_today().year + 1
 
@@ -529,7 +556,7 @@ def normalize_focus(
 
             parsed["end_date"] = f"{year}-12-31"
 
-        elif "last year" in query_lower:
+        elif "last year" in window_query:
 
             year = ist_today().year - 1
 
@@ -585,9 +612,226 @@ def normalize_focus(
     return parsed
 
 
+JOURNAL_CREATE_MARKERS = (
+    "remember this",
+    "save this",
+    "journal this",
+    "note this",
+    "log this",
+    "write a journal",
+    "write journal",
+    "write this in my journal",
+    "add this to my journal",
+    "add to my journal",
+    "create a journal",
+    "make a journal",
+)
+
+
+CONFIRMATION_WORDS = (
+    "yes", "y", "yeah", "yep", "yup", "sure", "ok", "okay",
+    "confirm", "confirmed", "proceed", "continue", "go ahead",
+    "do it", "create it", "save it", "please do",
+    "no", "n", "nope", "cancel", "stop", "don't", "dont",
+    "never mind", "nevermind",
+)
+
+
+MAX_CONFIRMATION_WORDS = 4
+
+
+def looks_like_confirmation(
+    query: str,
+) -> bool:
+
+    normalized = (
+        query
+        .strip()
+        .lower()
+        .strip("?!., ")
+    )
+
+    if not normalized:
+
+        return False
+
+    if len(normalized.split()) > MAX_CONFIRMATION_WORDS:
+
+        return False
+
+    # Whole words only: "now" must not match "no".
+
+    return any(
+        re.search(
+            rf"(?<![a-z']){re.escape(word)}(?![a-z'])",
+            normalized,
+        )
+        for word in CONFIRMATION_WORDS
+    )
+
+
+def carries_journal_content(
+    query: str,
+) -> bool:
+
+    normalized = (
+        query
+        .strip()
+        .lower()
+        .lstrip("?!., ")
+    )
+
+    return any(
+        normalized.startswith(marker)
+        for marker in JOURNAL_CREATE_MARKERS
+    )
+
+
+def guard_journal_create(
+    intent: StudentIntent,
+    query: str,
+) -> StudentIntent:
+
+    # "Remember this I need to complete session" has been seen
+    # landing on action_confirmation and on conversation_recall.
+    # It opens with a save phrase and is not a bare yes/no, so it
+    # is a journal request whatever the classifier said.
+
+    # The mirror case: a bare "okay create it" that landed on a
+    # create intent is the confirmation of whatever is pending.
+
+    if (
+        intent in (
+            StudentIntent.JOURNAL_CREATE,
+            StudentIntent.PERSONAL_EVENT_CREATE,
+        )
+        and looks_like_confirmation(query)
+        and not carries_journal_content(query)
+    ):
+
+        logger.info(
+            "%s overridden to action_confirmation: %r",
+            intent.value,
+            query,
+        )
+
+        return StudentIntent.ACTION_CONFIRMATION
+
+    if intent not in (
+        StudentIntent.ACTION_CONFIRMATION,
+        StudentIntent.CONVERSATION_RECALL,
+        StudentIntent.UNKNOWN,
+    ):
+
+        return intent
+
+    if looks_like_confirmation(query):
+
+        # A bare "no" the classifier could not place is still a
+        # confirmation reply; the executor answers honestly when
+        # nothing is pending.
+
+        if intent == StudentIntent.UNKNOWN:
+
+            logger.info(
+                "unknown overridden to action_confirmation: %r",
+                query,
+            )
+
+            return StudentIntent.ACTION_CONFIRMATION
+
+        return intent
+
+    if carries_journal_content(query):
+
+        logger.info(
+            "%s overridden to journal_create: %r",
+            intent.value,
+            query,
+        )
+
+        return StudentIntent.JOURNAL_CREATE
+
+    return intent
+
+
+VALID_RECALL_SCOPES = {
+    "created",
+    "asked",
+    "summary",
+}
+
+
+def normalize_recall_scope(
+    parsed: dict,
+) -> dict:
+
+    if (
+        parsed.get("intent")
+        !=
+        StudentIntent.CONVERSATION_RECALL.value
+    ):
+
+        parsed["recall_scope"] = None
+
+        return parsed
+
+    scope = str(
+        parsed.get("recall_scope")
+        or ""
+    ).strip().lower()
+
+    if scope in VALID_RECALL_SCOPES:
+
+        parsed["recall_scope"] = scope
+
+        return parsed
+
+    query_lower = str(
+        parsed.get("original_query", "")
+    ).lower()
+
+    if any(
+        phrase in query_lower
+        for phrase in (
+            "summar",
+            "recap",
+            "discuss",
+            "talk about",
+            "talked about",
+            "so far",
+        )
+    ):
+
+        parsed["recall_scope"] = "summary"
+
+    elif any(
+        phrase in query_lower
+        for phrase in (
+            "did i ",
+            "i ask",
+            "i say",
+            "i said",
+            "i tell",
+            "i told",
+            "my question",
+            "my last",
+        )
+    ):
+
+        parsed["recall_scope"] = "asked"
+
+    else:
+
+        parsed["recall_scope"] = "created"
+
+    return parsed
+
+
 async def parse_student_intent(
     query: str,
     enrollment_id: int | None = None,
+    turns: list[ConversationTurn] | None = None,
 ) -> ParsedStudentIntent:
 
     try:
@@ -599,13 +843,35 @@ async def parse_student_intent(
 
         normalized_query = query.strip().lower()
 
-        classified_intent = (
+        classification = (
             await classify_student_intent(
-                normalized_query
+                normalized_query,
+                turns=turns,
             )
         )
 
-        query_lower = normalized_query
+        classified_intent = classification.intent
+
+        context_turn = classification.context_turn
+
+        resolved_query = (
+            classification.resolved_query
+            if (
+                classification.is_follow_up
+                and classification.resolved_query
+                and classification.resolved_query
+                != normalized_query
+            )
+            else query
+        )
+
+        parse_query = (
+            resolved_query
+            .strip()
+            .lower()
+        )
+
+        query_lower = parse_query
 
         if (
             classified_intent == StudentIntent.UNKNOWN
@@ -621,6 +887,11 @@ async def parse_student_intent(
             )
 
             classified_intent = StudentIntent.HOMEWORK_SUMMARY
+
+        classified_intent = guard_journal_create(
+            classified_intent,
+            query_lower,
+        )
 
         logger.info(
             "Classified intent: %s",
@@ -645,7 +916,7 @@ async def parse_student_intent(
                 },
                 {
                     "role": "user",
-                    "content": normalized_query,
+                    "content": parse_query,
                 },
             ],
             expect_json=True,
@@ -678,10 +949,13 @@ async def parse_student_intent(
             classified_intent.value
         )
 
-        # Safety net: marks for a specific homework must route to homework_summary.
+        # Safety net: marks for a specific homework must route to homework_summary,
+        # but NEVER when the user explicitly asked about an assessment/test/exam,
+        # and only if the topic actually matches a known homework title.
 
         if (
-            parsed["intent"]
+            enrollment_id
+            and parsed["intent"]
             ==
             StudentIntent.ASSESSMENT_SUMMARY.value
             and
@@ -694,16 +968,44 @@ async def parse_student_intent(
                 "topic",
                 None,
             )
+            and not any(
+                w in query_lower
+                for w in ["assessment", "assessments", "exam", "exams"]
+            )
         ):
 
-            logger.info(
-                "Reclassifying assessment intent to homework_summary: %r",
-                query,
+            async with AsyncSessionLocal() as db:
+
+                hw_repo = HomeworkRepository(db)
+
+                hw_titles = [
+                    t["title"]
+                    for t in (
+                        await hw_repo.list_enrollment_homework_titles(
+                            enrollment_id
+                        )
+                    )
+                ]
+
+            canonical_hw = resolve_canonical_name(
+                str(parsed["topic"]),
+                hw_titles,
             )
 
-            parsed["intent"] = (
-                StudentIntent.HOMEWORK_SUMMARY.value
-            )
+            if canonical_hw:
+
+                logger.info(
+                    "Reclassifying assessment intent to homework_summary "
+                    "(matches homework title %r): %r",
+                    canonical_hw,
+                    query,
+                )
+
+                parsed["intent"] = (
+                    StudentIntent.HOMEWORK_SUMMARY.value
+                )
+
+                parsed["topic"] = canonical_hw
 
         # Clean the extracted title: trailing punctuation would break exact lookups.
 
@@ -792,7 +1094,17 @@ async def parse_student_intent(
         # ORIGINAL QUERY
         # ==================================================
 
-        parsed["original_query"] = query
+        parsed["original_query"] = resolved_query
+
+        parsed["raw_query"] = query
+
+        parsed["is_follow_up"] = (
+            classification.is_follow_up
+        )
+
+        parsed["context_resolution"] = (
+            classification.context_resolution
+        )
 
         # ==================================================
         # STEP 6
@@ -818,6 +1130,15 @@ async def parse_student_intent(
         # ==================================================
 
         parsed = normalize_focus(
+            parsed
+        )
+
+        # ==================================================
+        # STEP 7c
+        # NORMALIZE RECALL SCOPE
+        # ==================================================
+
+        parsed = normalize_recall_scope(
             parsed
         )
 

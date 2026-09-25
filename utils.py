@@ -107,19 +107,256 @@ _WEEKDAY_MAP = {
 }
 
 
+# Phrases that name a time window on their own.
+
+DATE_WINDOW_PHRASES = (
+    "day before yesterday",
+    "yesterday",
+    "today",
+    "tomorrow",
+    "this week",
+    "last week",
+    "next week",
+    "this month",
+    "last month",
+    "next month",
+    "this year",
+    "last year",
+    "next year",
+)
+
+
+def date_query(
+    parsed: dict,
+) -> str:
+
+    raw = str(
+        parsed.get(
+            "raw_query"
+        )
+        or ""
+    ).lower().strip()
+
+    resolved = str(
+        parsed.get(
+            "original_query"
+        )
+        or ""
+    ).lower().strip()
+
+    if raw and (
+        any(
+            phrase in raw
+            for phrase in DATE_WINDOW_PHRASES
+        )
+        or month_window(raw) is not None
+    ):
+
+        return raw
+
+    return resolved
+
+
+_MONTH_NUMBERS = {
+    "january": 1, "jan": 1,
+    "february": 2, "feb": 2,
+    "march": 3, "mar": 3,
+    "april": 4, "apr": 4,
+    "may": 5,
+    "june": 6, "jun": 6,
+    "july": 7, "jul": 7,
+    "august": 8, "aug": 8,
+    "september": 9, "sept": 9, "sep": 9,
+    "october": 10, "oct": 10,
+    "november": 11, "nov": 11,
+    "december": 12, "dec": 12,
+}
+
+
+# Month names that are also ordinary words ("may i see my homework")
+# or too short to be safe on their own ("sep my homework"). These only
+# count as a date when the query uses them like one.
+
+_AMBIGUOUS_MONTHS = {
+    "may",
+    "jan", "feb", "mar", "apr", "jun",
+    "jul", "aug", "sept", "sep", "oct",
+    "nov", "dec",
+}
+
+
+# Words that introduce a date: "homework of may", "due in sept".
+
+_DATE_MARKERS = {
+    "of",
+    "in",
+    "for",
+    "during",
+    "from",
+    "since",
+    "till",
+    "until",
+    "through",
+    "between",
+}
+
+
+_MONTH_PATTERN = re.compile(
+    r"\b(?:(?P<day1>\d{1,2})\s*(?:st|nd|rd|th)?\s+(?:of\s+)?)?"
+    r"(?P<month>january|february|march|april|may|june|july|august|"
+    r"september|october|november|december|"
+    r"jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec)"
+    r"(?:\s+(?P<day2>\d{1,2})\s*(?:st|nd|rd|th)?)?"
+    r"(?:\s*,?\s*(?P<year>\d{4}))?\b"
+)
+
+
+# A relative window is more specific than a bare month name, so
+# "last week" wins over an incidental month word.
+
+_RELATIVE_WINDOW_PHRASES = (
+    "this week",
+    "last week",
+    "next week",
+    "this month",
+    "last month",
+    "next month",
+    "this year",
+    "last year",
+    "next year",
+)
+
+
+def _is_date_usage(
+    query: str,
+    match,
+) -> bool:
+
+    # An unambiguous month name is always a date. An ambiguous one
+    # needs evidence: an explicit day, a year, or a preposition that
+    # only ever introduces a date.
+
+    token = match.group(
+        "month"
+    )
+
+    if token not in _AMBIGUOUS_MONTHS:
+
+        return True
+
+    if (
+        match.group("day1")
+        or match.group("day2")
+        or match.group("year")
+    ):
+
+        return True
+
+    preceding = query[: match.start()].split()
+
+    return bool(
+        preceding
+        and preceding[-1] in _DATE_MARKERS
+    )
+
+
+def month_window(
+    query: str,
+):
+
+    #
+    # Resolve a named month ("july", "homework of july 2025",
+    # "28 july") into a concrete window.
+    #
+    # Returns (start, end) or None. A bare month means that month of
+    # the CURRENT year - in an April-March academic year a month that
+    # has not arrived yet is still this year's, not last year's.
+    #
+
+    if not query:
+
+        return None
+
+    lowered = query.lower()
+
+    if any(
+        phrase in lowered
+        for phrase in _RELATIVE_WINDOW_PHRASES
+    ):
+
+        return None
+
+    for match in _MONTH_PATTERN.finditer(
+        lowered
+    ):
+
+        if not _is_date_usage(
+            lowered,
+            match,
+        ):
+
+            continue
+
+        month = _MONTH_NUMBERS[
+            match.group("month")
+        ]
+
+        year = (
+            int(
+                match.group("year")
+            )
+            if match.group("year")
+            else ist_today().year
+        )
+
+        last_day = calendar.monthrange(
+            year,
+            month,
+        )[1]
+
+        day = (
+            match.group("day1")
+            or match.group("day2")
+        )
+
+        if day:
+
+            day = int(day)
+
+            if not 1 <= day <= last_day:
+
+                # An impossible day ("35 july") is reported by
+                # detect_invalid_date, never widened to the month.
+
+                return None
+
+            target = date(
+                year,
+                month,
+                day,
+            )
+
+            return (
+                target,
+                target,
+            )
+
+        return (
+            date(year, month, 1),
+            date(year, month, last_day),
+        )
+
+    return None
+
+
 def resolve_dates(
     parsed: dict,
 ):
 
     today = ist_today()
 
-    query = (
-        parsed.get(
-            "original_query",
-            "",
-        )
-        .lower()
-        .strip()
+    query = date_query(
+        parsed
     )
 
     # ------------------------------------------------------
@@ -270,6 +507,21 @@ def resolve_dates(
 
         parsed["start_date"] = target
         parsed["end_date"] = target
+
+        return parsed
+
+    # ------------------------------------------------------
+    # Named month ("july", "july 2025", "28 july")
+    # ------------------------------------------------------
+
+    window = month_window(
+        query
+    )
+
+    if window:
+
+        parsed["start_date"] = window[0]
+        parsed["end_date"] = window[1]
 
         return parsed
 
@@ -580,3 +832,85 @@ def resolve_canonical_name(raw, names, cutoff=0.6):
     if match:
         return next(n for n in names if str(n).lower() == match[0])
     return None
+
+
+def format_homework_graded_response(title: str, role: str = "student", close_match_note: str = "") -> str:
+    if role == "guardian":
+        return f"{close_match_note}Your child's {title} homework has been graded. The grade will be available on the report card."
+    return f"{close_match_note}Your {title} homework has been graded. Your grade will be available on the report card."
+
+
+def format_homework_ungraded_response(title: str, role: str = "student", close_match_note: str = "") -> str:
+    if role == "guardian":
+        return f"{close_match_note}Your child's {title} homework has not been graded yet. The grade will be available on the report card once declared."
+    return f"{close_match_note}Your {title} homework has not been graded yet. Your grade will be available on the report card once declared."
+
+
+_MARKS_KEYS_TO_REMOVE = {
+    "grade",
+    "marks",
+    "marks_obtained",
+    "total_marks",
+    "score",
+    "final_grade",
+    "percentage",
+    "average_percentage",
+    "highest_percentage",
+    "lowest_percentage",
+}
+
+
+def process_and_sanitize_grades(data):
+    """
+    Recursively inspects data structures returned by tools.
+    If marks or grade keys are present, sets boolean isGrade/isGraded/is_graded,
+    and removes all raw marks, grades, and percentages.
+    """
+    if isinstance(data, dict):
+        has_grade_mark_indicator = any(
+            k in data for k in (
+                "grade",
+                "marks",
+                "marks_obtained",
+                "total_marks",
+                "score",
+                "final_grade",
+                "percentage",
+                "is_graded",
+                "isGrade",
+                "isGraded",
+            )
+        ) or (
+            data.get("status") in (2, 3)
+            or data.get("status_tag") in ("graded", "submitted_not_graded")
+        )
+
+        if has_grade_mark_indicator:
+            is_graded = False
+            if "isGrade" in data and isinstance(data["isGrade"], bool):
+                is_graded = data["isGrade"]
+            elif "isGraded" in data and isinstance(data["isGraded"], bool):
+                is_graded = data["isGraded"]
+            elif "is_graded" in data and isinstance(data["is_graded"], bool):
+                is_graded = data["is_graded"]
+            elif data.get("status") in (2, 3) or data.get("status_tag") == "graded":
+                is_graded = True
+            elif data.get("marks_obtained") is not None or (data.get("grade") and str(data.get("grade")).strip()):
+                is_graded = True
+
+            data["isGrade"] = is_graded
+            data["isGraded"] = is_graded
+            data["is_graded"] = is_graded
+
+            for key in _MARKS_KEYS_TO_REMOVE:
+                data.pop(key, None)
+
+        for k, v in list(data.items()):
+            data[k] = process_and_sanitize_grades(v)
+
+        return data
+
+    elif isinstance(data, list):
+        return [process_and_sanitize_grades(item) for item in data]
+
+    return data

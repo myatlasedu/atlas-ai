@@ -2,6 +2,11 @@ import asyncio
 import logging
 import time
 
+from datetime import (
+    datetime,
+    timezone,
+)
+
 from db.repositories.ai_conversation_audit_repository import (
     AIConversationAuditRepository,
 )
@@ -30,12 +35,30 @@ from llm.summarizer import (
     summarize_response,
 )
 
+from services.context_service import (
+    ConversationContextService,
+)
+
 from services.date_service import (
     DateService,
 )
 
 from intents.common.prompt_categories import (
     build_unknown_intent_summary,
+)
+
+from cache.conversation_cache import (
+    ConversationCache,
+)
+
+
+from services.chat_session_service import (
+    ChatSessionService,
+    current_turn,
+)
+
+from utils import (
+    process_and_sanitize_grades,
 )
 
 
@@ -69,6 +92,53 @@ class GuardianAIService:
         summarizer_latency_ms: int,
     ):
 
+        turn = current_turn.get()
+
+        predicted_intent = (
+            parsed_intent.intent.value
+            if hasattr(
+                parsed_intent.intent,
+                "value",
+            )
+            else str(
+                parsed_intent.intent
+            )
+        )
+
+        # The next turn reads its context from Redis, so the
+        # cache is written before the slower audit insert.
+
+        await ConversationCache.append(
+            getattr(
+                turn,
+                "session_id",
+                None,
+            ),
+            {
+                "turn_id": getattr(
+                    turn,
+                    "session_id",
+                    None,
+                ),
+
+                "query": query,
+
+                "predicted_intent": predicted_intent,
+
+                "parsed_intent": (
+                    parsed_intent.model_dump()
+                ),
+
+                "selected_tools": selected_tools,
+
+                "summary": summary or "",
+
+                "created_at": datetime.now(
+                    timezone.utc
+                ),
+            },
+        )
+
         try:
 
             async with AsyncSessionLocal() as db:
@@ -83,19 +153,18 @@ class GuardianAIService:
 
                     query=query,
 
-                    predicted_intent=(
-                        parsed_intent.intent.value
-                        if hasattr(
-                            parsed_intent.intent,
-                            "value",
-                        )
-                        else str(
-                            parsed_intent.intent
-                        )
-                    ),
+                    predicted_intent=predicted_intent,
 
                     parsed_intent=(
                         parsed_intent.model_dump()
+                    ),
+
+                    context_resolution=(
+                        getattr(
+                            parsed_intent,
+                            "context_resolution",
+                            None,
+                        )
                     ),
 
                     selected_tools=(
@@ -171,6 +240,40 @@ class GuardianAIService:
         self,
         query: str,
         context,
+        session_id: int,
+    ):
+
+        turn = ChatSessionService.start_turn(
+            session_id=session_id,
+        )
+
+        token = current_turn.set(
+            turn
+        )
+
+        try:
+
+            response = await self._answer(
+                query=query,
+                context=context,
+                session_id=session_id,
+            )
+
+        finally:
+
+            current_turn.reset(
+                token
+            )
+
+        response["session_id"] = session_id
+
+        return response
+
+    async def _answer(
+        self,
+        query: str,
+        context,
+        session_id: int,
     ):
 
         request_start = (
@@ -194,6 +297,16 @@ class GuardianAIService:
         summary = ""
 
         # ==================================================
+        # CONVERSATION CONTEXT
+        # ==================================================
+
+        recent_turns = (
+            await ConversationContextService.load_recent_turns(
+                session_id=session_id,
+            )
+        )
+
+        # ==================================================
         # INTENT PARSING
         # ==================================================
 
@@ -205,6 +318,7 @@ class GuardianAIService:
             await parse_guardian_intent(
                 query,
                 enrollment_id=context.enrollment_id,
+                turns=recent_turns,
             )
         )
 
@@ -282,17 +396,39 @@ class GuardianAIService:
 
                 "success": True,
 
+                "session_id":
+                    session_id,
+
+                "role":
+                    context.role,
+
                 "query":
                     query,
+
+                "summary":
+                    summary,
+
+                "parsed_intent":
+                    parsed_intent.model_dump(),
+
+                "selected_tools":
+                    [],
+
+                "context_resolution":
+                    getattr(
+                        parsed_intent,
+                        "context_resolution",
+                        None,
+                    ),
+
+                "status":
+                    "completed",
 
                 "intent":
                     parsed_intent.model_dump(),
 
                 "data":
                     {},
-
-                "summary":
-                    summary,
             }
 
         # ==================================================
@@ -351,6 +487,8 @@ class GuardianAIService:
             tool_latency_ms += (
                 current_tool_latency_ms
             )
+
+            result = process_and_sanitize_grades(result)
 
             results[
                 tool_name
@@ -444,15 +582,37 @@ class GuardianAIService:
 
             "success": True,
 
+            "session_id":
+                session_id,
+
+            "role":
+                context.role,
+
             "query":
                 query,
+
+            "summary":
+                summary,
+
+            "parsed_intent":
+                parsed_intent.model_dump(),
+
+            "selected_tools":
+                selected_tools,
+
+            "context_resolution":
+                getattr(
+                    parsed_intent,
+                    "context_resolution",
+                    None,
+                ),
+
+            "status":
+                "completed",
 
             "intent":
                 parsed_intent.model_dump(),
 
             "data":
                 results,
-
-            "summary":
-                summary,
         }

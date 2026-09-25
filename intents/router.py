@@ -10,11 +10,16 @@ from intents.mentor.parser import (
     parse_mentor_intent
 )
 
+from schemas.conversation import (
+    ConversationTurn
+)
+
 
 async def parse_intent(
     query: str,
     role: str,
     enrollment_id: int | None = None,
+    turns: list[ConversationTurn] | None = None,
 ):
 
     role = (
@@ -28,6 +33,7 @@ async def parse_intent(
         return await parse_student_intent(
             query=query,
             enrollment_id=enrollment_id,
+            turns=turns,
         )
 
     

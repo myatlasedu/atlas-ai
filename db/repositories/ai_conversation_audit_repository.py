@@ -9,7 +9,10 @@ from decimal import Decimal
 
 from uuid import UUID
 
-from sqlalchemy import text
+from sqlalchemy import (
+    bindparam,
+    text,
+)
 
 
 def make_json_safe(value):
@@ -74,6 +77,55 @@ def make_json_safe(value):
     return value
 
 
+
+def _coerce_json(
+    value,
+    default,
+):
+
+    # jsonb columns normally arrive decoded, but a raw driver
+    # (or a NULL column) can hand back a string or None.
+
+    if value is None:
+
+        return default
+
+    if isinstance(
+        value,
+        str,
+    ):
+
+        try:
+
+            value = json.loads(
+                value
+            )
+
+        except (
+            ValueError,
+            TypeError,
+        ):
+
+            return default
+
+    if isinstance(
+        default,
+        list,
+    ):
+
+        return (
+            list(value)
+            if isinstance(value, (list, tuple))
+            else default
+        )
+
+    return (
+        value
+        if isinstance(value, dict)
+        else default
+    )
+
+
 class AIConversationAuditRepository:
 
     async def create(
@@ -85,6 +137,7 @@ class AIConversationAuditRepository:
         query: str,
         predicted_intent: str,
         parsed_intent: dict | None = None,
+        context_resolution: dict | None = None,
         selected_tools: list | None = None,
         tool_results: dict | None = None,
         summary: str = "",
@@ -96,6 +149,10 @@ class AIConversationAuditRepository:
 
         safe_parsed_intent = make_json_safe(
             parsed_intent or {}
+        )
+
+        safe_context_resolution = make_json_safe(
+            context_resolution or {}
         )
 
         safe_selected_tools = make_json_safe(
@@ -116,6 +173,7 @@ class AIConversationAuditRepository:
 
                 predicted_intent,
                 parsed_intent,
+                context_resolution,
                 selected_tools,
                 tool_results,
                 summary,
@@ -139,6 +197,7 @@ class AIConversationAuditRepository:
 
                 :predicted_intent,
                 CAST(:parsed_intent AS jsonb),
+                CAST(:context_resolution AS jsonb),
                 CAST(:selected_tools AS jsonb),
                 CAST(:tool_results AS jsonb),
                 :summary,
@@ -175,6 +234,11 @@ class AIConversationAuditRepository:
                         safe_parsed_intent
                     ),
 
+                "context_resolution":
+                    json.dumps(
+                        safe_context_resolution
+                    ),
+
                 "selected_tools":
                     json.dumps(
                         safe_selected_tools
@@ -205,3 +269,73 @@ class AIConversationAuditRepository:
         await db.commit()
 
         return result.scalar_one()
+
+    # ==================================================
+    # RECENT TURNS (CONVERSATION CONTEXT)
+    # ==================================================
+
+    NON_CONTEXTUAL_INTENTS = (
+        "unknown",
+        "action_confirmation",
+        "conversation_recall",
+        "",
+    )
+
+    async def list_recent_turns(
+        self,
+        db,
+        *,
+        user_id: int,
+        role: str,
+        limit: int = 5,
+    ) -> list[dict]:
+        statement = text(
+            """
+            SELECT
+                id AS turn_id,
+                query,
+                predicted_intent,
+                parsed_intent,
+                selected_tools,
+                summary,
+                created_at
+            FROM ai_conversation_audit
+            WHERE
+                user_id = :user_id
+                AND role = :role
+                AND query IS NOT NULL
+                AND TRIM(query) != ''
+                AND LOWER(COALESCE(predicted_intent, '')) NOT IN :ignored_intents
+            ORDER BY
+                created_at DESC,
+                id DESC
+            LIMIT :limit
+            """
+        ).bindparams(
+            bindparam(
+                "ignored_intents",
+                expanding=True,
+            )
+        )
+
+        result = await db.execute(
+            statement,
+            {
+                "user_id": user_id,
+                "role": role,
+                "ignored_intents": list(
+                    self.NON_CONTEXTUAL_INTENTS
+                ),
+                "limit": limit,
+            },
+        )
+
+        rows = []
+        for row in result.mappings().all():
+            item = dict(row)
+            # Ensure JSON columns deserialize safely
+            item["parsed_intent"] = _coerce_json(item.get("parsed_intent"), default={})
+            item["selected_tools"] = _coerce_json(item.get("selected_tools"), default=[])
+            rows.append(item)
+        
+        return rows

@@ -17,16 +17,42 @@ class PendingActionCache:
     )
 
     @classmethod
+    def _key(
+        cls,
+        user_id,
+        session_id,
+    ) -> str | None:
+
+        if not session_id or user_id is None:
+
+            return None
+
+        return (
+            f"{cls.PREFIX}:{user_id}:{session_id}"
+        )
+
+    @classmethod
     async def save(
         cls,
         user_id: int,
         action_type: str,
-        payload: dict
+        payload: dict,
+        session_id=None,
     ):
 
-        key = (
-            f"{cls.PREFIX}:{user_id}"
+        key = cls._key(
+            user_id,
+            session_id,
         )
+
+        if key is None:
+
+            logger.warning(
+                "Pending action not saved: no session for user=%s",
+                user_id,
+            )
+
+            return
 
         value = {
 
@@ -49,17 +75,12 @@ class PendingActionCache:
             )
 
             logger.info(
-                "Pending action saved for user=%s",
-                user_id
+                "Pending action saved for user=%s session=%s",
+                user_id,
+                session_id,
             )
 
         except Exception as exc:
-
-            #
-            # Redis unavailable: the conversation must keep
-            # flowing. Only the confirmation round-trip is
-            # lost for this turn.
-            #
 
             logger.warning(
                 "Pending action save skipped (redis unavailable): %s",
@@ -69,12 +90,18 @@ class PendingActionCache:
     @classmethod
     async def get(
         cls,
-        user_id: int
+        user_id: int,
+        session_id=None,
     ):
 
-        key = (
-            f"{cls.PREFIX}:{user_id}"
+        key = cls._key(
+            user_id,
+            session_id,
         )
+
+        if key is None:
+
+            return None
 
         try:
 
@@ -102,12 +129,18 @@ class PendingActionCache:
     @classmethod
     async def delete(
         cls,
-        user_id: int
+        user_id: int,
+        session_id=None,
     ):
 
-        key = (
-            f"{cls.PREFIX}:{user_id}"
+        key = cls._key(
+            user_id,
+            session_id,
         )
+
+        if key is None:
+
+            return
 
         try:
 
@@ -116,8 +149,9 @@ class PendingActionCache:
             )
 
             logger.info(
-                "Pending action deleted for user=%s",
-                user_id
+                "Pending action deleted for user=%s session=%s",
+                user_id,
+                session_id,
             )
 
         except Exception as exc:

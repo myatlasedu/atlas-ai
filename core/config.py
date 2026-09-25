@@ -5,6 +5,8 @@ class Settings(BaseSettings):
 
     APP_NAME: str
 
+    APP_ENV: str = "production"
+
     POSTGRES_HOST: str
     POSTGRES_PORT: int
     POSTGRES_DB: str
@@ -25,6 +27,21 @@ class Settings(BaseSettings):
     OLLAMA_MODEL: str
     OLLAMA_TIMEOUT_SECONDS:int = 60
     REQUEST_LOCK_TTL_SECONDS: int = 120
+
+    # Environments where the caller-trusted session API may be exposed.
+    SESSION_API_ENVIRONMENTS: frozenset[str] = frozenset(
+        {"local", "development", "dev", "staging", "test"}
+    )
+
+    @property
+    def is_production(self) -> bool:
+
+        return self.APP_ENV.strip().lower() not in self.SESSION_API_ENVIRONMENTS
+
+    @property
+    def session_api_enabled(self) -> bool:
+        
+        return not self.is_production
 
     class Config:
         env_file = ".env"

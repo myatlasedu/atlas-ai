@@ -16,6 +16,15 @@ from intents.guardian.classifier import (
     classify_guardian_intent
 )
 
+from intents.common.conversation_context import (
+    inherit_parameters,
+    is_follow_up_query,
+)
+
+from schemas.conversation import (
+    ConversationTurn
+)
+
 from intents.guardian.enums import (
     GuardianIntent
 )
@@ -29,6 +38,8 @@ from intents.guardian.schemas import (
 )
 
 from utils import (
+    date_query,
+    month_window,
     resolve_dates,
     ist_today,
     MARKS_QUERY_KEYWORDS,
@@ -126,16 +137,27 @@ def normalize_homework_focus(
         .lower()
     )
 
-    window_phrase = any(
-        phrase in query_lower
-        for phrase in (
-            "this week",
-            "last week",
-            "next week",
-            "this month",
-            "last month",
-            "next month",
+    window_query = date_query(
+        parsed
+    )
+
+    named_month = month_window(
+        window_query
+    )
+
+    window_phrase = (
+        any(
+            phrase in window_query
+            for phrase in (
+                "this week",
+                "last week",
+                "next week",
+                "this month",
+                "last month",
+                "next month",
+            )
         )
+        or named_month is not None
     )
 
     if (
@@ -152,7 +174,7 @@ def normalize_homework_focus(
 
         parsed["homework_focus"] = "due_range"
 
-        if "this week" in query_lower:
+        if "this week" in window_query:
 
             today = ist_today()
 
@@ -166,7 +188,7 @@ def normalize_homework_focus(
 
             parsed["end_date"] = sunday.isoformat()
 
-        elif "last week" in query_lower:
+        elif "last week" in window_query:
 
             today = ist_today()
 
@@ -182,7 +204,7 @@ def normalize_homework_focus(
 
             parsed["end_date"] = sunday.isoformat()
 
-        elif "next week" in query_lower:
+        elif "next week" in window_query:
 
             today = ist_today()
 
@@ -198,7 +220,7 @@ def normalize_homework_focus(
 
             parsed["end_date"] = sunday.isoformat()
 
-        elif "this month" in query_lower:
+        elif "this month" in window_query:
 
             today = ist_today()
 
@@ -215,7 +237,7 @@ def normalize_homework_focus(
                 day=last_day,
             ).isoformat()
 
-        elif "last month" in query_lower:
+        elif "last month" in window_query:
 
             today = ist_today()
 
@@ -246,7 +268,7 @@ def normalize_homework_focus(
                 last_day,
             ).isoformat()
 
-        elif "next month" in query_lower:
+        elif "next month" in window_query:
 
             today = ist_today()
 
@@ -276,6 +298,16 @@ def normalize_homework_focus(
                 month,
                 last_day,
             ).isoformat()
+
+        elif named_month:
+
+            parsed["start_date"] = (
+                named_month[0].isoformat()
+            )
+
+            parsed["end_date"] = (
+                named_month[1].isoformat()
+            )
 
     # Late submissions ("late homework submitted last week") = handed in after the due date.
 
@@ -407,7 +439,7 @@ def normalize_homework_focus(
         focus in (None, "general", "due_range")
     ):
 
-        if "next year" in query_lower:
+        if "next year" in window_query:
 
             year = ist_today().year + 1
 
@@ -417,7 +449,7 @@ def normalize_homework_focus(
 
             parsed["end_date"] = f"{year}-12-31"
 
-        elif "last year" in query_lower:
+        elif "last year" in window_query:
 
             year = ist_today().year - 1
 
@@ -532,19 +564,45 @@ def normalize_dates(
 async def parse_guardian_intent(
     query: str,
     enrollment_id: int | None = None,
+    turns: list[ConversationTurn] | None = None,
 ) -> ParsedGuardianIntent:
 
     try:
 
         normalized_query = query.strip().lower()
 
-        classified_intent = (
+        classification = (
             await classify_guardian_intent(
-                normalized_query
+                normalized_query,
+                turns=turns,
             )
         )
 
-        query_lower = normalized_query
+        classified_intent = classification.intent
+
+        context_turn = classification.context_turn
+
+        # A follow-up is answered as its self-contained rewrite; a
+        # stand-alone query keeps the user's own words untouched.
+
+        resolved_query = (
+            classification.resolved_query
+            if (
+                classification.is_follow_up
+                and classification.resolved_query
+                and classification.resolved_query
+                != normalized_query
+            )
+            else query
+        )
+
+        parse_query = (
+            resolved_query
+            .strip()
+            .lower()
+        )
+
+        query_lower = parse_query
 
         if (
             classified_intent == GuardianIntent.UNKNOWN
@@ -561,6 +619,40 @@ async def parse_guardian_intent(
 
             classified_intent = GuardianIntent.HOMEWORK_SUMMARY
 
+        # An unplaceable query right after a real turn is a follow-up
+        # to it ("and last week?"), not an unknown intent.
+
+        if (
+            classified_intent == GuardianIntent.UNKNOWN
+            and turns
+            and (
+                classification.is_follow_up
+                or is_follow_up_query(parse_query)
+            )
+        ):
+
+            context_turn = context_turn or turns[0]
+
+            try:
+
+                classified_intent = GuardianIntent(
+                    context_turn.predicted_intent
+                )
+
+                logger.info(
+                    "Guardian UNKNOWN resolved to %s from conversation turn %s.",
+                    classified_intent.value,
+                    context_turn.turn_id,
+                )
+
+            except ValueError:
+
+                context_turn = None
+
+        if classified_intent == GuardianIntent.UNKNOWN:
+
+            context_turn = None
+
         logger.info(
             "Guardian classified intent: %s",
             classified_intent.value
@@ -576,7 +668,7 @@ async def parse_guardian_intent(
                 },
                 {
                     "role": "user",
-                    "content": normalized_query
+                    "content": parse_query
                 }
             ],
             expect_json=True
@@ -622,10 +714,13 @@ async def parse_guardian_intent(
                 classified_intent.value
             )
 
-        # Safety net: marks for a specific homework must route to homework_summary.
+        # Safety net: marks for a specific homework must route to homework_summary,
+        # but NEVER when the user explicitly asked about an assessment/test/exam,
+        # and only if the topic actually matches a known homework title.
 
         if (
-            intent
+            enrollment_id
+            and intent
             ==
             GuardianIntent.ASSESSMENT_SUMMARY.value
             and
@@ -638,16 +733,44 @@ async def parse_guardian_intent(
                 "topic",
                 None,
             )
+            and not any(
+                w in query_lower
+                for w in ["assessment", "assessments", "exam", "exams"]
+            )
         ):
 
-            logger.info(
-                "Reclassifying guardian assessment intent to homework_summary: %r",
-                query,
+            async with AsyncSessionLocal() as db:
+
+                hw_repo = HomeworkRepository(db)
+
+                hw_titles = [
+                    t["title"]
+                    for t in (
+                        await hw_repo.list_enrollment_homework_titles(
+                            enrollment_id
+                        )
+                    )
+                ]
+
+            canonical_hw = resolve_canonical_name(
+                str(parsed["topic"]),
+                hw_titles,
             )
 
-            intent = (
-                GuardianIntent.HOMEWORK_SUMMARY.value
-            )
+            if canonical_hw:
+
+                logger.info(
+                    "Reclassifying guardian assessment intent to homework_summary "
+                    "(matches homework title %r): %r",
+                    canonical_hw,
+                    query,
+                )
+
+                intent = (
+                    GuardianIntent.HOMEWORK_SUMMARY.value
+                )
+
+                parsed["topic"] = canonical_hw
 
         # Safety net: an unknown with a homework topic routes to homework_summary.
 
@@ -718,7 +841,22 @@ async def parse_guardian_intent(
 
         parsed["intent"] = intent
 
-        parsed["original_query"] = query
+        parsed["original_query"] = resolved_query
+
+        parsed["raw_query"] = query
+
+        parsed["is_follow_up"] = (
+            classification.is_follow_up
+        )
+
+        parsed["context_resolution"] = (
+            classification.context_resolution
+        )
+
+        parsed = inherit_parameters(
+            parsed,
+            context_turn,
+        )
 
         parsed = normalize_dates(
             parsed
