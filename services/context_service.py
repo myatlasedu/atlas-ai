@@ -19,49 +19,22 @@ class ConversationContextService:
 
     MAX_TURNS = 5
 
-    # History is session scoped: Redis holds it, and ai_chat_message
-    # rebuilds it when the key has expired. ai_conversation_audit is a
-    # debug table and is never read here - a query with no session is
-    # a fresh chat, not a query to be answered from someone's past.
-
     session_repository = AIChatSessionRepository()
 
     @classmethod
     async def load_recent_turns(
         cls,
         *,
-        turn=None,
+        session_id: int | None = None,
         limit: int | None = None,
     ) -> list[ConversationTurn]:
 
         target_limit = limit or cls.MAX_TURNS
 
-        session_id = getattr(
-            turn,
-            "session_id",
-            None,
-        )
-
         if not session_id:
 
             logger.info(
-                "No session on this turn; answering as a fresh chat."
-            )
-
-            return []
-
-        if (
-            getattr(
-                turn,
-                "turn_index",
-                0,
-            )
-            <= 1
-        ):
-
-            logger.info(
-                "First turn of session=%s; skipping history lookup.",
-                session_id,
+                "No session_id; answering as a fresh chat."
             )
 
             return []
@@ -79,7 +52,7 @@ class ConversationContextService:
     async def _load_session_turns(
         cls,
         *,
-        session_id: str,
+        session_id: int,
         limit: int,
     ) -> list[ConversationTurn]:
 
@@ -111,7 +84,7 @@ class ConversationContextService:
     async def _rebuild_cache(
         cls,
         *,
-        session_id: str,
+        session_id: int,
         limit: int,
     ) -> list[dict]:
 
@@ -129,6 +102,15 @@ class ConversationContextService:
 
             logger.exception(
                 "Failed to rebuild conversation cache; continuing without history."
+            )
+
+            return []
+
+        if not rows:
+
+            logger.info(
+                "No prior turns for session=%s; treating as new session.",
+                session_id,
             )
 
             return []

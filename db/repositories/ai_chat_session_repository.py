@@ -6,8 +6,6 @@ from sqlalchemy import (
     text,
 )
 
-from sqlalchemy.exc import IntegrityError
-
 from db.repositories.ai_conversation_audit_repository import (
     AIConversationAuditRepository,
     _coerce_json,
@@ -49,65 +47,8 @@ def build_title(
 class AIChatSessionRepository:
 
     # ==================================================
-    # SESSIONS
+    # SESSIONS (READ-ONLY from this repo now)
     # ==================================================
-
-    async def create_session(
-        self,
-        db,
-        *,
-        user_id: int,
-        role: str,
-        title: str | None = None,
-    ) -> dict:
-
-        statement = text(
-            """
-            INSERT INTO ai_chat_session (
-
-                user_id,
-                role,
-                title,
-                status
-
-            )
-            VALUES (
-
-                :user_id,
-                :role,
-                :title,
-                'active'
-
-            )
-            RETURNING
-                id,
-                user_id,
-                role,
-                title,
-                status,
-                message_count,
-                last_message_at,
-                created_at,
-                updated_at
-            """
-        )
-
-        result = await db.execute(
-            statement,
-            {
-                "user_id": user_id,
-                "role": role,
-                "title": title,
-            },
-        )
-
-        row = dict(
-            result.mappings().one()
-        )
-
-        await db.commit()
-
-        return row
 
     async def get_session(
         self,
@@ -132,7 +73,7 @@ class AIChatSessionRepository:
                 updated_at
             FROM ai_chat_session
             WHERE
-                id = CAST(:session_id AS uuid)
+                id = :session_id
                 AND (
                     CAST(:user_id AS bigint) IS NULL
                     OR user_id = CAST(:user_id AS bigint)
@@ -148,7 +89,7 @@ class AIChatSessionRepository:
         result = await db.execute(
             statement,
             {
-                "session_id": str(session_id),
+                "session_id": session_id,
                 "user_id": user_id,
                 "role": role,
             },
@@ -237,7 +178,7 @@ class AIChatSessionRepository:
             UPDATE ai_chat_session
             SET title = :title
             WHERE
-                id = CAST(:session_id AS uuid)
+                id = :session_id
                 AND status != 'deleted'
                 AND (
                     CAST(:user_id AS bigint) IS NULL
@@ -259,7 +200,7 @@ class AIChatSessionRepository:
         result = await db.execute(
             statement,
             {
-                "session_id": str(session_id),
+                "session_id": session_id,
                 "title": title,
                 "user_id": user_id,
                 "role": role,
@@ -291,7 +232,7 @@ class AIChatSessionRepository:
             UPDATE ai_chat_session
             SET status = :status
             WHERE
-                id = CAST(:session_id AS uuid)
+                id = :session_id
                 AND status != 'deleted'
                 AND (
                     CAST(:user_id AS bigint) IS NULL
@@ -308,7 +249,7 @@ class AIChatSessionRepository:
         result = await db.execute(
             statement,
             {
-                "session_id": str(session_id),
+                "session_id": session_id,
                 "status": status,
                 "user_id": user_id,
                 "role": role,
@@ -325,227 +266,8 @@ class AIChatSessionRepository:
         return updated
 
     # ==================================================
-    # TURNS
+    # MESSAGES (READ-ONLY - list only for transcript/cache rebuild)
     # ==================================================
-
-    INSERT_RETRIES = 3
-
-    async def create_message(
-        self,
-        db,
-        *,
-        session_id,
-        user_id: int,
-        role: str,
-        query: str,
-        status: str = "pending",
-    ) -> dict:
-
-        statement = text(
-            """
-            INSERT INTO ai_chat_message (
-
-                session_id,
-                user_id,
-                role,
-                turn_index,
-                query,
-                status
-
-            )
-            VALUES (
-
-                CAST(:session_id AS uuid),
-                :user_id,
-                :role,
-                (
-                    SELECT
-                        COALESCE(
-                            MAX(turn_index),
-                            0
-                        ) + 1
-                    FROM ai_chat_message
-                    WHERE session_id = CAST(:session_id AS uuid)
-                ),
-                :query,
-                :status
-
-            )
-            RETURNING
-                id,
-                session_id,
-                turn_index,
-                created_at
-            """
-        )
-
-        parameters = {
-            "session_id": str(session_id),
-            "user_id": user_id,
-            "role": role,
-            "query": query,
-            "status": status,
-        }
-
-        for attempt in range(
-            self.INSERT_RETRIES
-        ):
-
-            try:
-
-                result = await db.execute(
-                    statement,
-                    parameters,
-                )
-
-                row = dict(
-                    result.mappings().one()
-                )
-
-                await db.commit()
-
-                return row
-
-            except IntegrityError:
-
-                await db.rollback()
-
-                if (
-                    attempt
-                    ==
-                    self.INSERT_RETRIES - 1
-                ):
-
-                    raise
-
-                logger.warning(
-                    "Turn index collision on session %s; retrying.",
-                    session_id,
-                )
-
-    async def complete_message(
-        self,
-        db,
-        *,
-        message_id: int,
-        answer: str | None,
-        status: str = "completed",
-        audit_id: int | None = None,
-        error_message: str | None = None,
-    ) -> bool:
-
-        statement = text(
-            """
-            UPDATE ai_chat_message
-            SET
-                answer = :answer,
-                status = :status,
-                error_message = :error_message,
-                audit_id = COALESCE(
-                    :audit_id,
-                    audit_id
-                )
-            WHERE id = :message_id
-            RETURNING id
-            """
-        )
-
-        result = await db.execute(
-            statement,
-            {
-                "message_id": message_id,
-                "answer": answer,
-                "status": status,
-                "audit_id": audit_id,
-                "error_message": error_message,
-            },
-        )
-
-        updated = (
-            result.first()
-            is not None
-        )
-
-        await db.commit()
-
-        return updated
-
-    async def attach_intent(
-        self,
-        db,
-        *,
-        message_id: int,
-        predicted_intent: str | None = None,
-        parsed_intent: dict | None = None,
-        selected_tools: list | None = None,
-        audit_id: int | None = None,
-    ) -> bool:
-
-        statement = text(
-            """
-            UPDATE ai_chat_message
-            SET
-                predicted_intent = COALESCE(
-                    :predicted_intent,
-                    predicted_intent
-                ),
-                parsed_intent = COALESCE(
-                    CAST(:parsed_intent AS jsonb),
-                    parsed_intent
-                ),
-                selected_tools = COALESCE(
-                    CAST(:selected_tools AS jsonb),
-                    selected_tools
-                ),
-                audit_id = COALESCE(
-                    :audit_id,
-                    audit_id
-                )
-            WHERE id = :message_id
-            RETURNING id
-            """
-        )
-
-        result = await db.execute(
-            statement,
-            {
-                "message_id": message_id,
-
-                "predicted_intent":
-                    predicted_intent,
-
-                "parsed_intent": (
-                    json.dumps(
-                        make_json_safe(
-                            parsed_intent
-                        )
-                    )
-                    if parsed_intent is not None
-                    else None
-                ),
-
-                "selected_tools": (
-                    json.dumps(
-                        make_json_safe(
-                            selected_tools
-                        )
-                    )
-                    if selected_tools is not None
-                    else None
-                ),
-
-                "audit_id": audit_id,
-            },
-        )
-
-        updated = (
-            result.first()
-            is not None
-        )
-
-        await db.commit()
-
-        return updated
 
     async def list_messages(
         self,
@@ -561,19 +283,16 @@ class AIChatSessionRepository:
             SELECT
                 id,
                 session_id,
-                turn_index,
                 query,
                 answer,
-                status,
-                error_message,
-                audit_id,
-                created_at,
-                updated_at
+                context_resolution,
+                selected_tools,
+                parsed_intent,
+                predicted_intent,
+                created_at
             FROM ai_chat_message
-            WHERE session_id = CAST(:session_id AS uuid)
-            ORDER BY
-                turn_index ASC,
-                id ASC
+            WHERE session_id = :session_id
+            ORDER BY id DESC
             LIMIT :limit
             OFFSET :offset
             """
@@ -582,7 +301,7 @@ class AIChatSessionRepository:
         result = await db.execute(
             statement,
             {
-                "session_id": str(session_id),
+                "session_id": session_id,
                 "limit": limit,
                 "offset": offset,
             },
@@ -618,8 +337,7 @@ class AIChatSessionRepository:
                 created_at
             FROM ai_chat_message
             WHERE
-                session_id = CAST(:session_id AS uuid)
-                AND status = 'completed'
+                session_id = :session_id
                 AND query IS NOT NULL
                 AND TRIM(query) != ''
                 AND LOWER(
@@ -629,7 +347,6 @@ class AIChatSessionRepository:
                     )
                 ) NOT IN :ignored_intents
             ORDER BY
-                turn_index DESC,
                 id DESC
             LIMIT :limit
             """
@@ -643,7 +360,7 @@ class AIChatSessionRepository:
         result = await db.execute(
             statement,
             {
-                "session_id": str(session_id),
+                "session_id": session_id,
                 "ignored_intents": list(
                     AIConversationAuditRepository.NON_CONTEXTUAL_INTENTS
                 ),
@@ -718,8 +435,7 @@ class AIChatSessionRepository:
             LEFT JOIN ai_conversation_audit a
                 ON a.id = m.audit_id
             WHERE
-                m.session_id = CAST(:session_id AS uuid)
-                AND m.status = 'completed'
+                m.session_id = :session_id
                 AND LOWER(
                     COALESCE(
                         m.predicted_intent,
@@ -727,7 +443,6 @@ class AIChatSessionRepository:
                     )
                 ) IN :action_intents
             ORDER BY
-                m.turn_index DESC,
                 m.id DESC
             LIMIT :limit
             """
@@ -741,7 +456,7 @@ class AIChatSessionRepository:
         result = await db.execute(
             statement,
             {
-                "session_id": str(session_id),
+                "session_id": session_id,
                 "action_intents": list(
                     self.ACTION_INTENTS
                 ),
