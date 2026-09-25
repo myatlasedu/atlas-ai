@@ -203,7 +203,18 @@ class ActionExecutorTool:
                         content=
                             payload.get(
                                 "content"
+                            ),
+
+                        tag=
+                            payload.get(
+                                "tag"
                             )
+                            or "Note",
+
+                        journal_date=
+                            payload.get(
+                                "journal_date"
+                            ),
                     )
                 )
 
