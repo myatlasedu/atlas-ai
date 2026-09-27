@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,15 +13,24 @@ from middleware import (
     RequestLockMiddleware
 )
 
+from cache.redis import redis_client
 from core.config import settings
 
 
 logger = logging.getLogger(__name__)
 
+# AI service's Redis connection pool closes when the FastAPI app shuts down. This is important because
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        yield
+    finally:
+        await redis_client.close()
 
 app = FastAPI(
     title="ERP AI Copilot",
     version="1.0.0",
+    lifespan=lifespan
 )
 
 app.add_middleware(

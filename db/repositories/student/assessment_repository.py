@@ -1,5 +1,4 @@
 from sqlalchemy import text
-import statistics
 
 
 class AssessmentRepository:
@@ -7,6 +6,43 @@ class AssessmentRepository:
     def __init__(self, db):
 
         self.db = db
+
+    # =====================================================
+    # GRADED FLAG HELPERS
+    # =====================================================
+
+    @staticmethod
+    def _stamp_graded(
+        row: dict,
+        value: bool | None = None,
+    ) -> dict:
+
+        is_graded = (
+            value
+            if value is not None
+            else bool(row.get("is_graded", False))
+        )
+
+        row["is_graded"] = is_graded
+        row["isGrade"] = is_graded
+        row["isGraded"] = is_graded
+
+        return row
+
+    @staticmethod
+    def _stamp_graded_list(
+        rows,
+        value: bool | None = None,
+    ) -> list[dict]:
+
+        return [
+            AssessmentRepository._stamp_graded(
+                dict(r),
+                value=value,
+            )
+            for r in rows
+        ]
+
 
     # =====================================================
     # UPCOMING ASSESSMENTS
@@ -151,13 +187,7 @@ class AssessmentRepository:
         if not row:
             return None
 
-        row = dict(row)
-        is_graded = bool(row.get("is_graded", False))
-        row["is_graded"] = is_graded
-        row["isGrade"] = is_graded
-        row["isGraded"] = is_graded
-
-        return row
+        return self._stamp_graded(dict(row))
 
     # =====================================================
     # PERFORMANCE SUMMARY
@@ -267,12 +297,7 @@ class AssessmentRepository:
         if not row:
             return None
 
-        row = dict(row)
-        row["is_graded"] = True
-        row["isGrade"] = True
-        row["isGraded"] = True
-
-        return row
+        return self._stamp_graded(dict(row), value=True)
 
     # =====================================================
     # LOWEST SCORING ASSESSMENT
@@ -331,12 +356,7 @@ class AssessmentRepository:
         if not row:
             return None
 
-        row = dict(row)
-        row["is_graded"] = True
-        row["isGrade"] = True
-        row["isGraded"] = True
-
-        return row
+        return self._stamp_graded(dict(row), value=True)
 
     # =====================================================
     # RECENT FEEDBACK
@@ -384,18 +404,9 @@ class AssessmentRepository:
             }
         )
 
-        rows = result.mappings().all()
-
-        feedbacks = []
-        for r in rows:
-            d = dict(r)
-            is_graded = bool(d.get("is_graded", False))
-            d["is_graded"] = is_graded
-            d["isGrade"] = is_graded
-            d["isGraded"] = is_graded
-            feedbacks.append(d)
-
-        return feedbacks
+        return self._stamp_graded_list(
+            result.mappings().all()
+        )
 
     # =====================================================
     # ASSESSMENT TREND
@@ -435,15 +446,10 @@ class AssessmentRepository:
             }
         )
 
-        rows = []
-        for r in result.mappings().all():
-            d = dict(r)
-            d["is_graded"] = True
-            d["isGrade"] = True
-            d["isGraded"] = True
-            rows.append(d)
-
-        return rows
+        return self._stamp_graded_list(
+            result.mappings().all(),
+            value=True,
+        )
 
     async def get_consistency_metrics(
         self,
@@ -476,8 +482,6 @@ class AssessmentRepository:
             "isGraded": True,
             "is_graded": True,
 
-            "rating":
-                "Good"
         }
     
     async def get_risk_assessments(
@@ -523,13 +527,6 @@ class AssessmentRepository:
             }
         )
 
-        assessments = []
-        for r in result.mappings().all():
-            d = dict(r)
-            is_graded = bool(d.get("is_graded", False))
-            d["is_graded"] = is_graded
-            d["isGrade"] = is_graded
-            d["isGraded"] = is_graded
-            assessments.append(d)
-
-        return assessments
+        return self._stamp_graded_list(
+            result.mappings().all()
+        )

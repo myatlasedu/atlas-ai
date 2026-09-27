@@ -1,9 +1,7 @@
 import json
 import logging
 
-from cache.redis import (
-    redis_client,
-)
+from cache.redis_cache import RedisCache
 
 from db.repositories.ai_conversation_audit_repository import (
     make_json_safe,
@@ -13,24 +11,12 @@ logger = logging.getLogger(__name__)
 
 
 class SessionMemoryCache:
-
-    PREFIX = "ai_session_memory"
-
-    TTL_SECONDS = (
-        60 * 60 * 24
-    )
-
+    TTL_SECONDS = 60 * 60 * 24  # 24 hours
     MAX_RECORDS = 20
 
-    @classmethod
-    def _key(
-        cls,
-        session_id,
-    ) -> str:
-
-        return (
-            f"{cls.PREFIX}:{session_id}"
-        )
+    cache = RedisCache(
+        prefix="ai_session_memory"
+    )
 
     # ==================================================
     # READ
@@ -43,31 +29,25 @@ class SessionMemoryCache:
     ) -> list[dict] | None:
 
         if not session_id:
-
             return None
 
-        key = cls._key(
-            session_id
-        )
+        key = str(session_id)
 
         try:
-
-            raw = await redis_client.get(
+            raw = await cls.cache.get(
                 key
             )
 
             if raw is None:
-
                 return None
 
-
-            await redis_client.expire(
+            # Reading counts as activity.
+            await cls.cache.expire(
                 key,
                 cls.TTL_SECONDS,
             )
 
         except Exception as exc:
-
             logger.warning(
                 "Session memory read skipped (redis unavailable): %s",
                 exc,
@@ -76,13 +56,11 @@ class SessionMemoryCache:
             return None
 
         try:
-
             records = json.loads(
                 raw
             )
 
         except (ValueError, TypeError):
-
             logger.warning(
                 "Discarding malformed session memory for session=%s",
                 session_id,
@@ -108,12 +86,7 @@ class SessionMemoryCache:
     ) -> None:
 
         if not session_id:
-
             return
-
-        key = cls._key(
-            session_id
-        )
 
         payload = json.dumps(
             make_json_safe(
@@ -122,19 +95,21 @@ class SessionMemoryCache:
         )
 
         try:
-
-            await redis_client.set(
-                key,
+            await cls.cache.set(
+                str(session_id),
                 payload,
-                ex=cls.TTL_SECONDS,
+                expire=cls.TTL_SECONDS,
             )
 
         except Exception as exc:
-
             logger.warning(
                 "Session memory save skipped (redis unavailable): %s",
                 exc,
             )
+
+    # ==================================================
+    # DELETE
+    # ==================================================
 
     @classmethod
     async def clear(
@@ -143,19 +118,14 @@ class SessionMemoryCache:
     ) -> None:
 
         if not session_id:
-
             return
 
         try:
-
-            await redis_client.delete(
-                cls._key(
-                    session_id
-                )
+            await cls.cache.delete(
+                str(session_id)
             )
 
         except Exception as exc:
-
             logger.warning(
                 "Session memory delete skipped (redis unavailable): %s",
                 exc,

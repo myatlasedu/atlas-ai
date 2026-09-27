@@ -238,45 +238,11 @@ class JournalRepository:
 
         except Exception as e:
 
+            await self.db.rollback()
+
             logger.warning(
-                "Primary journal insert failed (%s); attempting fallback insert.",
+                "Journal insert failed (%s);",
                 e,
             )
 
-            await self.db.rollback()
-
-            query = text(
-                """
-                INSERT INTO students_journal (
-
-                    user_id,
-                    content,
-                    created_at,
-                    updated_at
-
-                )
-
-                VALUES (
-
-                    :user_id,
-                    :content,
-                    NOW(),
-                    NOW()
-
-                )
-
-                RETURNING id
-                """
-            )
-
-            result = await self.db.execute(
-                query,
-                {
-                    "user_id": user_id,
-                    "content": content,
-                },
-            )
-
-            await self.db.commit()
-
-            return result.scalar_one()
+            return None
