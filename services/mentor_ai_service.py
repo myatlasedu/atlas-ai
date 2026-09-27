@@ -38,17 +38,11 @@ class MentorAIService:
         self,
         query: str,
         context,
-        session_id: str | None = None,
+        session_id: int,
     ):
 
-        # MentorContext carries no role field, so the thread
-        # is tagged explicitly.
-
-        turn = await ChatSessionService.start_turn(
-            context=context,
-            query=query,
+        turn = ChatSessionService.start_turn(
             session_id=session_id,
-            role="mentor",
         )
 
         token = current_turn.set(
@@ -62,35 +56,13 @@ class MentorAIService:
                 context=context,
             )
 
-        except Exception as error:
-
-            await ChatSessionService.fail_turn(
-                turn,
-                error_message=str(
-                    error
-                ),
-            )
-
-            raise
-
         finally:
 
             current_turn.reset(
                 token
             )
 
-        await ChatSessionService.complete_turn(
-            turn,
-            answer=response.get(
-                "summary"
-            ),
-        )
-
-        if turn is not None:
-
-            response["session_id"] = (
-                turn.session_id
-            )
+        response["session_id"] = session_id
 
         return response
 
@@ -131,18 +103,37 @@ class MentorAIService:
                 "query":
                     query,
 
-                "intent":
-                    parsed_intent.model_dump(),
-
-                "data":
-                    {},
+                "role":
+                    "mentor",
 
                 "summary":
                     (
                         "I couldn't determine "
                         "what information you "
                         "are looking for."
-                    )
+                    ),
+
+                "parsed_intent":
+                    parsed_intent.model_dump(),
+
+                "selected_tools":
+                    [],
+
+                "context_resolution":
+                    getattr(
+                        parsed_intent,
+                        "context_resolution",
+                        None,
+                    ),
+
+                "status":
+                    "completed",
+
+                "intent":
+                    parsed_intent.model_dump(),
+
+                "data":
+                    {},
             }
 
         # =====================================
@@ -235,12 +226,31 @@ class MentorAIService:
             "query":
                 query,
 
+            "role":
+                "mentor",
+
+            "summary":
+                summary,
+
+            "parsed_intent":
+                parsed_intent.model_dump(),
+
+            "selected_tools":
+                tools_to_run,
+
+            "context_resolution":
+                getattr(
+                    parsed_intent,
+                    "context_resolution",
+                    None,
+                ),
+
+            "status":
+                "completed",
+
             "intent":
                 parsed_intent.model_dump(),
 
             "data":
                 results,
-
-            "summary":
-                summary
         }

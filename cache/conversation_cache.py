@@ -1,9 +1,7 @@
 import json
 import logging
 
-from cache.redis import (
-    redis_client
-)
+from cache.redis_cache import RedisCache
 
 from db.repositories.ai_conversation_audit_repository import (
     AIConversationAuditRepository,
@@ -14,41 +12,25 @@ logger = logging.getLogger(__name__)
 
 
 class ConversationCache:
-
-    PREFIX = "ai_conversation"
-
-    TTL_SECONDS = (
-        60 * 60 * 24
-    )
-
+    TTL_SECONDS = 60 * 60 * 24  # 24 hours
     MAX_TURNS = 5
 
-    @classmethod
-    def _key(
-        cls,
-        session_id,
-    ) -> str:
-
-        return (
-            f"{cls.PREFIX}:{session_id}"
-        )
+    cache = RedisCache(
+        prefix="ai_conversation"
+    )
 
     @classmethod
     def is_contextual(
         cls,
         predicted_intent,
     ) -> bool:
-
         # Confirmations and unparseable queries tell the next
         # turn nothing, so they never enter the cache.
-
         return (
             str(
-                predicted_intent
-                or ""
+                predicted_intent or ""
             ).lower()
-            not in
-            AIConversationAuditRepository.NON_CONTEXTUAL_INTENTS
+            not in AIConversationAuditRepository.NON_CONTEXTUAL_INTENTS
         )
 
     # ==================================================
@@ -63,55 +45,28 @@ class ConversationCache:
     ) -> None:
 
         if not session_id:
-
             return
 
         if not cls.is_contextual(
-            turn.get(
-                "predicted_intent"
-            )
+            turn.get("predicted_intent")
         ):
-
             return
 
-        key = cls._key(
-            session_id
-        )
-
         try:
-
-            pipeline = redis_client.pipeline()
-
-            # Newest first, matching the order the DB fallback
-            # returns and the order intent parsing expects.
-
-            pipeline.lpush(
-                key,
-                json.dumps(
-                    make_json_safe(
-                        turn
-                    )
-                ),
+            value = json.dumps(
+                make_json_safe(turn)
             )
 
-            pipeline.ltrim(
-                key,
-                0,
-                cls.MAX_TURNS - 1,
+            await cls.cache.append_list_with_ttl(
+                str(session_id),
+                value,
+                expire=cls.TTL_SECONDS,
+                max_items=cls.MAX_TURNS,
             )
-
-            pipeline.expire(
-                key,
-                cls.TTL_SECONDS,
-            )
-
-            await pipeline.execute()
 
         except Exception as exc:
-
             # Redis unavailable: the next turn simply rebuilds
             # its context from Postgres.
-
             logger.warning(
                 "Conversation cache append skipped (redis unavailable): %s",
                 exc,
@@ -125,59 +80,31 @@ class ConversationCache:
     ) -> None:
 
         # Replaces whatever is cached with the turns just read
-        # back from Postgres. Called when a session resumes
-        # after the key has expired.
-
+        # back from Postgres.
         if not session_id:
-
             return
-
-        key = cls._key(
-            session_id
-        )
 
         payload = [
             json.dumps(
-                make_json_safe(
-                    turn
-                )
+                make_json_safe(turn)
             )
-            for turn in turns[: cls.MAX_TURNS]
+            for turn in turns[cls.MAX_TURNS:] # list-recent_turns returns the most recent first, so we want the last MAX_TURNS
         ]
 
         try:
-
-            pipeline = redis_client.pipeline()
-
-            pipeline.delete(
-                key
+            await cls.cache.replace_list_with_ttl(
+                str(session_id),
+                payload,
+                expire=cls.TTL_SECONDS,
             )
 
-            if payload:
-
-                # turns arrive newest first and rpush preserves
-                # that order.
-
-                pipeline.rpush(
-                    key,
-                    *payload,
-                )
-
-                pipeline.expire(
-                    key,
-                    cls.TTL_SECONDS,
-                )
-
-            await pipeline.execute()
-
             logger.info(
-                "Seeded %s turn(s) into conversation cache for session=%s",
+                "Seeded %s cached turn(s) for session=%s",
                 len(payload),
                 session_id,
             )
 
         except Exception as exc:
-
             logger.warning(
                 "Conversation cache seed skipped (redis unavailable): %s",
                 exc,
@@ -194,48 +121,39 @@ class ConversationCache:
         limit: int | None = None,
     ) -> list[dict] | None:
 
-        #
-        # None  -> nothing cached, the caller must rebuild.
-        # []    -> cached and genuinely empty.
-        #
-
         if not session_id:
-
             return None
 
-        key = cls._key(
-            session_id
-        )
+        key = str(session_id)
 
         try:
-
-            exists = await redis_client.exists(
+            exists = await cls.cache.exists(
                 key
             )
 
             if not exists:
-
                 return None
 
-            raw = await redis_client.lrange(
+            max_turns = (
+                cls.MAX_TURNS
+                if limit is None
+                else limit
+            )
+
+            raw = await cls.cache.lrange(
                 key,
                 0,
-                (
-                    limit
-                    or cls.MAX_TURNS
-                ) - 1,
+                max_turns - 1,
             )
 
             # Reading counts as activity, so an active session
             # never expires mid-conversation.
-
-            await redis_client.expire(
+            await cls.cache.expire(
                 key,
                 cls.TTL_SECONDS,
             )
 
         except Exception as exc:
-
             logger.warning(
                 "Conversation cache read skipped (redis unavailable): %s",
                 exc,
@@ -246,23 +164,22 @@ class ConversationCache:
         turns = []
 
         for item in raw:
-
             try:
-
                 turns.append(
-                    json.loads(
-                        item
-                    )
+                    json.loads(item)
                 )
 
             except (ValueError, TypeError):
-
                 logger.warning(
                     "Discarding malformed cached turn for session=%s",
                     session_id,
                 )
 
         return turns
+
+    # ==================================================
+    # DELETE
+    # ==================================================
 
     @classmethod
     async def clear(
@@ -271,19 +188,14 @@ class ConversationCache:
     ) -> None:
 
         if not session_id:
-
             return
 
         try:
-
-            await redis_client.delete(
-                cls._key(
-                    session_id
-                )
+            await cls.cache.delete(
+                str(session_id)
             )
 
         except Exception as exc:
-
             logger.warning(
                 "Conversation cache delete skipped (redis unavailable): %s",
                 exc,

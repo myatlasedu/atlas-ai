@@ -1,7 +1,5 @@
 import logging
 
-from uuid import UUID
-
 from fastapi import (
     APIRouter,
     Depends,
@@ -16,7 +14,6 @@ from core.security import (
 from schemas.chat_session import (
     ChatSession,
     ChatTranscript,
-    CreateSessionRequest,
     UpdateSessionRequest,
 )
 
@@ -68,29 +65,6 @@ async def list_sessions(
 
 
 # ==================================================
-# CREATE SESSION
-# ==================================================
-
-@router.post(
-    "/sessions",
-    response_model=ChatSession,
-    status_code=201,
-)
-async def create_session(
-    payload: CreateSessionRequest,
-    _: str = Depends(
-        verify_internal_api_key
-    ),
-):
-
-    return await ChatSessionService.create_session(
-        user_id=payload.user_id,
-        role=payload.role,
-        title=payload.title,
-    )
-
-
-# ==================================================
 # TRANSCRIPT
 # ==================================================
 
@@ -99,7 +73,7 @@ async def create_session(
     response_model=ChatTranscript,
 )
 async def get_session(
-    session_id: UUID,
+    session_id: int,
     user_id: int = Query(...),
     role: str = Query(...),
     limit: int = Query(
@@ -117,9 +91,7 @@ async def get_session(
 ):
 
     transcript = await ChatSessionService.get_transcript(
-        session_id=str(
-            session_id
-        ),
+        session_id=session_id,
         user_id=user_id,
         role=role,
         limit=limit,
@@ -144,7 +116,7 @@ async def get_session(
     "/sessions/{session_id}",
 )
 async def update_session(
-    session_id: UUID,
+    session_id: int,
     payload: UpdateSessionRequest,
     _: str = Depends(
         verify_internal_api_key
@@ -167,9 +139,7 @@ async def update_session(
     if payload.title is not None:
 
         updated = await ChatSessionService.rename_session(
-            session_id=str(
-                session_id
-            ),
+            session_id=session_id,
             user_id=payload.user_id,
             role=payload.role,
             title=payload.title,
@@ -178,9 +148,7 @@ async def update_session(
     if payload.status is not None:
 
         updated = await ChatSessionService.set_status(
-            session_id=str(
-                session_id
-            ),
+            session_id=session_id,
             user_id=payload.user_id,
             role=payload.role,
             status=payload.status,
@@ -206,7 +174,7 @@ async def update_session(
     "/sessions/{session_id}",
 )
 async def delete_session(
-    session_id: UUID,
+    session_id: int,
     user_id: int = Query(...),
     role: str = Query(...),
     _: str = Depends(
@@ -218,9 +186,7 @@ async def delete_session(
     # thread simply drops out of every listing.
 
     deleted = await ChatSessionService.set_status(
-        session_id=str(
-            session_id
-        ),
+        session_id=session_id,
         user_id=user_id,
         role=role,
         status="deleted",

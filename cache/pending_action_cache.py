@@ -1,35 +1,16 @@
 import json
 import logging
 
-from cache.redis import (
-    redis_client
-)
+from cache.redis_cache import RedisCache
 
 logger = logging.getLogger(__name__)
 
-
 class PendingActionCache:
+    TTL_SECONDS = 60 * 15  # 15 minutes
 
-    PREFIX = "pending_action"
-
-    TTL_SECONDS = (
-        60 * 15
+    cache = RedisCache(
+        prefix="pending_action"
     )
-
-    @classmethod
-    def _key(
-        cls,
-        user_id,
-        session_id,
-    ) -> str | None:
-
-        if not session_id or user_id is None:
-
-            return None
-
-        return (
-            f"{cls.PREFIX}:{user_id}:{session_id}"
-        )
 
     @classmethod
     async def save(
@@ -37,41 +18,21 @@ class PendingActionCache:
         user_id: int,
         action_type: str,
         payload: dict,
-        session_id=None,
+        session_id: int | None = None,
     ):
-
-        key = cls._key(
-            user_id,
-            session_id,
-        )
-
-        if key is None:
-
-            logger.warning(
-                "Pending action not saved: no session for user=%s",
-                user_id,
-            )
-
+        if session_id is None:
             return
 
         value = {
-
-            "action_type":
-                action_type,
-
-            "payload":
-                payload
+            "action_type": action_type,
+            "payload": payload,
         }
 
         try:
-
-            await redis_client.set(
-
-                key,
-
+            await cls.cache.set(
+                f"{session_id}:{user_id}",
                 json.dumps(value),
-
-                ex=cls.TTL_SECONDS
+                expire=cls.TTL_SECONDS,
             )
 
             logger.info(
@@ -81,71 +42,58 @@ class PendingActionCache:
             )
 
         except Exception as exc:
-
             logger.warning(
                 "Pending action save skipped (redis unavailable): %s",
-                exc
+                exc,
             )
 
     @classmethod
     async def get(
         cls,
         user_id: int,
-        session_id=None,
+        session_id: int | None = None,
     ):
-
-        key = cls._key(
-            user_id,
-            session_id,
-        )
-
-        if key is None:
-
+        if session_id is None:
             return None
 
         try:
-
-            value = await redis_client.get(
-                key
+            value = await cls.cache.get(
+                f"{session_id}:{user_id}"
             )
 
         except Exception as exc:
-
             logger.warning(
                 "Pending action read skipped (redis unavailable): %s",
-                exc
+                exc,
             )
-
             return None
 
         if not value:
-
             return None
 
-        return json.loads(
-            value
-        )
+        try:
+            return json.loads(value)
+
+        except json.JSONDecodeError as exc:
+            logger.warning(
+                "Invalid pending action cache value for session=%s: %s",
+                session_id,
+                exc,
+            )
+            return None
 
     @classmethod
     async def delete(
         cls,
         user_id: int,
-        session_id=None,
+        session_id: int | None = None,
     ):
-
-        key = cls._key(
-            user_id,
-            session_id,
-        )
-
-        if key is None:
-
+        if session_id is None:
             return
 
         try:
-
-            await redis_client.delete(
-                key
+            await cls.cache.delete(
+                f"{session_id}:{user_id}"
             )
 
             logger.info(
@@ -155,8 +103,7 @@ class PendingActionCache:
             )
 
         except Exception as exc:
-
             logger.warning(
                 "Pending action delete skipped (redis unavailable): %s",
-                exc
+                exc,
             )

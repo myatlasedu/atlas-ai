@@ -1,7 +1,5 @@
 from datetime import datetime
 
-from uuid import UUID
-
 from pydantic import (
     BaseModel,
     Field,
@@ -12,7 +10,7 @@ class ChatSession(BaseModel):
 
     # One conversation thread, as listed in the sidebar.
 
-    id: UUID
+    id: int
 
     user_id: int
 
@@ -37,23 +35,21 @@ class ChatMessage(BaseModel):
 
     id: int
 
-    session_id: UUID
-
-    turn_index: int
+    session_id: int
 
     query: str
 
     answer: str | None = None
 
-    status: str
+    context_resolution: dict | None = None
 
-    error_message: str | None = None
+    selected_tools: list | None = None
 
-    audit_id: int | None = None
+    parsed_intent: dict | None = None
+
+    predicted_intent: str | None = None
 
     created_at: datetime
-
-    updated_at: datetime
 
 
 class ChatTranscript(BaseModel):
@@ -63,15 +59,6 @@ class ChatTranscript(BaseModel):
     messages: list[ChatMessage] = Field(
         default_factory=list,
     )
-
-
-class CreateSessionRequest(BaseModel):
-
-    user_id: int
-
-    role: str
-
-    title: str | None = None
 
 
 class UpdateSessionRequest(BaseModel):

@@ -51,7 +51,7 @@ class ConversationRecallTool:
         )
 
         turns = await ConversationContextService.load_recent_turns(
-            turn=turn,
+            session_id=turn.session_id,
         )
 
         # The cache is newest first; a recap reads better in order.

@@ -131,7 +131,7 @@ class StudentAIService:
             {
                 "turn_id": getattr(
                     turn,
-                    "message_id",
+                    "session_id",
                     None,
                 ),
 
@@ -157,7 +157,7 @@ class StudentAIService:
 
             async with AsyncSessionLocal() as db:
 
-                audit_id = await self.audit_repository.create(
+                await self.audit_repository.create(
 
                     db=db,
 
@@ -209,21 +209,6 @@ class StudentAIService:
                         summarizer_latency_ms
                     ),
                 )
-
-
-            # One update closes the turn out: the intent the
-            # cache rebuild replays, and the debug row support
-            # joins back to.
-
-            await ChatSessionService.attach_intent(
-                turn,
-                predicted_intent=predicted_intent,
-                parsed_intent=(
-                    parsed_intent.model_dump()
-                ),
-                selected_tools=selected_tools,
-                audit_id=audit_id,
-            )
 
         except Exception:
 
@@ -283,7 +268,7 @@ class StudentAIService:
                     tool_result
                 ),
                 query=query,
-                turn_id=getattr(turn, "message_id", None),
+                turn_id=getattr(turn, "session_id", None),
             )
 
         except Exception:
@@ -310,7 +295,7 @@ class StudentAIService:
                 action_type=action_type,
                 status=status,
                 payload=payload,
-                turn_id=getattr(turn, "message_id", None),
+                turn_id=getattr(turn, "session_id", None),
                 query=query,
             )
 
@@ -328,18 +313,13 @@ class StudentAIService:
         self,
         query: str,
         context,
-        session_id: str | None = None,
+        session_id: int,
     ):
 
-        turn = await ChatSessionService.start_turn(
-            context=context,
-            query=query,
+        turn = ChatSessionService.start_turn(
             session_id=session_id,
-            role="student",
         )
-
-        print("\n****Turn setting into redis****")
-        print(turn)
+        print("\n====Turn====\n", turn)
         token = current_turn.set(
             turn
         )
@@ -349,18 +329,8 @@ class StudentAIService:
             response = await self._answer(
                 query=query,
                 context=context,
+                session_id=session_id,
             )
-
-        except Exception as error:
-
-            await ChatSessionService.fail_turn(
-                turn,
-                error_message=str(
-                    error
-                ),
-            )
-
-            raise
 
         finally:
 
@@ -368,18 +338,7 @@ class StudentAIService:
                 token
             )
 
-        await ChatSessionService.complete_turn(
-            turn,
-            answer=response.get(
-                "summary"
-            ),
-        )
-
-        if turn is not None:
-
-            response["session_id"] = (
-                turn.session_id
-            )
+        response["session_id"] = session_id
 
         return response
 
@@ -387,6 +346,7 @@ class StudentAIService:
         self,
         query: str,
         context,
+        session_id: int,
     ):
 
         request_start = time.perf_counter()
@@ -421,19 +381,13 @@ class StudentAIService:
 
         recent_turns = (
             await ConversationContextService.load_recent_turns(
-                turn=current_turn.get(),
+                session_id=session_id,
             )
         )
 
         # ==================================================
         # CONFIRMATION SHORT CIRCUIT
         # ==================================================
-
-        session_id = getattr(
-            current_turn.get(),
-            "session_id",
-            None,
-        )
 
         pending_action = (
             await PendingActionCache.get(
@@ -596,14 +550,32 @@ class StudentAIService:
 
                     "success": True,
 
+                    "session_id":
+                        session_id,
+
+                    "role":
+                        context.role,
+
                     "query":
                         query,
 
-                    "data":
-                        {},
-
                     "summary":
                         summary,
+
+                    "parsed_intent":
+                        parsed_intent.model_dump(),
+
+                    "selected_tools":
+                        [],
+
+                    "context_resolution":
+                        None,
+
+                    "status":
+                        "completed",
+
+                    "data":
+                        {},
                 }
 
             else:
@@ -732,17 +704,39 @@ class StudentAIService:
 
                 "success": True,
 
+                "session_id":
+                    session_id,
+
+                "role":
+                    context.role,
+
                 "query":
                     query,
+
+                "summary":
+                    summary,
+
+                "parsed_intent":
+                    parsed_intent.model_dump(),
+
+                "selected_tools":
+                    [],
+
+                "context_resolution":
+                    getattr(
+                        parsed_intent,
+                        "context_resolution",
+                        None,
+                    ),
+
+                "status":
+                    "completed",
 
                 "intent":
                     parsed_intent.model_dump(),
 
                 "data":
                     {},
-
-                "summary":
-                    summary,
             }
 
         # ==================================================
@@ -908,17 +902,39 @@ class StudentAIService:
 
                     "success": True,
 
+                    "session_id":
+                        session_id,
+
+                    "role":
+                        context.role,
+
                     "query":
                         query,
+
+                    "summary":
+                        summary,
+
+                    "parsed_intent":
+                        parsed_intent.model_dump(),
+
+                    "selected_tools":
+                        selected_tools,
+
+                    "context_resolution":
+                        getattr(
+                            parsed_intent,
+                            "context_resolution",
+                            None,
+                        ),
+
+                    "status":
+                        "completed",
 
                     "intent":
                         parsed_intent.model_dump(),
 
                     "data":
                         results,
-
-                    "summary":
-                        summary,
 
                     "action_required":
                         True,
@@ -986,17 +1002,39 @@ class StudentAIService:
 
                 "success": True,
 
+                "session_id":
+                    session_id,
+
+                "role":
+                    context.role,
+
                 "query":
                     query,
+
+                "summary":
+                    None,
+
+                "parsed_intent":
+                    parsed_intent.model_dump(),
+
+                "selected_tools":
+                    selected_tools,
+
+                "context_resolution":
+                    getattr(
+                        parsed_intent,
+                        "context_resolution",
+                        None,
+                    ),
+
+                "status":
+                    "completed",
 
                 "intent":
                     parsed_intent.model_dump(),
 
                 "data":
                     results,
-
-                "summary":
-                    None,
             }
 
         # ==================================================
@@ -1077,15 +1115,37 @@ class StudentAIService:
 
             "success": True,
 
+            "session_id":
+                session_id,
+
+            "role":
+                context.role,
+
             "query":
                 query,
+
+            "summary":
+                summary,
+
+            "parsed_intent":
+                parsed_intent.model_dump(),
+
+            "selected_tools":
+                selected_tools,
+
+            "context_resolution":
+                getattr(
+                    parsed_intent,
+                    "context_resolution",
+                    None,
+                ),
+
+            "status":
+                "completed",
 
             "intent":
                 parsed_intent.model_dump(),
 
             "data":
                 results,
-
-            "summary":
-                summary,
         }

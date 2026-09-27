@@ -6,6 +6,10 @@ from db.repositories.student.student_performance_repository import (
     StudentPerformanceRepository,
 )
 
+from db.repositories.student.assessment_repository import (
+    AssessmentRepository,
+)
+
 
 class StudentPerformanceTool:
 
@@ -38,7 +42,6 @@ class StudentPerformanceTool:
 
         if any(w in query for w in ["mark", "marks", "scorecard", "score card"]):
             async with AsyncSessionLocal() as db:
-                from db.repositories.student.assessment_repository import AssessmentRepository
                 asm_repo = AssessmentRepository(db)
                 latest = await asm_repo.get_latest_result(context.enrollment_id)
                 if latest and (latest.get("isGrade") or latest.get("isGraded") or latest.get("is_graded")):
@@ -46,14 +49,9 @@ class StudentPerformanceTool:
                         direct = "Your child's assessment has been graded. The grade will be available on the report card."
                     else:
                         direct = "Your assessment has been graded. Your grade will be available on the report card."
-                elif latest:
-                    if role == "guardian":
-                        direct = "The grade will be available on the report card once declared."
-                    else:
-                        direct = "Your grade will be available on the report card once declared."
                 else:
                     if role == "guardian":
-                        direct = "The grade will be available on the report card once declared."
+                        direct = "Your child's grade will be available on the report card once declared."
                     else:
                         direct = "Your grade will be available on the report card once declared."
                 return {
