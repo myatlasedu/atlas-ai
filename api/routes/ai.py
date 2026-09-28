@@ -18,7 +18,7 @@ from core.security import verify_internal_api_key
 from services.student_ai_service import StudentAIService
 from services.mentor_ai_service import MentorAIService
 from services.guardian_ai_service import GuardianAIService
-
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -42,11 +42,12 @@ async def ai_query(
             query=payload.query,
             context=payload.context,
             classifier=classifier,
+            session_id=payload.session_id
         )
-
-    except Exception:
-        logger.exception("Student AI query failed")
-
+        
+    except Exception as e:
+        print("Error - ", e)
+        print("Traceback - ", traceback.print_exc())
         raise HTTPException(
             status_code=500,
             detail="Student AI query failed",
@@ -59,9 +60,13 @@ async def mentor_ai_query(
     _: str = Depends(verify_internal_api_key),
 ):
     try:
-        return await mentor_ai_service.answer(
-            query=payload.query,
-            context=payload.context,
+
+        return await (
+            mentor_ai_service.answer(
+                query=payload.query,
+                context=payload.context,
+                session_id=payload.session_id
+            )
         )
 
     except Exception:
@@ -79,9 +84,13 @@ async def guardian_ai_query(
     _: str = Depends(verify_internal_api_key),
 ):
     try:
-        return await guardian_ai_service.answer(
-            query=payload.query,
-            context=payload.context,
+
+        return await (
+            guardian_ai_service.answer(
+                query=payload.query,
+                context=payload.context,
+                session_id=payload.session_id
+            )
         )
 
     except Exception:

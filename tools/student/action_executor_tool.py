@@ -8,6 +8,10 @@ from cache.pending_action_cache import (
     PendingActionCache
 )
 
+from services.chat_session_service import (
+    current_turn
+)
+
 from db.repositories.student.personal_event_repository import (
     PersonalEventRepository
 )
@@ -37,9 +41,16 @@ class ActionExecutorTool:
         parsed_intent
     ):
 
+        session_id = getattr(
+            current_turn.get(),
+            "session_id",
+            None,
+        )
+
         pending_action = (
             await PendingActionCache.get(
-                context.user_id
+                context.user_id,
+                session_id=session_id,
             )
         )
 
@@ -131,7 +142,8 @@ class ActionExecutorTool:
                 )
 
             await PendingActionCache.delete(
-                context.user_id
+                context.user_id,
+                session_id=session_id,
             )
 
             logger.info(
@@ -152,6 +164,9 @@ class ActionExecutorTool:
 
                 "event_id":
                     event["id"],
+
+                "payload":
+                    payload,
 
                 "direct_answer":
                     (
@@ -188,12 +203,24 @@ class ActionExecutorTool:
                         content=
                             payload.get(
                                 "content"
+                            ),
+
+                        tag=
+                            payload.get(
+                                "tag"
                             )
+                            or "Note",
+
+                        journal_date=
+                            payload.get(
+                                "journal_date"
+                            ),
                     )
                 )
 
             await PendingActionCache.delete(
-                context.user_id
+                context.user_id,
+                session_id=session_id,
             )
 
             logger.info(
@@ -214,6 +241,9 @@ class ActionExecutorTool:
 
                 "journal_id":
                     journal_id,
+
+                "payload":
+                    payload,
 
                 "direct_answer":
                     (

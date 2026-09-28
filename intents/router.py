@@ -11,12 +11,17 @@ from intents.mentor.parser import (
 )
 
 from services.intent_classifier import MiniLMIntentClassifier
+from schemas.conversation import (
+    ConversationTurn
+)
+
 
 async def parse_intent(
     query: str,
     role: str,
     enrollment_id: int | None = None,
     classifier: MiniLMIntentClassifier | None = None,
+    turns: list[ConversationTurn] | None = None,
 ):
 
     role = (
@@ -31,6 +36,7 @@ async def parse_intent(
             query=query,
             enrollment_id=enrollment_id,
             classifier=classifier,
+            turns=turns,
         )
 
     

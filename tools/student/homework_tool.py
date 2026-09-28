@@ -258,7 +258,12 @@ class HomeworkTool:
 
         if state == "marks":
 
-            grade = (marks.get("grade") or "").strip()
+            is_graded = bool(
+                marks.get("is_graded")
+                or marks.get("isGrade")
+                or marks.get("isGraded")
+                or marks.get("grade")
+            )
 
             titled_mark = {
                 "title": marks["title"],
@@ -268,25 +273,39 @@ class HomeworkTool:
                 "submitted_at": str(marks["submitted_at"])[:16] if marks.get("submitted_at") else None,
                 "reviewed_at": str(marks["reviewed_at"])[:16] if marks.get("reviewed_at") else None,
                 "teacher_note": marks.get("teacher_note"),
-                "grade": grade or None,
+                "is_graded": is_graded,
+                "isGrade": is_graded,
+                "isGraded": is_graded,
                 "attempt_number": marks.get("attempt_number"),
             }
 
-            if grade in VALID_HOMEWORK_GRADES:
-
-                direct = (
-                    f"{close_match_note}"
-                    f"Your grade for {marks['title']} "
-                    f"is {grade}."
-                )
-
+            role = getattr(context, "role", "student")
+            if is_graded:
+                if role == "guardian":
+                    direct = (
+                        f"{close_match_note}"
+                        f"Your child's {marks['title']} homework has been graded. "
+                        f"The grade will be available on the report card."
+                    )
+                else:
+                    direct = (
+                        f"{close_match_note}"
+                        f"Your {marks['title']} homework has been graded. "
+                        f"Your grade will be available on the report card."
+                    )
             else:
-
-                direct = (
-                    f"{close_match_note}"
-                    f"{marks['title']} has been graded, "
-                    f"but no grade is recorded yet."
-                )
+                if role == "guardian":
+                    direct = (
+                        f"{close_match_note}"
+                        f"Your child's {marks['title']} homework has not been graded yet. "
+                        f"The grade will be available on the report card once declared."
+                    )
+                else:
+                    direct = (
+                        f"{close_match_note}"
+                        f"Your {marks['title']} homework has not been graded yet. "
+                        f"Your grade will be available on the report card once declared."
+                    )
 
             return {
                 "module": "homework",
@@ -1465,14 +1484,12 @@ class HomeworkTool:
 
                     if (
                         item.get("status_tag") == "graded"
-                        and (item.get("grade") or "").strip()
-                        in VALID_HOMEWORK_GRADES
+                        or item.get("is_graded")
+                        or item.get("isGrade")
+                        or item.get("isGraded")
                     ):
 
-                        line += (
-                            f" (grade: "
-                            f"{(item['grade'] or '').strip()})"
-                        )
+                        line += " (graded)"
 
                     lines.append(line)
 
@@ -1551,20 +1568,9 @@ class HomeworkTool:
 
                 for item in rows:
 
-                    grade = (item.get("grade") or "").strip()
-
-                    if grade in VALID_HOMEWORK_GRADES:
-
-                        lines.append(
-                            f"• {item['title']} - "
-                            f"grade {grade}"
-                        )
-
-                    else:
-
-                        lines.append(
-                            f"• {item['title']}"
-                        )
+                    lines.append(
+                        f"• {item['title']} - graded"
+                    )
 
             else:
 

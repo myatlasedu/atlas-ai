@@ -116,6 +116,11 @@ TOOL_MAP = {
 
         "timetable_tool"
     ],
+
+    StudentIntent.CONVERSATION_RECALL: [
+
+        "conversation_recall_tool"
+    ],
 }
 
 

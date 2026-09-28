@@ -2,6 +2,10 @@ from cache.pending_action_cache import (
     PendingActionCache
 )
 
+from services.chat_session_service import (
+    current_turn
+)
+
 from services.event_extractor import (
     EventExtractor
 )
@@ -38,7 +42,13 @@ class PersonalEventCreateTool:
 
             action_type="create_personal_event",
 
-            payload=event
+            payload=event,
+
+            session_id=getattr(
+                current_turn.get(),
+                "session_id",
+                None,
+            ),
         )
 
         return {
