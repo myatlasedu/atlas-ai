@@ -21,7 +21,7 @@ from intents.student.classifier import (
 from intents.student.enums import (
     StudentIntent,
 )
-
+from services.intent_classifier import MiniLMIntentClassifier
 from intents.student.prompts import (
     get_student_intent_prompt,
 )
@@ -588,21 +588,25 @@ def normalize_focus(
 async def parse_student_intent(
     query: str,
     enrollment_id: int | None = None,
+    classifier: MiniLMIntentClassifier | None = None,
 ) -> ParsedStudentIntent:
 
     try:
 
         # ==================================================
-        # STEP 1
-        # CLASSIFY INTENT
+        # STEP 1: MINILM INTENT CLASSIFICATION
         # ==================================================
 
         normalized_query = query.strip().lower()
 
-        classified_intent = (
-            await classify_student_intent(
-                normalized_query
+        if classifier is None:
+            raise RuntimeError(
+                "MiniLM intent classifier was not provided"
             )
+
+        classified_intent = await classify_student_intent(
+            normalized_query,
+            classifier=classifier,
         )
 
         query_lower = normalized_query
@@ -614,7 +618,6 @@ async def parse_student_intent(
                 for word in HOMEWORK_QUERY_KEYWORDS
             )
         ):
-
             logger.info(
                 "UNKNOWN overridden to homework_summary: %r",
                 query,
