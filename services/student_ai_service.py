@@ -78,6 +78,9 @@ from services.session_memory_service import (
 
 logger = logging.getLogger(__name__)
 
+def get_predicted_intent(parsed_intent):
+    intent = parsed_intent.intent
+    return intent.value if isinstance(intent, StudentIntent) else str(intent)
 
 class StudentAIService:
 
@@ -108,16 +111,7 @@ class StudentAIService:
 
         turn = current_turn.get()
 
-        predicted_intent = (
-            parsed_intent.intent.value
-            if isinstance(
-                parsed_intent.intent,
-                StudentIntent,
-            )
-            else str(
-                parsed_intent.intent
-            )
-        )
+        predicted_intent = get_predicted_intent(parsed_intent)
 
         # The next turn reads its context from Redis, so the
         # cache is written before the slower audit insert.
@@ -319,7 +313,7 @@ class StudentAIService:
         turn = ChatSessionService.start_turn(
             session_id=session_id,
         )
-        print("\n====Turn====\n", turn)
+
         token = current_turn.set(
             turn
         )
@@ -565,14 +559,10 @@ class StudentAIService:
                     "parsed_intent":
                         parsed_intent.model_dump(),
 
+                    "predicted_intent": get_predicted_intent(parsed_intent),
+
                     "selected_tools":
                         [],
-
-                    "context_resolution":
-                        None,
-
-                    "status":
-                        "completed",
 
                     "data":
                         {},
@@ -729,11 +719,8 @@ class StudentAIService:
                         None,
                     ),
 
-                "status":
-                    "completed",
-
-                "intent":
-                    parsed_intent.model_dump(),
+                "predicted_intent":
+                    get_predicted_intent(parsed_intent),
 
                 "data":
                     {},
@@ -927,11 +914,8 @@ class StudentAIService:
                             None,
                         ),
 
-                    "status":
-                        "completed",
-
-                    "intent":
-                        parsed_intent.model_dump(),
+                    "predicted_intent":
+                        get_predicted_intent(parsed_intent),
 
                     "data":
                         results,
@@ -1027,11 +1011,8 @@ class StudentAIService:
                         None,
                     ),
 
-                "status":
-                    "completed",
-
-                "intent":
-                    parsed_intent.model_dump(),
+                "predicted_intent":
+                    get_predicted_intent(parsed_intent),
 
                 "data":
                     results,
@@ -1053,7 +1034,7 @@ class StudentAIService:
 
             context=context,
 
-            intent=parsed_intent.intent,
+            intent=get_predicted_intent(parsed_intent),
         )
 
         summarizer_latency_ms = int(
@@ -1140,11 +1121,8 @@ class StudentAIService:
                     None,
                 ),
 
-            "status":
-                "completed",
-
-            "intent":
-                parsed_intent.model_dump(),
+            "predicted_intent":
+                get_predicted_intent(parsed_intent),
 
             "data":
                 results,
