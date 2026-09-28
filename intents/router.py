@@ -10,13 +10,11 @@ from intents.mentor.parser import (
     parse_mentor_intent
 )
 
-from services.intent_classifier import MiniLMIntentClassifier
 
 async def parse_intent(
     query: str,
     role: str,
     enrollment_id: int | None = None,
-    classifier: MiniLMIntentClassifier | None = None,
 ):
 
     role = (
@@ -30,7 +28,6 @@ async def parse_intent(
         return await parse_student_intent(
             query=query,
             enrollment_id=enrollment_id,
-            classifier=classifier,
         )
 
     
