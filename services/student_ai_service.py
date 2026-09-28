@@ -6,8 +6,6 @@ from db.repositories.ai_conversation_audit_repository import (
     AIConversationAuditRepository,
 )
 
-from services.intent_classifier import MiniLMIntentClassifier
-
 from db.session import (
     AsyncSessionLocal,
 )
@@ -181,7 +179,6 @@ class StudentAIService:
         self,
         query: str,
         context,
-        classifier: MiniLMIntentClassifier,
     ):
 
         request_start = time.perf_counter()
@@ -354,11 +351,12 @@ class StudentAIService:
                     time.perf_counter()
                 )
 
-                parsed_intent = await parse_intent(
-                    query=query,
-                    role=context.role,
-                    enrollment_id=context.enrollment_id,
-                    classifier=classifier,
+                parsed_intent = (
+                    await parse_intent(
+                        query=query,
+                        role=context.role,
+                        enrollment_id=context.enrollment_id,
+                    )
                 )
 
                 parsed_intent = (
@@ -385,11 +383,12 @@ class StudentAIService:
                 time.perf_counter()
             )
 
-            parsed_intent = await parse_intent(
-                query=query,
-                role=context.role,
-                enrollment_id=context.enrollment_id,
-                classifier=classifier,
+            parsed_intent = (
+                await parse_intent(
+                    query=query,
+                    role=context.role,
+                    enrollment_id=context.enrollment_id,
+                )
             )
 
             parsed_intent = (
