@@ -22,3 +22,7 @@ typing_extensions==4.15.0
 uvicorn==0.48.0
 pytz==2026.2
 tzdata==2026.3
+numpy
+onnxruntime
+transformers
+optimum[onnx]
