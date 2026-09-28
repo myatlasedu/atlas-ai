@@ -13,14 +13,27 @@ from schemas.ai import (
     GuardianAIRequest,
 )
 
+from schemas.ai import AIRequest, MentorAIRequest, GuardianAIRequest
 from core.security import verify_internal_api_key
-
 from services.student_ai_service import StudentAIService
 from services.mentor_ai_service import MentorAIService
 from services.guardian_ai_service import GuardianAIService
 
 
 logger = logging.getLogger(__name__)
+from intents.guardian.enums import (
+    GuardianIntent
+)
+
+from intents.guardian.schemas import (
+    ParsedGuardianIntent
+)
+
+from routing.guardian_tool_router import (
+    get_tools_for_intent
+)
+import traceback
+
 
 router = APIRouter()
 
@@ -28,6 +41,9 @@ ai_service = StudentAIService()
 mentor_ai_service = MentorAIService()
 guardian_ai_service = GuardianAIService()
 
+mentor_ai_service = MentorAIService()
+
+guardian_ai_service = GuardianAIService()
 
 @router.post("/query")
 async def ai_query(

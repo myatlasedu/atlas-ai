@@ -21,6 +21,10 @@ async def lifespan(app: FastAPI):
 
     app.state.intent_classifier = None
 
+from middleware import (
+    RequestLockMiddleware
+)
+
 
 app = FastAPI(
     title="ERP AI Copilot",
