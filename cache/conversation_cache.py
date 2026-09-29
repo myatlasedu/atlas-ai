@@ -38,41 +38,6 @@ class ConversationCache:
     # ==================================================
 
     @classmethod
-    async def append(
-        cls,
-        session_id,
-        turn: dict,
-    ) -> None:
-
-        if not session_id:
-            return
-
-        if not cls.is_contextual(
-            turn.get("predicted_intent")
-        ):
-            return
-
-        try:
-            value = json.dumps(
-                make_json_safe(turn)
-            )
-
-            await cls.cache.append_list_with_ttl(
-                str(session_id),
-                value,
-                expire=cls.TTL_SECONDS,
-                max_items=cls.MAX_TURNS,
-            )
-
-        except Exception as exc:
-            # Redis unavailable: the next turn simply rebuilds
-            # its context from Postgres.
-            logger.warning(
-                "Conversation cache append skipped (redis unavailable): %s",
-                exc,
-            )
-
-    @classmethod
     async def seed(
         cls,
         session_id,
@@ -88,7 +53,7 @@ class ConversationCache:
             json.dumps(
                 make_json_safe(turn)
             )
-            for turn in turns[cls.MAX_TURNS:] # list-recent_turns returns the most recent first, so we want the last MAX_TURNS
+            for turn in turns[:cls.MAX_TURNS]
         ]
 
         try:

@@ -109,43 +109,7 @@ class StudentAIService:
         summarizer_latency_ms: int,
     ):
 
-        turn = current_turn.get()
-
         predicted_intent = get_predicted_intent(parsed_intent)
-
-        # The next turn reads its context from Redis, so the
-        # cache is written before the slower audit insert.
-
-        await ConversationCache.append(
-            getattr(
-                turn,
-                "session_id",
-                None,
-            ),
-            {
-                "turn_id": getattr(
-                    turn,
-                    "session_id",
-                    None,
-                ),
-
-                "query": query,
-
-                "predicted_intent": predicted_intent,
-
-                "parsed_intent": (
-                    parsed_intent.model_dump()
-                ),
-
-                "selected_tools": selected_tools,
-
-                "summary": summary or "",
-
-                "created_at": datetime.now(
-                    timezone.utc
-                ),
-            },
-        )
 
         try:
 

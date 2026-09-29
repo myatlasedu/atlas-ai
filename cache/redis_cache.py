@@ -124,37 +124,6 @@ class RedisCache:
             value,
         )
 
-    async def append_list_with_ttl(
-        self,
-        key: str,
-        value,
-        max_items: int,
-        expire: int,
-    ):
-        key = self.get_redis_key(key)
-
-        pipe = redis_client.redis_client.pipeline(
-            transaction=True
-        )
-
-        pipe.lpush(
-            key,
-            value,
-        )
-
-        pipe.ltrim(
-            key,
-            0,
-            max_items - 1,
-        )
-
-        pipe.expire(
-            key,
-            expire,
-        )
-
-        return await pipe.execute()
-
 
     async def replace_list_with_ttl(
         self,
