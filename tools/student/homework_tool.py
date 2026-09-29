@@ -22,6 +22,8 @@ from utils import (
     MARKS_MANIPULATION_KEYWORDS,
     VALID_HOMEWORK_GRADES,
     resolve_canonical_name,
+    format_homework_graded_response,
+    format_homework_ungraded_response,
 )
 
 
@@ -81,6 +83,7 @@ class HomeworkTool:
         enrollment_id,
         title,
         asks_for_marks,
+        role,
     ):
 
         # Runs when a specific homework is named; state comes from the latest attempt only.
@@ -279,33 +282,18 @@ class HomeworkTool:
                 "attempt_number": marks.get("attempt_number"),
             }
 
-            role = getattr(context, "role", "student")
             if is_graded:
-                if role == "guardian":
-                    direct = (
-                        f"{close_match_note}"
-                        f"Your child's {marks['title']} homework has been graded. "
-                        f"The grade will be available on the report card."
-                    )
-                else:
-                    direct = (
-                        f"{close_match_note}"
-                        f"Your {marks['title']} homework has been graded. "
-                        f"Your grade will be available on the report card."
-                    )
+                direct = format_homework_graded_response(
+                    marks["title"],
+                    role,
+                    close_match_note,
+                )
             else:
-                if role == "guardian":
-                    direct = (
-                        f"{close_match_note}"
-                        f"Your child's {marks['title']} homework has not been graded yet. "
-                        f"The grade will be available on the report card once declared."
-                    )
-                else:
-                    direct = (
-                        f"{close_match_note}"
-                        f"Your {marks['title']} homework has not been graded yet. "
-                        f"Your grade will be available on the report card once declared."
-                    )
+                direct = format_homework_ungraded_response(
+                    marks["title"],
+                    role,
+                    close_match_note,
+                )
 
             return {
                 "module": "homework",
@@ -614,6 +602,8 @@ class HomeworkTool:
 
         enrollment_id = context.enrollment_id
 
+        role = getattr(context, "role", "student") or "student"
+
         query_lower = (
             getattr(parsed_intent, "original_query", "")
             or ""
@@ -662,6 +652,7 @@ class HomeworkTool:
                     enrollment_id,
                     title,
                     asks_for_marks,
+                    role,
                 )
 
         payload = empty_payload(focus)
@@ -686,7 +677,7 @@ class HomeworkTool:
 
             owner = (
                 "Your child's"
-                if getattr(context, "role", None) == "guardian"
+                if role == "guardian"
                 else "Your"
             )
 
@@ -819,6 +810,7 @@ class HomeworkTool:
                                 enrollment_id,
                                 canonical_title,
                                 False,
+                                role,
                             )
 
         payload["count_only"] = (
