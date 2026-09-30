@@ -47,8 +47,8 @@ from intents.common.prompt_categories import (
     build_unknown_intent_summary,
 )
 
-from cache.conversation_cache import (
-    ConversationCache,
+from cache.conversation_recall_cache import (
+    ConversationRecallCache,
 )
 
 
@@ -495,6 +495,16 @@ class GuardianAIService:
 
         logger.info(
             "Guardian summarizer completed."
+        )
+
+        # ==================================================
+        # CONVERSATION RECALL CACHE
+        # ==================================================
+
+        await ConversationRecallCache.append(
+            session_id,
+            user_query=query,
+            chatbot_summary=summary or "",
         )
 
         # ==================================================

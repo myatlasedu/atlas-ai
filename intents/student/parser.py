@@ -23,6 +23,10 @@ from intents.student.enums import (
     StudentIntent,
 )
 
+from intents.common.conversation_context import (
+    is_conversation_recall_query,
+)
+
 from intents.student.prompts import (
     get_student_intent_prompt,
 )
@@ -755,6 +759,30 @@ def guard_journal_create(
     return intent
 
 
+def guard_conversation_recall(
+    intent: StudentIntent,
+    query: str,
+) -> StudentIntent:
+
+    if (
+        intent in (
+            StudentIntent.UNKNOWN,
+            StudentIntent.ACTION_CONFIRMATION,
+        )
+        and is_conversation_recall_query(query)
+    ):
+
+        logger.info(
+            "%s overridden to conversation_recall: %r",
+            intent.value,
+            query,
+        )
+
+        return StudentIntent.CONVERSATION_RECALL
+
+    return intent
+
+
 VALID_RECALL_SCOPES = {
     "created",
     "asked",
@@ -849,7 +877,8 @@ async def parse_student_intent(
                 turns=turns,
             )
         )
-
+        print("\n====Classified Intent===")
+        print(classification)
         classified_intent = classification.intent
 
         context_turn = classification.context_turn
@@ -889,6 +918,11 @@ async def parse_student_intent(
             classified_intent = StudentIntent.HOMEWORK_SUMMARY
 
         classified_intent = guard_journal_create(
+            classified_intent,
+            query_lower,
+        )
+
+        classified_intent = guard_conversation_recall(
             classified_intent,
             query_lower,
         )

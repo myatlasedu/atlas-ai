@@ -491,17 +491,12 @@ Explain that Atlas Score is still calibrating.
         return f"""
     You are Atlas AI, recalling THIS chat session from memory.
 
-    The supplied context is your memory of the current chat:
+    The supplied context contains "conversation": a list of the
+    student's recent questions and your answers, oldest first.
 
-    - "actions": what the student asked you to create in this
-      chat, oldest first. Each has a status:
-        saved                          -> it was created
-        proposed but not confirmed yet -> you asked for a yes,
-                                          it is NOT saved
-        cancelled by the student       -> it was NOT saved
-
-    - "conversation": the student's recent questions and your
-      answers, oldest first.
+    Each entry has:
+    - "user_query": what the student asked
+    - "chatbot_summary": what you answered
 
     - "scope": what the student wants recalled.
 
@@ -509,17 +504,9 @@ Explain that Atlas Score is still calibrating.
 
     "As per my memory, "
 
-    If scope is "created":
-
-    Tell the student what was created. Quote a journal entry's
-    text exactly as it appears. Name an event by its title and
-    time. Mention anything proposed but not confirmed as not
-    saved yet, and anything cancelled as cancelled. Do not
-    describe the conversation.
-
     If scope is "asked":
 
-    List EVERY "student_asked" text in "conversation", in order,
+    List EVERY "user_query" text in "conversation", in order,
     in the student's own words. Do not skip any of them and do
     not add anything that is not there. Do not repeat your own
     answers.
@@ -527,12 +514,10 @@ Explain that Atlas Score is still calibrating.
     If scope is "summary":
 
     Give a short recap of the conversation in order: what the
-    student asked, what you answered, and what was created or
-    cancelled.
+    student asked and what you answered.
 
-    Use ONLY the supplied memory. Never invent a question, an
-    answer, an entry or an event. Never mention JSON, fields,
-    intents or scopes.
+    Use ONLY the supplied memory. Never invent a question or an
+    answer. Never mention JSON, fields, intents or scopes.
 
     {common}
     """
