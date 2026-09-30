@@ -2,11 +2,6 @@ import asyncio
 import logging
 import time
 
-from datetime import (
-    datetime,
-    timezone,
-)
-
 from db.repositories.ai_conversation_audit_repository import (
     AIConversationAuditRepository,
 )
@@ -51,9 +46,6 @@ from cache.pending_action_cache import (
     PendingActionCache,
 )
 
-from cache.conversation_cache import (
-    ConversationCache,
-)
 
 from intents.common.prompt_categories import (
     build_unknown_intent_summary,
@@ -69,10 +61,8 @@ from services.chat_session_service import (
     current_turn,
 )
 
-from services.session_memory_service import (
-    SessionMemoryService,
-    STATUS_CANCELLED,
-    STATUS_COMPLETED,
+from cache.conversation_recall_cache import (
+    ConversationRecallCache,
 )
 
 
@@ -202,65 +192,6 @@ class StudentAIService:
 
             logger.exception(
                 "AI conversation audit background task failed."
-            )
-
-    # ==================================================
-    # SESSION MEMORY (ACTIONS)
-    # ==================================================
-
-    @staticmethod
-    async def _remember_pending_action(
-        *,
-        query: str,
-        tool_result: dict,
-    ):
-
-        turn = current_turn.get()
-
-        try:
-
-            await SessionMemoryService.record_pending(
-                getattr(turn, "session_id", None),
-                action_type=tool_result.get("action_type"),
-                payload=SessionMemoryService.payload_from_result(
-                    tool_result
-                ),
-                query=query,
-                turn_id=getattr(turn, "session_id", None),
-            )
-
-        except Exception:
-
-            logger.exception(
-                "Failed to record pending action in session memory."
-            )
-
-    @staticmethod
-    async def _remember_resolved_action(
-        *,
-        query: str,
-        action_type: str | None,
-        status: str,
-        payload: dict | None = None,
-    ):
-
-        turn = current_turn.get()
-
-        try:
-
-            await SessionMemoryService.resolve_pending(
-                getattr(turn, "session_id", None),
-                action_type=action_type,
-                status=status,
-                payload=payload,
-                turn_id=getattr(turn, "session_id", None),
-                query=query,
-            )
-
-        except Exception:
-
-            logger.exception(
-                "Failed to resolve action in session memory."
             )
 
     # ==================================================
@@ -428,13 +359,6 @@ class StudentAIService:
                 cancelled_action_type = pending_action.get(
                     "action_type"
                 )
-
-                await self._remember_resolved_action(
-                    query=query,
-                    action_type=cancelled_action_type,
-                    status=STATUS_CANCELLED,
-                )
-
 
                 cancel_results = {
                     "action_executor_tool": {
@@ -757,31 +681,6 @@ class StudentAIService:
                 result
             )
 
-        # ==================================================
-        # SESSION MEMORY: EXECUTED ACTION
-        # ==================================================
-
-        executed = results.get(
-            "action_executor_tool"
-        )
-
-        if (
-            isinstance(
-                executed,
-                dict,
-            )
-            and
-            executed.get(
-                "action_completed"
-            )
-        ):
-
-            await self._remember_resolved_action(
-                query=query,
-                action_type=executed.get("action_type"),
-                status=STATUS_COMPLETED,
-                payload=executed.get("payload"),
-            )
 
         # ==================================================
         # ACTION REQUIRED SHORT CIRCUIT
@@ -799,11 +698,6 @@ class StudentAIService:
                     "action_required"
                 )
             ):
-
-                await self._remember_pending_action(
-                    query=query,
-                    tool_result=tool_result,
-                )
 
                 summary = (
                     tool_result.get(
@@ -1012,6 +906,19 @@ class StudentAIService:
         logger.info(
             "Summarizer completed."
         )
+
+        # ==================================================
+        # CONVERSATION RECALL CACHE
+        # ==================================================
+        if parsed_intent.intent not in [
+            StudentIntent.UNKNOWN,
+            StudentIntent.CONVERSATION_RECALL,
+        ]:
+            await ConversationRecallCache.append(
+                session_id,
+                user_query=query,
+                chatbot_summary=summary or "",
+            )
 
         # ==================================================
         # FINAL AUDIT

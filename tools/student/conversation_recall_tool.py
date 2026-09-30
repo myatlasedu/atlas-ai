@@ -4,27 +4,12 @@ from services.chat_session_service import (
     current_turn,
 )
 
-from services.context_service import (
-    ConversationContextService,
-)
-
-from services.session_memory_service import (
-    SessionMemoryService,
-    STATUS_CANCELLED,
-    STATUS_COMPLETED,
-    STATUS_PENDING,
+from cache.conversation_recall_cache import (
+    ConversationRecallCache,
 )
 
 
 logger = logging.getLogger(__name__)
-
-MAX_ANSWER_CHARS = 300
-
-STATUS_LABELS = {
-    STATUS_COMPLETED: "saved",
-    STATUS_PENDING: "proposed but not confirmed yet",
-    STATUS_CANCELLED: "cancelled by the student",
-}
 
 
 class ConversationRecallTool:
@@ -37,6 +22,12 @@ class ConversationRecallTool:
 
         turn = current_turn.get()
 
+        session_id = getattr(
+            turn,
+            "session_id",
+            None,
+        )
+
         scope = (
             getattr(
                 parsed_intent,
@@ -46,165 +37,70 @@ class ConversationRecallTool:
             or "summary"
         )
 
-        actions = await SessionMemoryService.load(
-            turn=turn,
+        # ==============================================
+        # LOAD FROM CACHE (OR REBUILD)
+        # ==============================================
+
+        entries = await ConversationRecallCache.load(
+            session_id,
         )
 
-        turns = await ConversationContextService.load_recent_turns(
-            session_id=turn.session_id,
-        )
-
-        # The cache is newest first; a recap reads better in order.
-
-        turns = list(
-            reversed(
-                turns
+        if entries is None:
+            entries = await ConversationRecallCache.rebuild_from_db(
+                session_id,
             )
-        )
 
         logger.info(
-            "Conversation recall: scope=%s actions=%s turns=%s",
+            "Conversation recall: scope=%s entries=%s",
             scope,
-            len(actions),
-            len(turns),
+            len(entries),
         )
 
-        direct_answer = self._empty_answer(
-            scope=scope,
-            actions=actions,
-            turns=turns,
-        )
+        # ==============================================
+        # EMPTY SESSION
+        # ==============================================
 
-        if direct_answer:
+        if not entries:
 
             return {
                 "module": "conversation_recall",
-                "direct_answer": direct_answer,
+                "direct_answer": (
+                    "As per my memory, this is the start of our "
+                    "conversation and you haven't asked me "
+                    "anything yet."
+                ),
             }
 
-
-        llm_context = {
-            "scope": scope,
-        }
-
-        if scope != "asked":
-
-            llm_context["actions"] = [
-                self._action_line(
-                    position,
-                    record,
-                )
-                for position, record in enumerate(
-                    actions,
-                    start=1,
-                )
-            ]
-
-        if scope != "created":
-
-            llm_context["conversation"] = [
-                self._turn_line(
-                    position,
-                    item,
-                )
-                for position, item in enumerate(
-                    turns,
-                    start=1,
-                )
-            ]
-
-        return {
-            "module": "conversation_recall",
-            "llm_context": llm_context,
-        }
-
-    # ==================================================
-    # HELPERS
-    # ==================================================
-
-    @staticmethod
-    def _empty_answer(
-        *,
-        scope,
-        actions,
-        turns,
-    ) -> str | None:
-
-        if scope == "created":
-
-            if not actions:
-
-                return (
-                    "As per my memory, I haven't created anything "
-                    "in this conversation yet."
-                )
-
-            return None
+        # ==============================================
+        # SCOPE: ASKED
+        # ==============================================
 
         if scope == "asked":
 
-            if not turns:
+            asked_entries = [
+                entry.get("user_query")
+                for entry in entries
+                if entry.get("user_query")
+            ]
 
-                return (
-                    "As per my memory, you haven't asked me "
-                    "anything in this conversation yet."
-                )
+            if not asked_entries:
 
-            return None
+                return {
+                    "module": "conversation_recall",
+                    "direct_answer": (
+                        "As per my memory, you haven't asked me "
+                        "anything in this conversation yet."
+                    ),
+                }
 
-        if not actions and not turns:
-
-            return (
-                "As per my memory, this is the start of our "
-                "conversation and you haven't asked me anything yet."
-            )
-
-        return None
-
-    @staticmethod
-    def _action_line(
-        position: int,
-        record: dict,
-    ) -> dict:
-
-        status = record.get(
-            "status"
-        )
+        # ==============================================
+        # RETURN CONTEXT FOR SUMMARIZER
+        # ==============================================
 
         return {
-            "order": position,
-            "what": record.get("description"),
-            "status": STATUS_LABELS.get(
-                status,
-                status,
-            ),
-            "student_request": record.get("query"),
-        }
-
-    @staticmethod
-    def _turn_line(
-        position: int,
-        turn,
-    ) -> dict:
-
-        answer = (
-            turn.summary
-            or ""
-        ).strip()
-
-        if len(answer) > MAX_ANSWER_CHARS:
-
-            answer = (
-                answer[:MAX_ANSWER_CHARS].rstrip()
-                + "..."
-            )
-
-        return {
-            "order": position,
-            "student_asked": turn.query,
-            "about": (
-                turn.predicted_intent
-                or ""
-            ).replace("_", " "),
-            "atlas_answered": answer,
+            "module": "conversation_recall",
+            "llm_context": {
+                "scope": scope,
+                "conversation": entries,
+            },
         }

@@ -1,4 +1,3 @@
-import json
 import logging
 
 from sqlalchemy import (
@@ -9,7 +8,6 @@ from sqlalchemy import (
 from db.repositories.ai_conversation_audit_repository import (
     AIConversationAuditRepository,
     _coerce_json,
-    make_json_safe,
 )
 
 
@@ -400,86 +398,52 @@ class AIChatSessionRepository:
         return rows
 
     # ==================================================
-    # SESSION MEMORY (CACHE REBUILD)
+    # CONVERSATION RECALL (CACHE REBUILD)
     # ==================================================
 
-    ACTION_INTENTS = (
-        "journal_create",
-        "personal_event_create",
-        "action_confirmation",
-    )
-
-    async def list_action_turns(
+    async def list_recall_turns(
         self,
         db,
         *,
         session_id,
-        limit: int = 50,
+        limit: int = 20,
     ) -> list[dict]:
 
         statement = text(
             """
             SELECT
-                m.id AS turn_id,
-                m.query,
-                LOWER(
-                    COALESCE(
-                        m.predicted_intent,
-                        ''
-                    )
-                ) AS predicted_intent,
-                m.answer,
-                m.created_at,
-                a.tool_results
-            FROM ai_chat_message m
-            LEFT JOIN ai_conversation_audit a
-                ON a.id = m.audit_id
+                query       AS user_query,
+                answer      AS chatbot_summary
+            FROM ai_chat_message
             WHERE
-                m.session_id = :session_id
+                session_id = :session_id
+                AND query IS NOT NULL
+                AND TRIM(query) != ''
                 AND LOWER(
                     COALESCE(
-                        m.predicted_intent,
+                        predicted_intent,
+                        'conversation_recall',
                         ''
                     )
-                ) IN :action_intents
+                ) != 'unknown'
             ORDER BY
-                m.id DESC
+                id DESC
             LIMIT :limit
             """
-        ).bindparams(
-            bindparam(
-                "action_intents",
-                expanding=True,
-            )
         )
 
         result = await db.execute(
             statement,
             {
                 "session_id": session_id,
-                "action_intents": list(
-                    self.ACTION_INTENTS
-                ),
                 "limit": limit,
             },
         )
 
-        rows = []
-
-        for row in result.mappings().all():
-
-            item = dict(row)
-
-            item["tool_results"] = _coerce_json(
-                item.get(
-                    "tool_results"
-                ),
-                default={},
-            )
-
-            rows.append(item)
-
-        # The query took the newest rows; replay them oldest first.
+        rows = [
+            dict(row)
+            for row in result.mappings().all()
+        ]
 
         rows.reverse()
 

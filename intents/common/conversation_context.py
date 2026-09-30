@@ -63,6 +63,61 @@ INHERITABLE_FIELDS = (
 )
 
 
+RECALL_QUERY_PATTERNS = (
+    "what i asked",
+    "what did i ask",
+    "what i ask",
+    "what have i asked",
+    "what was my question",
+    "my last question",
+    "my previous question",
+    "what did i say",
+    "what i said",
+    "what did i tell",
+    "what i told",
+    "what did you do",
+    "what did you create",
+    "what did you save",
+    "what did you just create",
+    "what did you just save",
+    "what did we discuss",
+    "what have we discussed",
+    "what we discussed",
+    "what did we talk about",
+    "what we talked about",
+    "what have we talked about",
+    "summarize our conversation",
+    "summarize the conversation",
+    "summarize this conversation",
+    "summarize our chat",
+    "summarize this chat",
+    "summarize the chat",
+    "recap this chat",
+    "recap our chat",
+    "recap the chat",
+    "recap our conversation",
+    "recap this conversation",
+    "recap the conversation",
+)
+
+
+def is_conversation_recall_query(query: str | None) -> bool:
+    if not query:
+        return False
+    normalized = " ".join(str(query).lower().split()).strip("?!., ")
+    if any(p in normalized for p in RECALL_QUERY_PATTERNS):
+        return True
+    if "summarize" in normalized and any(
+        w in normalized for w in ("chat", "conversation")
+    ):
+        return True
+    if "recap" in normalized and any(
+        w in normalized for w in ("chat", "conversation")
+    ):
+        return True
+    return False
+
+
 # ==================================================
 # PROMPT SECTIONS
 # ==================================================
@@ -74,6 +129,43 @@ CONVERSATION CONTEXT
 
 You are given the user's RECENT CONVERSATION
 (most recent first) and the CURRENT QUERY.
+
+==================================================
+PRIORITY RULE 0 - QUESTIONS ABOUT THIS CHAT ITSELF
+==================================================
+
+** THIS RULE OVERRIDES ALL OTHERS. CHECK THIS FIRST. **
+
+If the CURRENT QUERY asks what was said, asked,
+created, saved, done, discussed, or talked about
+in this chat, or asks for a recap or summary of
+the chat, it is ALWAYS conversation_recall.
+
+It is NEVER a follow-up (is_follow_up: false).
+It is NEVER unknown (intent: "conversation_recall").
+It does NOT relate to any recent turn's subject.
+resolved_query is the CURRENT QUERY unchanged.
+context_turn is null.
+
+Examples (all MUST be conversation_recall):
+- "what i asked from you"
+- "what did i ask you"
+- "what did I ask"
+- "what have I asked"
+- "what did you create now?"
+- "what did you just save?"
+- "what did you do?"
+- "what did I say earlier?"
+- "what did I tell you?"
+- "what was my last question?"
+- "summarize our conversation"
+- "what have we discussed so far?"
+- "recap this chat"
+- "what did we talk about?"
+- "what we discussed"
+
+STOP HERE if this matches. Do NOT check follow-up steps.
+Do NOT classify as unknown.
 
 Work in three steps.
 
@@ -158,18 +250,49 @@ RIGHT -> "which August homework have been
 
 QUESTIONS ABOUT THE CONVERSATION ITSELF
 
-A CURRENT QUERY that asks what was said, asked,
-created, saved or done in this chat, or asks for a
-recap of the chat, is NOT a follow-up.
+** THIS RULE HAS THE HIGHEST PRIORITY **
 
+A CURRENT QUERY that asks what was said, asked,
+created, saved, done, discussed, or talked about
+in this chat, or asks for a recap or summary of
+the chat, is ALWAYS conversation_recall.
+
+It is NEVER a follow-up.
+It is NEVER unknown.
+It does NOT relate to any recent turn's subject.
+
+Examples (all are conversation_recall, regardless
+of what the recent turns are about):
+
+- "what i asked from you"
+- "what did i ask you"
+- "what did I ask"
 - "what did you create now?"
-- "what did I ask you?"
+- "what did you just save?"
+- "what did you do?"
+- "what did I say earlier?"
+- "what did I tell you?"
+- "what did I tell you to do?"
+- "what was my last question?"
 - "summarize our conversation"
+- "what have we discussed so far?"
+- "recap this chat"
+- "what did we talk about?"
+- "what have I asked you so far?"
+- "what we discussed"
+
+Detection signals:
+
+- "I asked you" / "I ask you" / "asked from you"
+- "what did you do" / "what did you create"
+- "what did I say" / "what did I tell"
+- "summarize" + "conversation" or "chat"
+- "recap" / "discussed" / "so far"
+- "what we talked about"
 
 For these: is_follow_up is false, resolved_query is
 the CURRENT QUERY copied word for word, and the
-intent is the one the definitions above give to
-questions about the chat itself. Never rewrite them
+intent is conversation_recall. Never rewrite them
 into the subject of a recent turn.
 
 --------------------------------------------------
@@ -578,9 +701,6 @@ def build_history_block(
             start=1,
         )
     ]
-    
-    print("\n====Lines in building History====")
-    print(lines)
 
     return (
         "==================================================\n"
@@ -611,9 +731,6 @@ def build_classifier_messages(
                 "content": query,
             },
         ]
-    
-    print("\n====TURNS In CLASSIFIER MESSAGE====")
-    print(turns)
 
     return [
         {
@@ -638,16 +755,64 @@ def build_classifier_messages(
 SUBJECT_KEYWORDS = (
     "homework", "assignment", "worksheet", "hw", "submission", "submit",
     "attendance", "present", "absent", "leave",
-    "marks", "grade", "score", "result", "test", "exam", "assessment",
+    "mark", "grade", "score", "result", "test", "exam", "quiz", "assessment",
     "announcement", "notice", "circular",
     "forum", "discussion",
-    "timetable", "schedule", "period",
-    "calendar", "event", "holiday",
+    "timetable", "schedule", "period", "lesson", "class", "sod",
+    "structure of the day",
+    "calendar", "event", "holiday", "activity", "competition",
+    "celebration", "assembly", "exhibition", "festival", "trip", "ptm",
+    "sports day", "annual day",
     "journal", "diary",
-    "atlas score",
+    "reminder", "appointment",
+    "atlas", "pillar",
     "report", "performance",
-    "feedback", "remarks",
+    "subject", "topic", "chapter",
+    "feedback", "remark",
     "teacher",
+)
+
+
+def _word_forms(
+    keyword: str,
+) -> set[str]:
+
+    # "event" must also catch "events", "class" -> "classes",
+    # "activity" -> "activities", "quiz" -> "quizzes".
+
+    forms = {
+        keyword,
+        f"{keyword}s",
+        f"{keyword}es",
+    }
+
+    if keyword.endswith("y"):
+
+        forms.add(
+            f"{keyword[:-1]}ies"
+        )
+
+    if keyword.endswith("z"):
+
+        forms.add(
+            f"{keyword}zes"
+        )
+
+    return forms
+
+
+_SUBJECT_WORDS = frozenset(
+    form
+    for keyword in SUBJECT_KEYWORDS
+    if " " not in keyword
+    for form in _word_forms(keyword)
+)
+
+
+_SUBJECT_PHRASES = tuple(
+    keyword
+    for keyword in SUBJECT_KEYWORDS
+    if " " in keyword
 )
 
 
@@ -667,56 +832,13 @@ def names_a_subject(
         )
     )
 
-    return any(
-        keyword in words
-        if " " not in keyword
-        else keyword in normalized
-        for keyword in SUBJECT_KEYWORDS
-    )
-
-
-def align_intent_with_context_turn(
-    *,
-    intent: str,
-    context_turn: ConversationTurn | None,
-    is_follow_up: bool,
-    query: str,
-) -> str:
-
-    if (
-        not is_follow_up
-        or context_turn is None
-        or names_a_subject(query)
-    ):
-
-        return intent
-
-    previous = str(
-        context_turn.predicted_intent
-        or ""
-    ).strip().lower()
-
-    current = str(
-        intent
-        or ""
-    ).strip().lower()
-
-    if (
-        previous
-        and previous != current
-    ):
-
-        logger.info(
-            "Bare follow-up %r: intent %s -> %s (turn %s)",
-            query,
-            intent,
-            previous,
-            context_turn.turn_id,
+    return (
+        not words.isdisjoint(_SUBJECT_WORDS)
+        or any(
+            phrase in normalized
+            for phrase in _SUBJECT_PHRASES
         )
-
-        return previous
-
-    return intent
+    )
 
 
 def resolve_context_turn(

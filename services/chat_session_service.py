@@ -14,8 +14,8 @@ from cache.conversation_cache import (
     ConversationCache,
 )
 
-from cache.session_memory_cache import (
-    SessionMemoryCache,
+from cache.conversation_recall_cache import (
+    ConversationRecallCache,
 )
 
 
@@ -161,7 +161,7 @@ class ChatSessionService:
                 session_id
             )
 
-            await SessionMemoryCache.clear(
+            await ConversationRecallCache.clear(
                 session_id
             )
 

@@ -18,21 +18,6 @@ RECALL SCOPE
 
 Exactly one of:
 
-created
-
-The student asks what Atlas created, saved, added,
-made or did during this chat.
-
-- What did you create now?
-- What did you just save?
-- What did you add?
-- What did you do?
-- Did you save it?
-- What journal did you create?
-- What reminder did you set?
-
---------------------------------------------------
-
 asked
 
 The student asks what THEY asked, said, told or
@@ -48,13 +33,18 @@ requested earlier in this chat.
 
 summary
 
-The student wants a recap of the whole chat.
+The student wants a recap of the whole chat, or
+asks what Atlas created, saved, did, or any general
+recall about the conversation.
 
 - Summarize our conversation.
 - Summarize all the conversation.
 - What have we discussed so far?
 - Recap this chat.
 - What did we talk about?
+- What did you create now?
+- What did you just save?
+- What did you do?
 
 ==================================================
 RETURN
@@ -62,7 +52,7 @@ RETURN
 
 {
     "intent": "conversation_recall",
-    "recall_scope": "created",
+    "recall_scope": "summary",
     "navigation_target": null,
     "subject": null,
     "topic": null,

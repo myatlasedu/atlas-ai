@@ -443,11 +443,16 @@ Examples
 - What did you just save?
 - What did you do?
 - What did I ask you?
+- What i asked from you
+- What did I ask?
+- What have I asked you so far?
 - What did I say earlier?
 - What did I tell you to do?
 - What was my last question?
 - Summarize our conversation.
 - What have we discussed so far?
+- What did we discuss?
+- What did we talk about?
 - Recap this chat.
 
 NOT for reading stored data:
@@ -672,10 +677,11 @@ Never classify these as
 8.
 
 A question about what was ASKED, SAID, CREATED,
-SAVED or DONE in this chat ("what did you create
-now?", "what did I ask you?", "summarize our
-conversation") is conversation_recall, even when it
-mentions a journal or an event.
+SAVED, DISCUSSED, TALKED ABOUT or DONE in this chat ("what did you create
+now?", "what did I ask you?", "what i asked from you", "what did we discuss",
+"summarize our conversation", "recap this chat") is ALWAYS conversation_recall,
+even when it mentions a journal, an event, or any other school topic.
+It is NEVER unknown.
 
 Only a request to READ stored entries ("show my
 journal", "show my reminders") is journal_summary

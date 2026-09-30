@@ -10,9 +10,9 @@ from intents.base.parser import (
 
 from intents.common.conversation_context import (
     IntentClassification,
-    align_intent_with_context_turn,
     build_classifier_messages,
     build_context_resolution,
+    is_conversation_recall_query,
     is_meta_intent,
     resolve_context_turn,
     resolve_followup_query,
@@ -55,11 +55,11 @@ async def classify_student_intent(
         "Classifier response: %s",
         response,
     )
-    print("\n====Chat Completion complete for intent classification===")
+
     parsed = parse_llm_json(
         response["message"]["content"]
     )
-    print("\n====Parsed LLM JSON pass===")
+
     intent = (
         str(
             parsed.get(
@@ -71,8 +71,15 @@ async def classify_student_intent(
         .lower()
     )
 
-    print("\n====Parsed (LLM Response) contain all thing====")
+    print("\n====Parsed (LLM Response) in student classifier====")
     print(parsed)
+
+    if intent == "unknown" and is_conversation_recall_query(query):
+        logger.info(
+            "Overriding unknown to conversation_recall for query: %r",
+            query,
+        )
+        intent = StudentIntent.CONVERSATION_RECALL.value
 
     is_follow_up = bool(
         turns
@@ -99,13 +106,6 @@ async def classify_student_intent(
         ),
     )
 
-    intent = align_intent_with_context_turn(
-        intent=intent,
-        context_turn=context_turn,
-        is_follow_up=is_follow_up,
-        query=query,
-    )
-
     resolved_query = resolve_followup_query(
         query=query,
         resolved_query=parsed.get(
@@ -114,9 +114,6 @@ async def classify_student_intent(
         is_follow_up=is_follow_up,
         context_turn=context_turn,
     )
-
-    print("=====Follow-up / resolved query=====")
-    print(is_follow_up, "|", resolved_query)
 
     context_resolution = build_context_resolution(
         is_follow_up=is_follow_up,
