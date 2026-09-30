@@ -18,7 +18,6 @@ from intents.guardian.classifier_prompt import (
 
 from intents.common.conversation_context import (
     IntentClassification,
-    align_intent_with_context_turn,
     build_classifier_messages,
     build_context_resolution,
     resolve_context_turn,
@@ -74,13 +73,6 @@ async def classify_guardian_intent(
             if is_follow_up
             else None
         ),
-    )
-
-    intent = align_intent_with_context_turn(
-        intent=intent,
-        context_turn=context_turn,
-        is_follow_up=is_follow_up,
-        query=query,
     )
 
     resolved_query = resolve_followup_query(

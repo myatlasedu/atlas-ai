@@ -701,9 +701,6 @@ def build_history_block(
             start=1,
         )
     ]
-    
-    print("\n====Lines in building History====")
-    print(lines)
 
     return (
         "==================================================\n"
@@ -758,16 +755,64 @@ def build_classifier_messages(
 SUBJECT_KEYWORDS = (
     "homework", "assignment", "worksheet", "hw", "submission", "submit",
     "attendance", "present", "absent", "leave",
-    "marks", "grade", "score", "result", "test", "exam", "assessment",
+    "mark", "grade", "score", "result", "test", "exam", "quiz", "assessment",
     "announcement", "notice", "circular",
     "forum", "discussion",
-    "timetable", "schedule", "period",
-    "calendar", "event", "holiday",
+    "timetable", "schedule", "period", "lesson", "class", "sod",
+    "structure of the day",
+    "calendar", "event", "holiday", "activity", "competition",
+    "celebration", "assembly", "exhibition", "festival", "trip", "ptm",
+    "sports day", "annual day",
     "journal", "diary",
-    "atlas score",
+    "reminder", "appointment",
+    "atlas", "pillar",
     "report", "performance",
-    "feedback", "remarks",
+    "subject", "topic", "chapter",
+    "feedback", "remark",
     "teacher",
+)
+
+
+def _word_forms(
+    keyword: str,
+) -> set[str]:
+
+    # "event" must also catch "events", "class" -> "classes",
+    # "activity" -> "activities", "quiz" -> "quizzes".
+
+    forms = {
+        keyword,
+        f"{keyword}s",
+        f"{keyword}es",
+    }
+
+    if keyword.endswith("y"):
+
+        forms.add(
+            f"{keyword[:-1]}ies"
+        )
+
+    if keyword.endswith("z"):
+
+        forms.add(
+            f"{keyword}zes"
+        )
+
+    return forms
+
+
+_SUBJECT_WORDS = frozenset(
+    form
+    for keyword in SUBJECT_KEYWORDS
+    if " " not in keyword
+    for form in _word_forms(keyword)
+)
+
+
+_SUBJECT_PHRASES = tuple(
+    keyword
+    for keyword in SUBJECT_KEYWORDS
+    if " " in keyword
 )
 
 
@@ -787,56 +832,13 @@ def names_a_subject(
         )
     )
 
-    return any(
-        keyword in words
-        if " " not in keyword
-        else keyword in normalized
-        for keyword in SUBJECT_KEYWORDS
-    )
-
-
-def align_intent_with_context_turn(
-    *,
-    intent: str,
-    context_turn: ConversationTurn | None,
-    is_follow_up: bool,
-    query: str,
-) -> str:
-
-    if (
-        not is_follow_up
-        or context_turn is None
-        or names_a_subject(query)
-    ):
-
-        return intent
-
-    previous = str(
-        context_turn.predicted_intent
-        or ""
-    ).strip().lower()
-
-    current = str(
-        intent
-        or ""
-    ).strip().lower()
-
-    if (
-        previous
-        and previous != current
-    ):
-
-        logger.info(
-            "Bare follow-up %r: intent %s -> %s (turn %s)",
-            query,
-            intent,
-            previous,
-            context_turn.turn_id,
+    return (
+        not words.isdisjoint(_SUBJECT_WORDS)
+        or any(
+            phrase in normalized
+            for phrase in _SUBJECT_PHRASES
         )
-
-        return previous
-
-    return intent
+    )
 
 
 def resolve_context_turn(

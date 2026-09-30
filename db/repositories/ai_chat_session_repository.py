@@ -445,8 +445,6 @@ class AIChatSessionRepository:
             for row in result.mappings().all()
         ]
 
-        # The query took the newest rows; return oldest first.
-
         rows.reverse()
 
         return rows

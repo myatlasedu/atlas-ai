@@ -877,11 +877,8 @@ async def parse_student_intent(
                 turns=turns,
             )
         )
-        print("\n====Classified Intent===")
-        print(classification)
-        classified_intent = classification.intent
 
-        context_turn = classification.context_turn
+        classified_intent = classification.intent
 
         resolved_query = (
             classification.resolved_query
