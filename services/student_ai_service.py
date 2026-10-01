@@ -34,6 +34,10 @@ from llm.summarizer import (
     summarize_response,
 )
 
+from services.context_service import (
+    ConversationContextService,
+)
+
 from services.date_service import (
     DateService,
 )
@@ -42,13 +46,31 @@ from cache.pending_action_cache import (
     PendingActionCache,
 )
 
+
 from intents.common.prompt_categories import (
     build_unknown_intent_summary,
+)
+
+from utils import (
+    process_and_sanitize_grades,
+)
+
+
+from services.chat_session_service import (
+    ChatSessionService,
+    current_turn,
+)
+
+from cache.conversation_recall_cache import (
+    ConversationRecallCache,
 )
 
 
 logger = logging.getLogger(__name__)
 
+def get_predicted_intent(parsed_intent):
+    intent = parsed_intent.intent
+    return intent.value if isinstance(intent, StudentIntent) else str(intent)
 
 class StudentAIService:
 
@@ -77,6 +99,8 @@ class StudentAIService:
         summarizer_latency_ms: int,
     ):
 
+        predicted_intent = get_predicted_intent(parsed_intent)
+
         try:
 
             async with AsyncSessionLocal() as db:
@@ -91,19 +115,18 @@ class StudentAIService:
 
                     query=query,
 
-                    predicted_intent=(
-                        parsed_intent.intent.value
-                        if isinstance(
-                            parsed_intent.intent,
-                            StudentIntent,
-                        )
-                        else str(
-                            parsed_intent.intent
-                        )
-                    ),
+                    predicted_intent=predicted_intent,
 
                     parsed_intent=(
                         parsed_intent.model_dump()
+                    ),
+
+                    context_resolution=(
+                        getattr(
+                            parsed_intent,
+                            "context_resolution",
+                            None,
+                        )
                     ),
 
                     selected_tools=(
@@ -179,6 +202,40 @@ class StudentAIService:
         self,
         query: str,
         context,
+        session_id: int,
+    ):
+
+        turn = ChatSessionService.start_turn(
+            session_id=session_id,
+        )
+
+        token = current_turn.set(
+            turn
+        )
+
+        try:
+
+            response = await self._answer(
+                query=query,
+                context=context,
+                session_id=session_id,
+            )
+
+        finally:
+
+            current_turn.reset(
+                token
+            )
+
+        response["session_id"] = session_id
+
+        return response
+
+    async def _answer(
+        self,
+        query: str,
+        context,
+        session_id: int,
     ):
 
         request_start = time.perf_counter()
@@ -208,29 +265,52 @@ class StudentAIService:
         summary = ""
 
         # ==================================================
+        # CONVERSATION CONTEXT
+        # ==================================================
+
+        recent_turns = (
+            await ConversationContextService.load_recent_turns(
+                session_id=session_id,
+            )
+        )
+
+        # ==================================================
         # CONFIRMATION SHORT CIRCUIT
         # ==================================================
 
         pending_action = (
             await PendingActionCache.get(
-                context.user_id
+                context.user_id,
+                session_id=session_id,
             )
         )
 
         if pending_action:
 
-            if normalized_query in [
+            if normalized_query.strip("?!., ") in [
 
                 "yes",
                 "y",
                 "yeah",
                 "yep",
+                "yup",
+                "sure",
+                "yes please",
                 "confirm",
                 "ok",
                 "okay",
                 "proceed",
                 "go ahead",
                 "do it",
+                "create it",
+                "save it",
+                "yes create it",
+                "yes save it",
+                "yes do it",
+                "ok create it",
+                "okay create it",
+                "ok save it",
+                "okay save it",
             ]:
 
                 logger.info(
@@ -256,25 +336,52 @@ class StudentAIService:
                     )
                 )
 
-            elif normalized_query in [
+            elif normalized_query.strip("?!., ") in [
 
                 "no",
                 "n",
+                "nope",
                 "cancel",
                 "stop",
                 "don't",
                 "dont",
                 "never mind",
+                "nevermind",
+                "no thanks",
+                "cancel it",
             ]:
 
                 await PendingActionCache.delete(
-                    context.user_id
+                    context.user_id,
+                    session_id=session_id,
                 )
+
+                cancelled_action_type = pending_action.get(
+                    "action_type"
+                )
+
+                cancel_results = {
+                    "action_executor_tool": {
+                        "module": "action",
+                        "action_cancelled": True,
+                        "action_type": cancelled_action_type,
+                        "payload": pending_action.get(
+                            "payload",
+                            {},
+                        ),
+                    }
+                }
 
                 summary = (
                     "The pending action has been cancelled."
                 )
 
+                await ConversationRecallCache.append(
+                    session_id,
+                    user_query=query,
+                    chatbot_summary=summary,
+                )
+                
                 total_latency_ms = int(
                     (
                         time.perf_counter()
@@ -312,7 +419,7 @@ class StudentAIService:
 
                     selected_tools=[],
 
-                    tool_results={},
+                    tool_results=cancel_results,
 
                     summary=summary,
 
@@ -331,14 +438,28 @@ class StudentAIService:
 
                     "success": True,
 
+                    "session_id":
+                        session_id,
+
+                    "role":
+                        context.role,
+
                     "query":
                         query,
 
-                    "data":
-                        {},
-
                     "summary":
                         summary,
+
+                    "parsed_intent":
+                        parsed_intent.model_dump(),
+
+                    "predicted_intent": get_predicted_intent(parsed_intent),
+
+                    "selected_tools":
+                        [],
+
+                    "data":
+                        {},
                 }
 
             else:
@@ -356,6 +477,7 @@ class StudentAIService:
                         query=query,
                         role=context.role,
                         enrollment_id=context.enrollment_id,
+                        turns=recent_turns,
                     )
                 )
 
@@ -388,6 +510,7 @@ class StudentAIService:
                     query=query,
                     role=context.role,
                     enrollment_id=context.enrollment_id,
+                    turns=recent_turns,
                 )
             )
 
@@ -465,17 +588,36 @@ class StudentAIService:
 
                 "success": True,
 
+                "session_id":
+                    session_id,
+
+                "role":
+                    context.role,
+
                 "query":
                     query,
 
-                "intent":
+                "summary":
+                    summary,
+
+                "parsed_intent":
                     parsed_intent.model_dump(),
+
+                "selected_tools":
+                    [],
+
+                "context_resolution":
+                    getattr(
+                        parsed_intent,
+                        "context_resolution",
+                        None,
+                    ),
+
+                "predicted_intent":
+                    get_predicted_intent(parsed_intent),
 
                 "data":
                     {},
-
-                "summary":
-                    summary,
             }
 
         # ==================================================
@@ -535,6 +677,8 @@ class StudentAIService:
                 current_tool_latency_ms
             )
 
+            result = process_and_sanitize_grades(result)
+
             results[tool_name] = result
 
             logger.info(
@@ -542,6 +686,7 @@ class StudentAIService:
                 tool_name,
                 result
             )
+
 
         # ==================================================
         # ACTION REQUIRED SHORT CIRCUIT
@@ -565,6 +710,12 @@ class StudentAIService:
                         "confirmation_message"
                     )
                     or ""
+                )
+
+                await ConversationRecallCache.append(
+                    session_id,
+                    user_query=query,
+                    chatbot_summary=summary or "",
                 )
 
                 total_latency_ms = int(
@@ -608,17 +759,36 @@ class StudentAIService:
 
                     "success": True,
 
+                    "session_id":
+                        session_id,
+
+                    "role":
+                        context.role,
+
                     "query":
                         query,
 
-                    "intent":
+                    "summary":
+                        summary,
+
+                    "parsed_intent":
                         parsed_intent.model_dump(),
+
+                    "selected_tools":
+                        selected_tools,
+
+                    "context_resolution":
+                        getattr(
+                            parsed_intent,
+                            "context_resolution",
+                            None,
+                        ),
+
+                    "predicted_intent":
+                        get_predicted_intent(parsed_intent),
 
                     "data":
                         results,
-
-                    "summary":
-                        summary,
 
                     "action_required":
                         True,
@@ -644,6 +814,18 @@ class StudentAIService:
             ==
             StudentIntent.SCREEN_NAVIGATION
         ):
+
+            navigation_target = parsed_intent.navigation_target
+            
+            await ConversationRecallCache.append(
+                session_id,
+                user_query=query,
+                chatbot_summary=(
+                    f"Navigated to {navigation_target}"
+                    if navigation_target
+                    else "Screen navigation requested."
+                ),
+            )
 
             total_latency_ms = int(
                 (
@@ -686,17 +868,36 @@ class StudentAIService:
 
                 "success": True,
 
+                "session_id":
+                    session_id,
+
+                "role":
+                    context.role,
+
                 "query":
                     query,
 
-                "intent":
+                "summary":
+                    None,
+
+                "parsed_intent":
                     parsed_intent.model_dump(),
+
+                "selected_tools":
+                    selected_tools,
+
+                "context_resolution":
+                    getattr(
+                        parsed_intent,
+                        "context_resolution",
+                        None,
+                    ),
+
+                "predicted_intent":
+                    get_predicted_intent(parsed_intent),
 
                 "data":
                     results,
-
-                "summary":
-                    None,
             }
 
         # ==================================================
@@ -715,7 +916,7 @@ class StudentAIService:
 
             context=context,
 
-            intent=parsed_intent.intent,
+            intent=get_predicted_intent(parsed_intent),
         )
 
         summarizer_latency_ms = int(
@@ -729,6 +930,19 @@ class StudentAIService:
         logger.info(
             "Summarizer completed."
         )
+
+        # ==================================================
+        # CONVERSATION RECALL CACHE
+        # ==================================================
+        if parsed_intent.intent not in [
+            StudentIntent.UNKNOWN,
+            StudentIntent.CONVERSATION_RECALL,
+        ]:
+            await ConversationRecallCache.append(
+                session_id,
+                user_query=query,
+                chatbot_summary=summary or "",
+            )
 
         # ==================================================
         # FINAL AUDIT
@@ -777,15 +991,34 @@ class StudentAIService:
 
             "success": True,
 
+            "session_id":
+                session_id,
+
+            "role":
+                context.role,
+
             "query":
                 query,
 
-            "intent":
+            "summary":
+                summary,
+
+            "parsed_intent":
                 parsed_intent.model_dump(),
+
+            "selected_tools":
+                selected_tools,
+
+            "context_resolution":
+                getattr(
+                    parsed_intent,
+                    "context_resolution",
+                    None,
+                ),
+
+            "predicted_intent":
+                get_predicted_intent(parsed_intent),
 
             "data":
                 results,
-
-            "summary":
-                summary,
         }

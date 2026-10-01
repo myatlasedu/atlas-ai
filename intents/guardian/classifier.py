@@ -16,43 +16,114 @@ from intents.guardian.classifier_prompt import (
     CLASSIFIER_PROMPT
 )
 
+from intents.common.conversation_context import (
+    IntentClassification,
+    build_classifier_messages,
+    build_context_resolution,
+    is_conversation_recall_query,
+    is_meta_intent,
+    resolve_context_turn,
+    resolve_followup_query,
+)
+
+from schemas.conversation import (
+    ConversationTurn
+)
+
 logger = logging.getLogger(__name__)
 
 
 async def classify_guardian_intent(
-    query: str
-) -> GuardianIntent:
+    query: str,
+    turns: list[ConversationTurn] | None = None,
+) -> IntentClassification:
 
     response = await chat_completion(
-        messages=[
-            {
-                "role": "system",
-                "content": CLASSIFIER_PROMPT
-            },
-            {
-                "role": "user",
-                "content": query
-            }
-        ]
+        messages=build_classifier_messages(
+            base_prompt=CLASSIFIER_PROMPT,
+            query=query,
+            turns=turns,
+        ),
+        expect_json=True,
     )
 
     parsed = parse_llm_json(
         response["message"]["content"]
     )
 
-    intent = parsed.get(
-        "intent",
-        "unknown"
+    intent = (
+        str(
+            parsed.get(
+                "intent",
+                "unknown",
+            )
+        )
+        .strip()
+        .lower()
+    )
+
+    if intent == "unknown" and is_conversation_recall_query(query):
+        logger.info(
+            "Overriding unknown to conversation_recall for query: %r",
+            query,
+        )
+        intent = GuardianIntent.CONVERSATION_RECALL.value
+
+    is_follow_up = bool(
+        turns
+        and
+        parsed.get(
+            "is_follow_up",
+            False,
+        )
+        and
+        not is_meta_intent(
+            intent
+        )
+    )
+
+    context_turn = resolve_context_turn(
+        turns=turns,
+        context_turn=parsed.get(
+            "context_turn"
+        ),
+        query=(
+            query
+            if is_follow_up
+            else None
+        ),
+    )
+
+    resolved_query = resolve_followup_query(
+        query=query,
+        resolved_query=parsed.get(
+            "resolved_query"
+        ),
+        is_follow_up=is_follow_up,
+        context_turn=context_turn,
+    )
+
+    context_resolution = build_context_resolution(
+        is_follow_up=is_follow_up,
+        resolved_query=resolved_query,
+        intent=intent,
+        context_turn=context_turn,
     )
 
     logger.info(
-        "Guardian intent classified: %s",
-        intent
+        "Guardian intent classified: %s "
+        "(follow-up: %s, context turn: %s, resolved: %r)",
+        intent,
+        is_follow_up,
+        context_turn.turn_id
+        if context_turn
+        else None,
+        resolved_query,
     )
 
     try:
 
-        return GuardianIntent(
+        classified = GuardianIntent(
             intent
         )
 
@@ -63,4 +134,17 @@ async def classify_guardian_intent(
             intent
         )
 
-        return GuardianIntent.UNKNOWN
+        return IntentClassification(
+            GuardianIntent.UNKNOWN,
+            resolved_query=resolved_query,
+            is_follow_up=is_follow_up,
+            context_resolution=context_resolution,
+        )
+
+    return IntentClassification(
+        classified,
+        context_turn,
+        resolved_query=resolved_query,
+        is_follow_up=is_follow_up,
+        context_resolution=context_resolution,
+    )

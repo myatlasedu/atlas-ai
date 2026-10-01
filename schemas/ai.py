@@ -24,6 +24,9 @@ class AIRequest(BaseModel):
 
     context: UserContext
 
+    session_id: int
+
+
 class MentorContext(BaseModel):
 
     
@@ -36,6 +39,8 @@ class MentorContext(BaseModel):
 class MentorAIRequest(BaseModel):
     query: str
     context: MentorContext
+
+    session_id: int
 
 
 class GuardianContext(BaseModel):
@@ -57,3 +62,5 @@ class GuardianAIRequest(BaseModel):
     query: str
 
     context: GuardianContext
+
+    session_id: int

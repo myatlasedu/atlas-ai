@@ -1,4 +1,9 @@
+import logging
+
 from sqlalchemy import text
+
+
+logger = logging.getLogger(__name__)
 
 
 class JournalRepository:
@@ -183,40 +188,63 @@ class JournalRepository:
         self,
         user_id: int,
         content: str,
+        tag: str = "Academic",
+        journal_date=None,
     ):
 
-        query = text(
-            """
-            INSERT INTO students_journal (
+        try:
 
-                user_id,
-                content,
-                created_at,
-                updated_at
+            query = text(
+                """
+                INSERT INTO students_journal (
 
+                    user_id,
+                    content,
+                    journal_date,
+                    tag,
+                    is_active,
+                    created_at,
+                    updated_at
+
+                )
+
+                VALUES (
+
+                    :user_id,
+                    :content,
+                    COALESCE(:journal_date, CURRENT_DATE),
+                    :tag,
+                    TRUE,
+                    NOW(),
+                    NOW()
+
+                )
+
+                RETURNING id
+                """
             )
 
-            VALUES (
-
-                :user_id,
-                :content,
-                NOW(),
-                NOW()
-
+            result = await self.db.execute(
+                query,
+                {
+                    "user_id": user_id,
+                    "content": content,
+                    "journal_date": journal_date,
+                    "tag": tag or "Academic",
+                },
             )
 
-            RETURNING id
-            """
-        )
+            await self.db.commit()
 
-        result = await self.db.execute(
-            query,
-            {
-                "user_id": user_id,
-                "content": content,
-            }
-        )
+            return result.scalar_one()
 
-        await self.db.commit()
+        except Exception as e:
 
-        return result.scalar_one()
+            await self.db.rollback()
+
+            logger.warning(
+                "Journal insert failed (%s);",
+                e,
+            )
+
+            return None

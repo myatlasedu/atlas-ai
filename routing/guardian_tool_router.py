@@ -82,6 +82,12 @@ TOOL_MAP = {
         "calendar_tool"
 
     ],
+
+    GuardianIntent.CONVERSATION_RECALL: [
+
+        "conversation_recall_tool"
+
+    ],
 }
 
 
