@@ -376,6 +376,12 @@ class StudentAIService:
                     "The pending action has been cancelled."
                 )
 
+                await ConversationRecallCache.append(
+                    session_id,
+                    user_query=query,
+                    chatbot_summary=summary,
+                )
+                
                 total_latency_ms = int(
                     (
                         time.perf_counter()
@@ -706,6 +712,12 @@ class StudentAIService:
                     or ""
                 )
 
+                await ConversationRecallCache.append(
+                    session_id,
+                    user_query=query,
+                    chatbot_summary=summary or "",
+                )
+
                 total_latency_ms = int(
                     (
                         time.perf_counter()
@@ -802,6 +814,18 @@ class StudentAIService:
             ==
             StudentIntent.SCREEN_NAVIGATION
         ):
+
+            navigation_target = parsed_intent.navigation_target
+            
+            await ConversationRecallCache.append(
+                session_id,
+                user_query=query,
+                chatbot_summary=(
+                    f"Navigated to {navigation_target}"
+                    if navigation_target
+                    else "Screen navigation requested."
+                ),
+            )
 
             total_latency_ms = int(
                 (

@@ -51,18 +51,6 @@ def is_meta_intent(
     )
 
 
-# Fields a follow-up may inherit from the turn it refers to.
-# The current query always wins; inheritance only fills blanks.
-
-INHERITABLE_FIELDS = (
-    "topic",
-    "subject",
-    "teacher",
-    "homework_focus",
-    "navigation_target",
-)
-
-
 RECALL_QUERY_PATTERNS = (
     "what i asked",
     "what did i ask",
@@ -534,6 +522,8 @@ FOLLOW_UP_MARKERS = (
     "and what",
     "same for",
     "same in",
+    "only",
+    "ones",
     "instead",
     "also",
     "as well",
@@ -597,12 +587,20 @@ def is_follow_up_query(
         # Short queries are the ones that lean on context; a longer
         # sentence carries enough of its own subject to stand alone.
 
-        return any(
-            marker in normalized
-            if " " in marker
-            else marker in words
-            for marker in FOLLOW_UP_MARKERS
-        ) or len(words) <= 3
+        return (
+            any(
+                marker in normalized
+                if " " in marker
+                else marker in words
+                for marker in FOLLOW_UP_MARKERS
+            )
+            or any(
+                phrase in normalized
+                for phrase in DATE_WINDOW_PHRASES
+            )
+            or month_window(normalized) is not None
+            or names_a_subject(normalized)
+        )
 
     return False
 
@@ -619,54 +617,18 @@ def turn_text(
     # A turn that was itself a follow-up was answered as its resolved
     # query; replay that, so a chain of follow-ups keeps its subject.
 
-    parsed = turn.parsed_intent or {}
+    resolved = (
+        turn.resolved_query
+        or ""
+    ).strip()
 
-    if isinstance(
-        parsed,
-        dict,
-    ):
-
-        resolved = parsed.get(
-            "original_query"
-        )
-
-        if resolved and str(resolved).strip():
-
-            return str(resolved).strip()
-
-    return turn.query.strip()
+    return resolved or turn.query.strip()
 
 
 def _turn_line(
     position: int,
     turn: ConversationTurn,
 ) -> str:
-
-    parsed = turn.parsed_intent or {}
-
-    details = []
-
-    for field in (
-        "topic",
-        "subject",
-        "homework_focus",
-    ):
-
-        value = parsed.get(
-            field
-        )
-
-        if value:
-
-            details.append(
-                f"{field}={value}"
-            )
-
-    suffix = (
-        f" | {', '.join(details)}"
-        if details
-        else ""
-    )
 
     intent = (
         f" | intent: {turn.predicted_intent}"
@@ -677,7 +639,6 @@ def _turn_line(
     return (
         f"{position}. query: \"{turn_text(turn)}\""
         f"{intent}"
-        f"{suffix}"
     )
 
 
@@ -899,87 +860,6 @@ def resolve_context_turn(
         return None
 
     return turns[position - 1]
-
-
-# ==================================================
-# PARAMETER INHERITANCE
-# ==================================================
-
-
-def inherit_parameters(
-    parsed: dict,
-    source_turn: ConversationTurn | None,
-) -> dict:
-
-    # A follow-up carries its own words only ("and last week?");
-    # everything it left unsaid comes from the turn it refers to.
-
-    if not source_turn:
-
-        return parsed
-
-    previous = source_turn.parsed_intent or {}
-
-    if not isinstance(
-        previous,
-        dict,
-    ):
-
-        return parsed
-
-    # Only inherit inside the same intent: a screen_navigation
-    # target must never leak into a homework answer.
-
-    if (
-        str(previous.get("intent", ""))
-        !=
-        str(parsed.get("intent", ""))
-    ):
-
-        return parsed
-
-    for field in INHERITABLE_FIELDS:
-
-        if not parsed.get(field) and previous.get(field):
-
-            parsed[field] = previous[field]
-
-            logger.info(
-                "Inherited %s=%r from turn %s.",
-                field,
-                previous[field],
-                source_turn.turn_id,
-            )
-
-    if not parsed.get("target_modules") and previous.get("target_modules"):
-
-        parsed["target_modules"] = list(
-            previous["target_modules"]
-        )
-
-    # Dates travel as a pair; a follow-up that names its own
-    # window ("and August?") already overrode both.
-
-    if (
-        not parsed.get("start_date")
-        and
-        not parsed.get("end_date")
-        and
-        previous.get("start_date")
-    ):
-
-        parsed["start_date"] = previous.get("start_date")
-
-        parsed["end_date"] = previous.get("end_date")
-
-        logger.info(
-            "Inherited date window %s -> %s from turn %s.",
-            parsed["start_date"],
-            parsed["end_date"],
-            source_turn.turn_id,
-        )
-
-    return parsed
 
 
 # ==================================================

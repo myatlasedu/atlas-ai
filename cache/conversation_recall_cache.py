@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class ConversationRecallCache:
-    TTL_SECONDS = 60 * 60 * 24 * 7  # 7 days
+    TTL_SECONDS = 60 * 60 * 24  # 24 hours
     MAX_ENTRIES = 20
 
     cache = RedisCache(
@@ -105,7 +105,7 @@ class ConversationRecallCache:
         key = str(session_id)
 
         try:
-            await cls.cache.rpush(
+            await cls.cache.lpush(
                 key,
                 entry,
             )
@@ -113,8 +113,8 @@ class ConversationRecallCache:
             # Trim to keep only the latest MAX_ENTRIES.
             await cls.cache.ltrim(
                 key,
-                -cls.MAX_ENTRIES,
-                -1,
+                0,
+                cls.MAX_ENTRIES - 1,
             )
 
             await cls.cache.expire(
@@ -142,7 +142,7 @@ class ConversationRecallCache:
             json.dumps(
                 make_json_safe(entry)
             )
-            for entry in entries[-cls.MAX_ENTRIES:]
+            for entry in entries[:cls.MAX_ENTRIES]
         ]
 
         try:

@@ -17,8 +17,11 @@ from intents.guardian.classifier import (
 )
 
 from intents.common.conversation_context import (
-    inherit_parameters,
+    is_conversation_recall_query,
     is_follow_up_query,
+    is_meta_intent,
+    names_a_subject,
+    turn_text,
 )
 
 from schemas.conversation import (
@@ -561,6 +564,34 @@ def normalize_dates(
     return parsed
 
 
+RECALL_ASKED_MARKERS = (
+    "did i ",
+    "i ask",
+    "i say",
+    "i said",
+    "i tell",
+    "i told",
+    "my question",
+    "my last",
+)
+
+
+def guardian_recall_scope(
+    query: str,
+) -> str:
+
+    query_lower = query.lower()
+
+    if any(
+        marker in query_lower
+        for marker in RECALL_ASKED_MARKERS
+    ):
+
+        return "asked"
+
+    return "summary"
+
+
 async def parse_guardian_intent(
     query: str,
     enrollment_id: int | None = None,
@@ -596,6 +627,51 @@ async def parse_guardian_intent(
             else query
         )
 
+        if (
+            classification.is_follow_up
+            and context_turn
+            and not names_a_subject(normalized_query)
+            and not is_meta_intent(context_turn.predicted_intent)
+        ):
+
+            try:
+
+                inherited_intent = GuardianIntent(
+                    context_turn.predicted_intent
+                )
+
+            except ValueError:
+
+                inherited_intent = None
+
+            if (
+                inherited_intent
+                and inherited_intent != GuardianIntent.UNKNOWN
+                and inherited_intent != classified_intent
+            ):
+
+                logger.info(
+                    "Bare follow-up %r: keeping %s from turn %s (classifier said %s).",
+                    query,
+                    inherited_intent.value,
+                    context_turn.turn_id,
+                    classified_intent.value,
+                )
+
+                classified_intent = inherited_intent
+
+                # Any rewrite came with the rejected intent, so rebuild
+                # it from the turn being continued.
+
+                resolved_query = (
+                    f"{turn_text(context_turn)} {query}"
+                )
+
+                classification.context_resolution.update(
+                    intent=inherited_intent.value,
+                    resolved_query=resolved_query,
+                )
+
         parse_query = (
             resolved_query
             .strip()
@@ -603,6 +679,18 @@ async def parse_guardian_intent(
         )
 
         query_lower = parse_query
+
+        if (
+            classified_intent == GuardianIntent.UNKNOWN
+            and is_conversation_recall_query(normalized_query)
+        ):
+
+            logger.info(
+                "UNKNOWN overridden to conversation_recall: %r",
+                query,
+            )
+
+            classified_intent = GuardianIntent.CONVERSATION_RECALL
 
         if (
             classified_intent == GuardianIntent.UNKNOWN
@@ -619,8 +707,6 @@ async def parse_guardian_intent(
 
             classified_intent = GuardianIntent.HOMEWORK_SUMMARY
 
-        # An unplaceable query right after a real turn is a follow-up
-        # to it ("and last week?"), not an unknown intent.
 
         if (
             classified_intent == GuardianIntent.UNKNOWN
@@ -628,6 +714,9 @@ async def parse_guardian_intent(
             and (
                 classification.is_follow_up
                 or is_follow_up_query(parse_query)
+            )
+            and not is_meta_intent(
+                (context_turn or turns[0]).predicted_intent
             )
         ):
 
@@ -657,6 +746,33 @@ async def parse_guardian_intent(
             "Guardian classified intent: %s",
             classified_intent.value
         )
+
+        # Recall reads this chat, not school data: nothing to extract.
+
+        if classified_intent == GuardianIntent.CONVERSATION_RECALL:
+
+            return ParsedGuardianIntent(
+
+                intent=classified_intent.value,
+
+                recall_scope=guardian_recall_scope(
+                    normalized_query
+                ),
+
+                target_modules=[],
+
+                confidence=0.95,
+
+                original_query=query,
+
+                raw_query=query,
+
+                is_follow_up=False,
+
+                context_resolution=(
+                    classification.context_resolution
+                ),
+            )
 
         response = await chat_completion(
             messages=[
@@ -851,11 +967,6 @@ async def parse_guardian_intent(
 
         parsed["context_resolution"] = (
             classification.context_resolution
-        )
-
-        parsed = inherit_parameters(
-            parsed,
-            context_turn,
         )
 
         parsed = normalize_dates(

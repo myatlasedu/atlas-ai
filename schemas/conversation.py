@@ -5,26 +5,19 @@ from datetime import (
 from pydantic import (
     BaseModel,
     Field,
+    field_validator,
 )
 
 
 class ConversationTurn(BaseModel):
 
-    # One previously answered turn, replayed into intent parsing
-    # so follow-up queries can inherit the intent they refer to.
-
     turn_id: int
 
     query: str
 
-    # Empty for a turn rebuilt from the transcript after the
-    # cache expired: ai_chat_message stores no intent.
-
+    resolved_query: str | None = None
+    
     predicted_intent: str = ""
-
-    parsed_intent: dict = Field(
-        default_factory=dict,
-    )
 
     selected_tools: list = Field(
         default_factory=list,
@@ -33,3 +26,16 @@ class ConversationTurn(BaseModel):
     summary: str | None = None
 
     created_at: datetime | None = None
+
+    @field_validator(
+        "predicted_intent",
+        mode="before",
+    )
+    
+    @classmethod
+    def _none_to_empty(
+        cls,
+        value,
+    ):
+
+        return value or ""

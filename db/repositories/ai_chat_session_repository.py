@@ -328,8 +328,8 @@ class AIChatSessionRepository:
             SELECT
                 id AS turn_id,
                 query,
+                context_resolution ->> 'resolved_query' AS resolved_query,
                 predicted_intent,
-                parsed_intent,
                 selected_tools,
                 answer AS summary,
                 created_at
@@ -377,13 +377,6 @@ class AIChatSessionRepository:
                     "predicted_intent"
                 )
                 or ""
-            )
-
-            item["parsed_intent"] = _coerce_json(
-                item.get(
-                    "parsed_intent"
-                ),
-                default={},
             )
 
             item["selected_tools"] = _coerce_json(
@@ -444,7 +437,5 @@ class AIChatSessionRepository:
             dict(row)
             for row in result.mappings().all()
         ]
-
-        rows.reverse()
 
         return rows
