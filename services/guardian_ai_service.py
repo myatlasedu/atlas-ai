@@ -2,11 +2,6 @@ import asyncio
 import logging
 import time
 
-from datetime import (
-    datetime,
-    timezone,
-)
-
 from db.repositories.ai_conversation_audit_repository import (
     AIConversationAuditRepository,
 )
@@ -91,8 +86,6 @@ class GuardianAIService:
         tool_latency_ms: int,
         summarizer_latency_ms: int,
     ):
-
-        turn = current_turn.get()
 
         predicted_intent = (
             parsed_intent.intent.value

@@ -17,7 +17,6 @@ from intents.guardian.classifier import (
 )
 
 from intents.common.conversation_context import (
-    inherit_parameters,
     is_follow_up_query,
 )
 
@@ -851,11 +850,6 @@ async def parse_guardian_intent(
 
         parsed["context_resolution"] = (
             classification.context_resolution
-        )
-
-        parsed = inherit_parameters(
-            parsed,
-            context_turn,
         )
 
         parsed = normalize_dates(

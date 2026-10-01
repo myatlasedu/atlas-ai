@@ -209,13 +209,17 @@ class ActionExecutorTool:
                             payload.get(
                                 "tag"
                             )
-                            or "Note",
+                            or "Academic",
 
                         journal_date=
                             payload.get(
                                 "journal_date"
                             ),
                     )
+                )
+                logger.info(
+                    "Journal created with ID: %s",
+                    journal_id,
                 )
 
             await PendingActionCache.delete(

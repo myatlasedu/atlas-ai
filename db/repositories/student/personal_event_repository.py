@@ -1,5 +1,5 @@
 from sqlalchemy import text
-from datetime import datetime
+from datetime import datetime, time
 
 class PersonalEventRepository:
 
@@ -91,6 +91,13 @@ class PersonalEventRepository:
                     end_datetime
                 )
             )
+        
+        is_all_day = bool(
+            start_datetime
+            and end_datetime
+            and start_datetime.time() == time(0, 0, 0)
+            and end_datetime.time() == time(23, 59, 59)
+        )
 
         query = text(
             """
@@ -104,7 +111,8 @@ class PersonalEventRepository:
                 end_datetime,
                 is_all_day,
                 created_at,
-                updated_at
+                updated_at,
+                is_active
 
             )
 
@@ -116,9 +124,10 @@ class PersonalEventRepository:
                 :event_type,
                 :start_datetime,
                 :end_datetime,
-                false,
+                :is_all_day,
                 NOW(),
-                NOW()
+                NOW(),
+                TRUE
 
             )
 
@@ -134,7 +143,8 @@ class PersonalEventRepository:
                 "description": description,
                 "event_type": event_type,
                 "start_datetime": start_datetime,
-                "end_datetime": end_datetime
+                "end_datetime": end_datetime,
+                "is_all_day": is_all_day
             }
         )
 

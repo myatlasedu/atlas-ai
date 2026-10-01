@@ -188,7 +188,7 @@ class JournalRepository:
         self,
         user_id: int,
         content: str,
-        tag: str = "Note",
+        tag: str = "Academic",
         journal_date=None,
     ):
 
@@ -202,6 +202,7 @@ class JournalRepository:
                     content,
                     journal_date,
                     tag,
+                    is_active,
                     created_at,
                     updated_at
 
@@ -213,6 +214,7 @@ class JournalRepository:
                     :content,
                     COALESCE(:journal_date, CURRENT_DATE),
                     :tag,
+                    TRUE,
                     NOW(),
                     NOW()
 
@@ -228,7 +230,7 @@ class JournalRepository:
                     "user_id": user_id,
                     "content": content,
                     "journal_date": journal_date,
-                    "tag": tag or "Note",
+                    "tag": tag or "Academic",
                 },
             )
 
