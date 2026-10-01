@@ -60,6 +60,11 @@ from utils import (
 logger = logging.getLogger(__name__)
 
 
+def get_predicted_intent(parsed_intent):
+    intent = parsed_intent.intent
+    return intent.value if isinstance(intent, GuardianIntent) else str(intent)
+
+
 class GuardianAIService:
 
     def __init__(self):
@@ -87,16 +92,7 @@ class GuardianAIService:
         summarizer_latency_ms: int,
     ):
 
-        predicted_intent = (
-            parsed_intent.intent.value
-            if hasattr(
-                parsed_intent.intent,
-                "value",
-            )
-            else str(
-                parsed_intent.intent
-            )
-        )
+        predicted_intent = get_predicted_intent(parsed_intent)
 
         try:
 
@@ -380,6 +376,9 @@ class GuardianAIService:
                         None,
                     ),
 
+                "predicted_intent":
+                    get_predicted_intent(parsed_intent),
+
                 "status":
                     "completed",
 
@@ -475,7 +474,7 @@ class GuardianAIService:
 
             context=context,
 
-            intent=parsed_intent.intent,
+            intent=get_predicted_intent(parsed_intent),
         )
 
         summarizer_latency_ms = int(
@@ -494,11 +493,15 @@ class GuardianAIService:
         # CONVERSATION RECALL CACHE
         # ==================================================
 
-        await ConversationRecallCache.append(
-            session_id,
-            user_query=query,
-            chatbot_summary=summary or "",
-        )
+        if parsed_intent.intent not in [
+            GuardianIntent.UNKNOWN,
+            GuardianIntent.CONVERSATION_RECALL,
+        ]:
+            await ConversationRecallCache.append(
+                session_id,
+                user_query=query,
+                chatbot_summary=summary or "",
+            )
 
         # ==================================================
         # FINAL AUDIT
@@ -575,6 +578,9 @@ class GuardianAIService:
                     "context_resolution",
                     None,
                 ),
+
+            "predicted_intent":
+                get_predicted_intent(parsed_intent),
 
             "status":
                 "completed",

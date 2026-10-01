@@ -20,6 +20,8 @@ from intents.common.conversation_context import (
     IntentClassification,
     build_classifier_messages,
     build_context_resolution,
+    is_conversation_recall_query,
+    is_meta_intent,
     resolve_context_turn,
     resolve_followup_query,
 )
@@ -49,10 +51,23 @@ async def classify_guardian_intent(
         response["message"]["content"]
     )
 
-    intent = parsed.get(
-        "intent",
-        "unknown"
+    intent = (
+        str(
+            parsed.get(
+                "intent",
+                "unknown",
+            )
+        )
+        .strip()
+        .lower()
     )
+
+    if intent == "unknown" and is_conversation_recall_query(query):
+        logger.info(
+            "Overriding unknown to conversation_recall for query: %r",
+            query,
+        )
+        intent = GuardianIntent.CONVERSATION_RECALL.value
 
     is_follow_up = bool(
         turns
@@ -60,6 +75,10 @@ async def classify_guardian_intent(
         parsed.get(
             "is_follow_up",
             False,
+        )
+        and
+        not is_meta_intent(
+            intent
         )
     )
 

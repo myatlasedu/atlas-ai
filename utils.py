@@ -41,6 +41,7 @@ DATE_WINDOW_PHRASES = (
 )
 
 _RELATIVE_WINDOW_PHRASES = DATE_WINDOW_PHRASES[4:]
+_BACKEND_WINDOW_PHRASES = DATE_WINDOW_PHRASES[4:10]
 
 _MONTH_NUMBERS = {
     name.lower(): i
@@ -186,6 +187,8 @@ def resolve_dates(parsed: dict) -> dict:
     # 1. Respect explicit ISO dates if already parsed
     start_date = parsed.get("start_date")
     end_date = parsed.get("end_date")
+    if any(phrase in query for phrase in _BACKEND_WINDOW_PHRASES):
+        start_date = end_date = None
     if isinstance(start_date, date) and isinstance(end_date, date):
         return parsed
     if isinstance(start_date, str) and isinstance(end_date, str):

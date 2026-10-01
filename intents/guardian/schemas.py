@@ -38,6 +38,8 @@ class ParsedGuardianIntent(BaseModel):
 
     view: str | None = None
 
+    recall_scope: str | None = None
+
     target_modules: list[str] = []
 
     confidence: float = 0.95

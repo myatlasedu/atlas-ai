@@ -522,6 +522,8 @@ FOLLOW_UP_MARKERS = (
     "and what",
     "same for",
     "same in",
+    "only",
+    "ones",
     "instead",
     "also",
     "as well",
@@ -585,12 +587,20 @@ def is_follow_up_query(
         # Short queries are the ones that lean on context; a longer
         # sentence carries enough of its own subject to stand alone.
 
-        return any(
-            marker in normalized
-            if " " in marker
-            else marker in words
-            for marker in FOLLOW_UP_MARKERS
-        ) or len(words) <= 3
+        return (
+            any(
+                marker in normalized
+                if " " in marker
+                else marker in words
+                for marker in FOLLOW_UP_MARKERS
+            )
+            or any(
+                phrase in normalized
+                for phrase in DATE_WINDOW_PHRASES
+            )
+            or month_window(normalized) is not None
+            or names_a_subject(normalized)
+        )
 
     return False
 

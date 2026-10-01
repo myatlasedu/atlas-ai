@@ -101,6 +101,8 @@ class ConversationRecallTool:
             "module": "conversation_recall",
             "llm_context": {
                 "scope": scope,
-                "conversation": entries,
+                "conversation": list(
+                    reversed(entries)
+                ),
             },
         }

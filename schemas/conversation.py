@@ -5,6 +5,7 @@ from datetime import (
 from pydantic import (
     BaseModel,
     Field,
+    field_validator,
 )
 
 
@@ -25,3 +26,16 @@ class ConversationTurn(BaseModel):
     summary: str | None = None
 
     created_at: datetime | None = None
+
+    @field_validator(
+        "predicted_intent",
+        mode="before",
+    )
+    
+    @classmethod
+    def _none_to_empty(
+        cls,
+        value,
+    ):
+
+        return value or ""
