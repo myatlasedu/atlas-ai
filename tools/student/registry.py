@@ -45,6 +45,10 @@ from tools.student.journal_create_tool import (
     JournalCreateTool
 )
 
+from tools.student.planner_tool import (
+    PlannerTool
+)
+
 from tools.student.screen_navigation_tool import (
     ScreenNavigationTool
 )
@@ -95,6 +99,8 @@ TOOL_REGISTRY = {
     "journal_tool": JournalTool(),
 
     "journal_create_tool": JournalCreateTool(),
+
+    "planner_tool": PlannerTool(),
 
     "timetable_tool": TimetableTool(),
 

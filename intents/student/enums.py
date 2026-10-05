@@ -35,6 +35,10 @@ class StudentIntent(str, Enum):
     
     JOURNAL_CREATE = "journal_create"
 
+    PLANNER_SUMMARY = "planner_summary"
+
+    PLANNER_CREATE = "planner_create"
+
     SCREEN_NAVIGATION = "screen_navigation"
 
     ACTION_CONFIRMATION = "action_confirmation"

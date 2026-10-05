@@ -46,3 +46,7 @@ class ParsedStudentIntent(BaseModel):
     homework_focus: str | None = None
 
     recall_scope: str | None = None
+
+    description: str | None = None
+
+    tag: str | None = None

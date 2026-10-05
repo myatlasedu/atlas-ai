@@ -14,6 +14,7 @@ SUPPORTED NAVIGATION TARGETS
 - homework
 - attendance
 - journal
+- planner
 - forum
 - events
 - classroom
@@ -53,6 +54,14 @@ Take me to attendance
 Open journal
 
 → navigation_target = journal
+
+Open planner
+
+→ navigation_target = planner
+
+Take me to my planner
+
+→ navigation_target = planner
 
 Take me to the forum
 

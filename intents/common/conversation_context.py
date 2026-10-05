@@ -724,7 +724,7 @@ SUBJECT_KEYWORDS = (
     "calendar", "event", "holiday", "activity", "competition",
     "celebration", "assembly", "exhibition", "festival", "trip", "ptm",
     "sports day", "annual day",
-    "journal", "diary",
+    "journal", "diary", "planner",
     "reminder", "appointment",
     "atlas", "pillar",
     "report", "performance",

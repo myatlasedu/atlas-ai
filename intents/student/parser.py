@@ -696,8 +696,6 @@ def guard_journal_create(
     query: str,
 ) -> StudentIntent:
 
-    # "Remember this I need to complete session" has been seen
-    # landing on action_confirmation and on conversation_recall.
     # It opens with a save phrase and is not a bare yes/no, so it
     # is a journal request whatever the classifier said.
 
@@ -708,6 +706,7 @@ def guard_journal_create(
         intent in (
             StudentIntent.JOURNAL_CREATE,
             StudentIntent.PERSONAL_EVENT_CREATE,
+            StudentIntent.PLANNER_CREATE,
         )
         and looks_like_confirmation(query)
         and not carries_journal_content(query)
@@ -755,6 +754,36 @@ def guard_journal_create(
         )
 
         return StudentIntent.JOURNAL_CREATE
+
+    return intent
+
+
+PLANNER_INTENT_OVERRIDES = {
+    StudentIntent.JOURNAL_CREATE: StudentIntent.PLANNER_CREATE,
+    StudentIntent.JOURNAL_SUMMARY: StudentIntent.PLANNER_SUMMARY,
+}
+
+PLANNER_REGEX = re.compile(
+    r"\b(?:planner|planners|planer|planers|planr|plannar)\b",
+    re.IGNORECASE,
+)
+
+def guard_planner(
+    intent: StudentIntent,
+    query: str,
+) -> StudentIntent:
+
+    if (
+        intent in PLANNER_INTENT_OVERRIDES and PLANNER_REGEX.search(query)
+    ):
+
+        logger.info(
+            "%s overridden to planner: %r",
+            intent.value,
+            query,
+        )
+
+        return PLANNER_INTENT_OVERRIDES[intent]
 
     return intent
 
@@ -915,6 +944,11 @@ async def parse_student_intent(
             classified_intent = StudentIntent.HOMEWORK_SUMMARY
 
         classified_intent = guard_journal_create(
+            classified_intent,
+            query_lower,
+        )
+
+        classified_intent = guard_planner(
             classified_intent,
             query_lower,
         )
