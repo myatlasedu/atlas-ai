@@ -121,6 +121,16 @@ TOOL_MAP = {
 
         "conversation_recall_tool"
     ],
+
+    StudentIntent.PLANNER_SUMMARY: [
+
+        "planner_tool"
+    ],
+
+    StudentIntent.PLANNER_CREATE: [
+
+        "planner_tool"
+    ],
 }
 
 

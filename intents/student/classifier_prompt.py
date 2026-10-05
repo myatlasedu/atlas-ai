@@ -244,6 +244,40 @@ personal_event_create instead.
 
 --------------------------------------------------
 
+planner_create
+
+The student wants to ADD an entry to their PLANNER.
+The message uses the word "planner" and carries the
+text to plan.
+
+Examples
+
+- Create planner revise chemistry tomorrow
+- Write planner finish the maths worksheet
+- Add to my planner: football practice on Friday
+
+All -> planner_create
+
+--------------------------------------------------
+
+planner_summary
+
+Reading planner entries.
+
+Examples
+
+- Show my planner
+- What is in my planner today?
+- My planner this week
+
+All -> planner_summary
+
+A message that says "planner" is NEVER journal_create
+or journal_summary. "Open planner" / "go to planner"
+is screen_navigation.
+
+--------------------------------------------------
+
 calendar_summary
 
 Questions about SCHOOL EVENTS.
