@@ -185,7 +185,19 @@ class ActionExecutorTool:
             ==
             "create_journal"
         ):
+            
+            await PendingActionCache.delete(
+                context.user_id,
+                session_id=session_id,
+            )
 
+            return {
+                "module": "action",
+                "action_cancelled": True,
+                "action_type": "create_journal",
+                "direct_answer": "Journal update coming soon.",
+            }
+        
             async with AsyncSessionLocal() as db:
 
                 repo = (

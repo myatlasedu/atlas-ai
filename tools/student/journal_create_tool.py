@@ -18,7 +18,12 @@ class JournalCreateTool:
         context,
         parsed_intent
     ):
-
+        # The journal creation feature is not yet implemented, so we return a placeholder response.
+        return {
+            "module": "journal",
+            "direct_answer": "Journal update coming soon."
+        }
+    
         extractor = (
             JournalExtractor()
         )
