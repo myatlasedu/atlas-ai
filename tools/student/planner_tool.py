@@ -1,6 +1,11 @@
 import calendar
+import re
 
 from datetime import timedelta
+
+from cache.pending_action_cache import (
+    PendingActionCache
+)
 
 from db.session import (
     AsyncSessionLocal
@@ -12,6 +17,10 @@ from db.repositories.student.journal_repository import (
 
 from intents.student.enums import (
     StudentIntent
+)
+
+from services.chat_session_service import (
+    current_turn
 )
 
 from utils import ist_today
@@ -26,6 +35,19 @@ PLANNER_TAGS = (
 
 DEFAULT_PLANNER_TAG = "Note"
 
+RANKED_LIMIT = 5
+
+LATEST_WORDS = {"latest", "recent", "newest", "last"}
+
+OLDEST_WORDS = {"oldest", "first", "earliest"}
+
+UPCOMING_WORDS = {"upcoming", "next", "coming", "future"}
+
+
+def format_day(value) -> str:
+
+    return value.strftime("%d %b %Y")
+
 
 class PlannerTool:
 
@@ -35,33 +57,29 @@ class PlannerTool:
         parsed_intent,
     ):
 
-        async with AsyncSessionLocal() as db:
+        if (
+            parsed_intent.intent
+            ==
+            StudentIntent.PLANNER_CREATE
+        ):
 
-            repo = JournalRepository(
-                db
-            )
-
-            if (
-                parsed_intent.intent
-                ==
-                StudentIntent.PLANNER_CREATE
-            ):
-
-                return await self._create(
-                    repo,
-                    context,
-                    parsed_intent,
-                )
-
-            return await self._summary(
-                repo,
+            return await self._propose(
                 context,
                 parsed_intent,
             )
 
-    async def _create(
+        async with AsyncSessionLocal() as db:
+
+            return await self._summary(
+                JournalRepository(
+                    db
+                ),
+                context,
+                parsed_intent,
+            )
+
+    async def _propose(
         self,
-        repo,
         context,
         parsed_intent,
     ):
@@ -95,34 +113,48 @@ class PlannerTool:
             or ist_today()
         )
 
-        # A planner entry is a journal row with no subject offering;
-        # create_entry leaves subject_offering_id NULL.
+        planner = {
+            "content": description,
+            "tag": tag,
+            "journal_date": planner_date.isoformat(),
+        }
 
-        planner_id = await repo.create_entry(
+        await PendingActionCache.save(
+
             user_id=context.user_id,
-            content=description,
-            tag=tag,
-            journal_date=planner_date,
+
+            action_type="create_planner",
+
+            payload=planner,
+
+            session_id=getattr(
+                current_turn.get(),
+                "session_id",
+                None,
+            ),
         )
 
-        # create_entry returns None when the insert failed.
-
-        if planner_id is None:
-
-            return {
-                "module": "planner",
-                "direct_answer": (
-                    "I couldn't save that to your planner. "
-                    "Please try again."
-                ),
-            }
-
         return {
-            "module": "planner",
-            "direct_answer": (
-                f"Added to your planner for "
-                f"{planner_date.strftime('%d %b %Y')} "
-                f"({tag}): {description}"
+
+            "module":
+                "planner",
+
+            "action_required":
+                True,
+
+            "confirmation_required":
+                True,
+
+            "action_type":
+                "create_planner",
+
+            "payload":
+                planner,
+
+            "confirmation_message": (
+                f"Would you like me to add this to your planner "
+                f"for {format_day(planner_date)} ({tag})?\n\n"
+                f"{description}"
             ),
         }
 
@@ -133,6 +165,8 @@ class PlannerTool:
         parsed_intent,
     ):
 
+        today = ist_today()
+
         start_date = parsed_intent.start_date
 
         end_date = parsed_intent.end_date
@@ -142,29 +176,96 @@ class PlannerTool:
             or parsed_intent.original_query
         ).lower()
 
-        # Date resolution ends "this week" / "this month" at today,
-        # but a planner also holds the days still to come.
+        words = set(
+            re.findall(
+                r"[a-z]+",
+                query,
+            )
+        )
 
-        if start_date and "this week" in query:
+        has_range = bool(
+            start_date
+            or end_date
+        )
+
+        ascending = False
+
+        limit = 20
+
+        if not has_range and words & LATEST_WORDS:
+
+            label = "latest planners"
+
+            limit = RANKED_LIMIT
+
+        elif not has_range and words & OLDEST_WORDS:
+
+            label = "oldest planners"
+
+            ascending = True
+
+            limit = RANKED_LIMIT
+
+        elif not has_range and words & UPCOMING_WORDS:
+
+            label = "upcoming planners"
+
+            start_date = today
+
+            ascending = True
+
+        elif not has_range:
+
+            # No range asked for: the current week, Monday to Sunday.
+
+            label = "current week planners"
+
+            start_date = today - timedelta(
+                days=today.weekday()
+            )
 
             end_date = start_date + timedelta(
                 days=6
             )
 
-        elif start_date and "this month" in query:
+        else:
 
-            end_date = start_date.replace(
-                day=calendar.monthrange(
-                    start_date.year,
-                    start_date.month,
-                )[1]
-            )
+            if start_date and end_date == today and "week" in words:
+
+                end_date = start_date + timedelta(
+                    days=6
+                )
+
+            elif start_date and end_date == today and "month" in words:
+
+                end_date = start_date.replace(
+                    day=calendar.monthrange(
+                        start_date.year,
+                        start_date.month,
+                    )[1]
+                )
+
+            if start_date and end_date and start_date != end_date:
+
+                label = (
+                    f"planners from {format_day(start_date)} "
+                    f"to {format_day(end_date)}"
+                )
+
+            else:
+
+                label = (
+                    f"planners for "
+                    f"{format_day(start_date or end_date)}"
+                )
 
         entries = await repo.search_planner_entries(
             user_id=context.user_id,
             start_date=start_date,
             end_date=end_date,
             keyword=parsed_intent.topic,
+            limit=limit,
+            ascending=ascending,
         )
 
         if not entries:
@@ -172,13 +273,13 @@ class PlannerTool:
             return {
                 "module": "planner",
                 "direct_answer": (
-                    "No planner entries were found."
+                    f"You have no {label}."
                 ),
             }
 
         lines = [
 
-            f"Found {len(entries)} planner entr{'y' if len(entries) == 1 else 'ies'}.",
+            f"Your {label}:",
             "",
         ]
 
@@ -186,7 +287,7 @@ class PlannerTool:
 
             lines.append(
 
-                f"• [{entry['journal_date'].strftime('%d %b %Y')}] "
+                f"• [{format_day(entry['journal_date'])}] "
                 f"({entry['tag']}) "
                 f"{entry['content'][:120]}"
             )

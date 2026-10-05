@@ -8,6 +8,8 @@ planner_create
 
 The student wants to add an entry to their planner.
 
+Creating a planner entry ALWAYS requires confirmation.
+
 Examples
 
 - Create planner revise chemistry chapter 3 tomorrow

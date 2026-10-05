@@ -269,6 +269,8 @@ Examples
 - Show my planner
 - What is in my planner today?
 - My planner this week
+- Show my latest planner
+- Upcoming planners
 
 All -> planner_summary
 

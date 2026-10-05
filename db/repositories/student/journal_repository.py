@@ -191,6 +191,7 @@ class JournalRepository:
         end_date=None,
         keyword=None,
         limit: int = 20,
+        ascending: bool = False,
     ):
 
         # Planner entries live in the journal table; they are the
@@ -231,6 +232,8 @@ class JournalRepository:
 
             params["keyword"] = f"%{keyword.strip()}%"
 
+        direction = "ASC" if ascending else "DESC"
+
         query = text(
             f"""
             SELECT
@@ -244,7 +247,7 @@ class JournalRepository:
 
             WHERE {" AND ".join(where)}
 
-            ORDER BY journal_date DESC, id DESC
+            ORDER BY journal_date {direction}, id {direction}
 
             LIMIT :limit
             """
@@ -264,7 +267,7 @@ class JournalRepository:
         self,
         user_id: int,
         content: str,
-        tag: str = "Academic",
+        tag: str = "Note",
         journal_date=None,
     ):
 
@@ -306,7 +309,7 @@ class JournalRepository:
                     "user_id": user_id,
                     "content": content,
                     "journal_date": journal_date,
-                    "tag": tag or "Academic",
+                    "tag": tag or "Note",
                 },
             )
 

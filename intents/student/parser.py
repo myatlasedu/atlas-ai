@@ -706,6 +706,7 @@ def guard_journal_create(
         intent in (
             StudentIntent.JOURNAL_CREATE,
             StudentIntent.PERSONAL_EVENT_CREATE,
+            StudentIntent.PLANNER_CREATE,
         )
         and looks_like_confirmation(query)
         and not carries_journal_content(query)
