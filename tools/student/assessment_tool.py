@@ -1,3 +1,5 @@
+import re
+
 from db.session import (
     AsyncSessionLocal
 )
@@ -8,6 +10,10 @@ from db.repositories.student.assessment_repository import (
 
 from llm.builders.assessment_builder import (
     build_assessment_llm_context,
+)
+
+from utils import (
+    MARKS_QUERY_KEYWORDS,
 )
 
 
@@ -29,6 +35,41 @@ def format_ungraded_response(title: str | None, role: str) -> str:
     if role == "guardian":
         return "The grade will be available on the report card once declared."
     return "Your grade will be available on the report card once declared."
+
+
+def format_summary_response(
+    graded_count: int,
+    upcoming: list,
+    pending_count: int,
+    role: str,
+) -> str:
+
+    # Counts and dates only: marks stay on the report card.
+
+    if not graded_count and not upcoming and not pending_count:
+        if role == "guardian":
+            return "No assessments are recorded for your child yet."
+        return "No assessments are recorded for you yet."
+
+    owner = "Your child has" if role == "guardian" else "You have"
+
+    lines = [
+        f"{owner} {graded_count} graded, {len(upcoming)} upcoming "
+        f"and {pending_count} pending assessment(s)."
+    ]
+
+    if upcoming:
+        lines.append("Upcoming:")
+        lines.extend(
+            f"- {item.get('title')} on {str(item.get('assessment_date') or '')[:10]}"
+            for item in upcoming[:5]
+        )
+
+    lines.append(
+        "Grades will be available on the report card once declared."
+    )
+
+    return "\n".join(lines)
 
 
 class AssessmentTool:
@@ -342,7 +383,8 @@ class AssessmentTool:
                     "next assessment",
                     "next test",
                     "next exam",
-                    "this week"
+                    "this week",
+                    "due",
                 ]
             ):
 
@@ -468,7 +510,11 @@ class AssessmentTool:
             matched_assessment = None
             for asm in all_assessments:
                 asm_title = (asm.get("title") or "").lower().strip()
-                if asm_title and asm_title in query:
+                # Whole words only: a title "test" must not match "tests".
+                if asm_title and re.search(
+                    rf"(?<!\w){re.escape(asm_title)}(?!\w)",
+                    query,
+                ):
                     matched_assessment = asm
                     break
 
@@ -604,7 +650,28 @@ class AssessmentTool:
                     )
                 return payload
 
-            # All other assessment status, result, performance, marks, scorecard queries
+            # A general summary ("show my assessments") names no mark to
+            # look up, so answer with the counts and what is coming up.
+            if not any(
+                keyword in query
+                for keyword in (
+                    *MARKS_QUERY_KEYWORDS,
+                    "percent",
+                    "rank",
+                    "improve",
+                    "weak",
+                    "strong",
+                )
+            ):
+                payload["direct_answer"] = format_summary_response(
+                    (performance or {}).get("graded_count", 0),
+                    upcoming,
+                    len(pending),
+                    role,
+                )
+                return payload
+
+            # All other assessment status, result, marks, scorecard queries
             target = latest_result or highest_assessment or lowest_assessment
             if target and (target.get("isGrade") or target.get("isGraded") or target.get("is_graded")):
                 payload["direct_answer"] = format_graded_response(
