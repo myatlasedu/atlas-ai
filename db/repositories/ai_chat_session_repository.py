@@ -41,6 +41,7 @@ def build_title(
         + "…"
     )
 
+SESSION_STATUS_ACTIVE = 1
 
 class AIChatSessionRepository:
 
@@ -336,6 +337,12 @@ class AIChatSessionRepository:
             FROM ai_chat_message
             WHERE
                 session_id = :session_id
+                AND EXISTS (
+                    SELECT 1
+                    FROM ai_chat_session
+                    WHERE id = :session_id
+                      AND status = :active_status
+                )
                 AND query IS NOT NULL
                 AND TRIM(query) != ''
                 AND LOWER(
@@ -359,6 +366,7 @@ class AIChatSessionRepository:
             statement,
             {
                 "session_id": session_id,
+                "active_status": SESSION_STATUS_ACTIVE,
                 "ignored_intents": list(
                     AIConversationAuditRepository.NON_CONTEXTUAL_INTENTS
                 ),
@@ -410,6 +418,12 @@ class AIChatSessionRepository:
             FROM ai_chat_message
             WHERE
                 session_id = :session_id
+                AND EXISTS (
+                    SELECT 1
+                    FROM ai_chat_session
+                    WHERE id = :session_id
+                      AND status = :active_status
+                )
                 AND query IS NOT NULL
                 AND TRIM(query) != ''
                 AND LOWER(
@@ -429,6 +443,7 @@ class AIChatSessionRepository:
             statement,
             {
                 "session_id": session_id,
+                "active_status": SESSION_STATUS_ACTIVE,
                 "limit": limit,
             },
         )
