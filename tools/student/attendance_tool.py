@@ -132,6 +132,17 @@ class AttendanceTool:
                 0,
             )
 
+            attended_periods = (
+                present_periods
+                + late_periods
+            )
+
+            expected_periods = (
+                total_periods
+                - excused_periods
+                - healthroom_periods
+            )
+
             # =====================================
             # INSIGHTS
             # =====================================
@@ -151,7 +162,7 @@ class AttendanceTool:
                 if total_periods:
 
                     insights.append(
-                        f"You attended {present_periods} of {total_periods} recorded class periods."
+                        f"You attended {attended_periods} of {total_periods} recorded class periods."
                     )
 
                 if missed_periods:
@@ -205,10 +216,10 @@ class AttendanceTool:
                 )
 
             if (
-                total_periods > 0
+                expected_periods > 0
                 and
                 (
-                    present_periods / total_periods
+                    attended_periods / expected_periods
                 ) < 0.9
             ):
 
