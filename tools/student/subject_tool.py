@@ -49,6 +49,19 @@ class SubjectTool:
 
             payload["module"] = "subject"
 
+            if not payload.get("subject_count"):
+
+                payload["direct_answer"] = (
+                    "Subject performance will be available once "
+                    "your child's report card is published."
+                    if getattr(context, "role", None) == "guardian"
+                    else
+                    "Subject performance will be available once "
+                    "your report card is published."
+                )
+
+                return payload
+
             payload["llm_context"] = (
                 build_subject_llm_context(
                     payload
