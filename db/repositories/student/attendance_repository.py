@@ -108,13 +108,21 @@ class AttendanceRepository:
 
                 COUNT(*) AS total_marked_days,
 
-                SUM(
-                    CASE
-                        WHEN status = 1
-                        THEN 1
-                        ELSE 0
-                    END
-                ) AS present_days
+                COUNT(*) FILTER (
+                    WHERE status IN (1, 3, 4)
+                ) AS present_days,
+
+                COUNT(*) FILTER (
+                    WHERE status = 2
+                ) AS absent_days,
+
+                COUNT(*) FILTER (
+                    WHERE status = 3
+                ) AS late_days,
+
+                COUNT(*) FILTER (
+                    WHERE status = 4
+                ) AS half_days
 
             FROM students_studentattendance
 
@@ -233,7 +241,7 @@ class AttendanceRepository:
 
             AND
 
-                sa.status = 1
+                sa.status IN (1, 3, 4)
             """
         )
 
@@ -259,6 +267,15 @@ class AttendanceRepository:
 
             "present_days":
                 present_days,
+
+            "absent_days":
+                attendance["absent_days"] or 0,
+
+            "late_days":
+                attendance["late_days"] or 0,
+
+            "half_days":
+                attendance["half_days"] or 0,
 
             "attendance_percentage":
                 attendance_percentage,
@@ -301,12 +318,8 @@ class AttendanceRepository:
 
                 COUNT(*) AS total_marked_days,
 
-                SUM(
-                    CASE
-                        WHEN status = 1
-                        THEN 1
-                        ELSE 0
-                    END
+                COUNT(*) FILTER (
+                    WHERE status IN (1, 3, 4)
                 ) AS present_days
 
             FROM students_studentattendance

@@ -97,6 +97,21 @@ class AttendanceTool:
                 0,
             )
 
+            absent_days = payload.get(
+                "absent_days",
+                0,
+            )
+
+            late_days = payload.get(
+                "late_days",
+                0,
+            )
+
+            half_days = payload.get(
+                "half_days",
+                0,
+            )
+
             total_periods = payload.get(
                 "total_periods",
                 0,
@@ -159,6 +174,24 @@ class AttendanceTool:
                     f"You attended school on {present_days} of {total_marked_days} recorded day(s)."
                 )
 
+                if late_days:
+
+                    insights.append(
+                        f"You arrived late at school on {late_days} day(s)."
+                    )
+
+                if half_days:
+
+                    insights.append(
+                        f"{half_days} day(s) were half days."
+                    )
+
+                if absent_days:
+
+                    insights.append(
+                        f"You were marked absent on {absent_days} day(s)."
+                    )
+
                 if total_periods:
 
                     insights.append(
@@ -207,6 +240,12 @@ class AttendanceTool:
 
                 recommended_actions.append(
                     "Reduce missed class periods."
+                )
+
+            if late_days:
+
+                recommended_actions.append(
+                    "Arrive at school on time."
                 )
 
             if late_periods:

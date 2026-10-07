@@ -86,6 +86,15 @@ def build_attendance_llm_context(
             "present_days":
                 present_days,
 
+            "late_days":
+                payload.get("late_days", 0),
+
+            "half_days":
+                payload.get("half_days", 0),
+
+            "absent_days":
+                payload.get("absent_days", 0),
+
             "total_periods":
                 total_periods,
 
