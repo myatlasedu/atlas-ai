@@ -57,6 +57,8 @@ class GuardianContext(BaseModel):
 
     role: str
 
+    academic_class_id: int | None = None
+
 class GuardianAIRequest(BaseModel):
 
     query: str

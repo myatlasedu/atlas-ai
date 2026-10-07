@@ -37,13 +37,7 @@ TOOL_MAP = {
 
     GuardianIntent.STUDENT_REPORT: [
 
-        "atlas_tool",
-
-        "attendance_tool",
-
-        "homework_tool",
-
-        "assessment_tool"
+        "student_performance_tool"
 
     ],
 

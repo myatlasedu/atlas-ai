@@ -86,6 +86,20 @@ class StudentPerformanceTool:
                             "and Atlas data become available, you'll receive a "
                             "complete performance analysis."
                         ),
+
+                    "direct_answer":
+                        (
+                            "We're still building your child's overall "
+                            "performance insights. A complete analysis will "
+                            "appear as more attendance, homework, assessment, "
+                            "subject and Atlas data become available."
+                            if role == "guardian"
+                            else
+                            "We're still building your overall performance "
+                            "insights. A complete analysis will appear as more "
+                            "attendance, homework, assessment, subject and "
+                            "Atlas data become available."
+                        ),
                 }
 
             return {
@@ -97,4 +111,10 @@ class StudentPerformanceTool:
 
                 "cross_analysis":
                     True,
+
+                "llm_context": {
+                    "llm_summary":
+                        data.get("llm_summary")
+                        or {},
+                },
             }

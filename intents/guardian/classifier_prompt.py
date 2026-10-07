@@ -248,6 +248,31 @@ Use when the guardian asks for:
 
 --------------------------------------------------
 
+timetable_summary
+
+Use when the guardian asks about the child's school day:
+
+- timetable
+- structure of the day / SOD
+- schedule
+- lessons or periods today / tomorrow
+- which lesson is next
+
+--------------------------------------------------
+
+calendar_summary
+
+Use when the guardian asks about school calendar events:
+
+- upcoming events
+- school events
+- holidays
+- school calendar
+- PTM / parent teacher meeting dates
+- what is happening this week / this month at school
+
+--------------------------------------------------
+
 conversation_recall
 
 Questions about THIS CHAT itself: what the guardian
@@ -446,6 +471,39 @@ Generate my child's report.
 Output:
 {
     "intent": "student_report",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Show my child's structure of the day.
+
+Output:
+{
+    "intent": "timetable_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+What lessons does my child have tomorrow?
+
+Output:
+{
+    "intent": "timetable_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Show upcoming school events.
+
+Output:
+{
+    "intent": "calendar_summary",
     "confidence": 0.99
 }
 

@@ -370,6 +370,23 @@ class AssessmentTool:
                 "assessment_flags": assessment_flags,
             }
 
+            is_guardian = (
+                getattr(context, "role", None)
+                == "guardian"
+            )
+
+            has = (
+                "Your child has"
+                if is_guardian
+                else "You have"
+            )
+
+            has_no = (
+                "Your child currently has no"
+                if is_guardian
+                else "You currently have no"
+            )
+
             # =====================================
             # UPCOMING ASSESSMENTS
             # =====================================
@@ -395,7 +412,7 @@ class AssessmentTool:
                     payload[
                         "direct_answer"
                     ] = (
-                        f"You have "
+                        f"{has} "
                         f"{len(upcoming)} upcoming "
                         f"assessment(s). "
                         f"The next one is "
@@ -408,7 +425,7 @@ class AssessmentTool:
                     payload[
                         "direct_answer"
                     ] = (
-                        "You currently have no "
+                        f"{has_no} "
                         "upcoming assessments."
                     )
 
@@ -438,7 +455,7 @@ class AssessmentTool:
                     payload[
                         "direct_answer"
                     ] = (
-                        f"You have "
+                        f"{has} "
                         f"{len(pending)} pending "
                         f"assessment(s). "
                         f"The next pending assessment is "
@@ -450,7 +467,7 @@ class AssessmentTool:
                     payload[
                         "direct_answer"
                     ] = (
-                        "You currently have no "
+                        f"{has_no} "
                         "pending assessments."
                     )
 

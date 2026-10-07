@@ -2,6 +2,10 @@ import asyncio
 import logging
 import time
 
+from datetime import date
+
+from sqlalchemy import text
+
 from db.repositories.ai_conversation_audit_repository import (
     AIConversationAuditRepository,
 )
@@ -196,6 +200,51 @@ class GuardianAIService:
             )
 
     # ==================================================
+    # CONTEXT
+    # ==================================================
+
+    @staticmethod
+    async def _resolve_academic_class(
+        context,
+    ):
+
+        if getattr(
+            context,
+            "academic_class_id",
+            None,
+        ):
+
+            return
+
+        try:
+
+            async with AsyncSessionLocal() as db:
+
+                result = await db.execute(
+                    text(
+                        """
+                        SELECT academic_class_id
+                        FROM students_studentenrollment
+                        WHERE id = :enrollment_id
+                        """
+                    ),
+                    {
+                        "enrollment_id": context.enrollment_id,
+                    },
+                )
+
+                context.academic_class_id = (
+                    result.scalar_one_or_none()
+                )
+
+        except Exception:
+
+            logger.exception(
+                "Failed to resolve academic class for enrollment %s.",
+                context.enrollment_id,
+            )
+
+    # ==================================================
     # ANSWER
     # ==================================================
 
@@ -290,6 +339,38 @@ class GuardianAIService:
                 parsed_intent
             )
         )
+
+        # The guardian parser keeps dates as ISO strings; the shared
+        # tools and their queries need real dates, as students send.
+
+        for field in (
+            "start_date",
+            "end_date",
+        ):
+
+            value = getattr(
+                parsed_intent,
+                field,
+                None,
+            )
+
+            if isinstance(value, str):
+
+                try:
+
+                    setattr(
+                        parsed_intent,
+                        field,
+                        date.fromisoformat(value),
+                    )
+
+                except ValueError:
+
+                    setattr(
+                        parsed_intent,
+                        field,
+                        None,
+                    )
 
         intent_latency_ms = int(
             (
@@ -415,6 +496,10 @@ class GuardianAIService:
         # ==================================================
         # TOOL EXECUTION
         # ==================================================
+
+        await self._resolve_academic_class(
+            context
+        )
 
         for tool_name in selected_tools:
 
