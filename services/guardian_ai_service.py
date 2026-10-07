@@ -26,6 +26,10 @@ from tools.student.registry import (
     TOOL_REGISTRY,
 )
 
+from tools.guardian.attendance_tool import (
+    AttendanceTool as GuardianAttendanceTool,
+)
+
 from llm.summarizer import (
     summarize_response,
 )
@@ -58,6 +62,10 @@ from utils import (
 
 
 logger = logging.getLogger(__name__)
+
+GUARDIAN_TOOL_OVERRIDES = {
+    "attendance_tool": GuardianAttendanceTool(),
+}
 
 
 def get_predicted_intent(parsed_intent):
@@ -410,8 +418,13 @@ class GuardianAIService:
 
         for tool_name in selected_tools:
 
-            tool = TOOL_REGISTRY.get(
-                tool_name
+            tool = (
+                GUARDIAN_TOOL_OVERRIDES.get(
+                    tool_name
+                )
+                or TOOL_REGISTRY.get(
+                    tool_name
+                )
             )
 
             if tool is None:

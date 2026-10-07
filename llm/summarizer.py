@@ -1143,7 +1143,10 @@ Use:
 The attendance metrics represent:
 
 - total_marked_days → number of school days with RFID attendance records.
-- present_days → days the student attended school.
+- present_days → days the student attended school (includes late and half days).
+- late_days → days the student arrived late at school.
+- half_days → days attended as a half day.
+- absent_days → days explicitly marked absent. Mention only when greater than 0.
 - total_periods → recorded class periods on attended days.
 - present_periods → class periods attended.
 - missed_periods → class periods missed.
@@ -1154,7 +1157,7 @@ The attendance metrics represent:
 Do NOT:
 
 - refer to holidays
-- refer to absent days
+- treat a day with no record as not marked
 - infer missed school days
 - calculate percentages
 - mention JSON
