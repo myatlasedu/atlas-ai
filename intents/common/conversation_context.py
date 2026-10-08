@@ -964,24 +964,117 @@ def _strip_stale_windows(
     return cleaned or candidate
 
 
+def _leans_on_context(
+    query: str,
+) -> bool:
+
+    normalized = (
+        query
+        .strip()
+        .lower()
+        .strip("?!.")
+    )
+
+    words = normalized.split()
+
+    return (
+        not names_a_subject(normalized)
+        or any(
+            marker in normalized
+            if " " in marker
+            else marker in words
+            for marker in FOLLOW_UP_MARKERS
+        )
+    )
+
+
+def _can_be_continued(
+    turn: ConversationTurn | None,
+) -> bool:
+
+    intent = str(
+        getattr(
+            turn,
+            "predicted_intent",
+            "",
+        )
+        or ""
+    ).lower()
+
+    return bool(
+        intent
+        and intent != "unknown"
+        and not is_meta_intent(intent)
+        and not intent.endswith("_create")
+        and intent != "screen_navigation"
+    )
+
+
+def followed_wrong_turn(
+    *,
+    query: str,
+    raw_context_turn,
+    context_turn: ConversationTurn | None,
+    turns: list[ConversationTurn] | None,
+) -> bool:
+
+    return bool(
+        turns
+        and context_turn is turns[0]
+        and _can_be_continued(context_turn)
+        and not names_a_subject(query)
+        and str(raw_context_turn) not in ("1", "None", "null", "")
+    )
+
+
 def resolve_followup_query(
     *,
     query: str,
     resolved_query,
     is_follow_up: bool,
     context_turn: ConversationTurn | None,
+    rebuild: bool = False,
 ) -> str:
 
     if not is_follow_up:
 
         return query
 
-    candidate = str(
-        resolved_query
-        or ""
-    ).strip()
+    # rebuild: the classifier rewrote from the wrong turn.
 
-    if not candidate:
+    candidate = (
+        ""
+        if rebuild
+        else str(
+            resolved_query
+            or ""
+        ).strip()
+    )
+
+    if not candidate or _same_text(
+        candidate,
+        query,
+    ):
+
+        if (
+            _can_be_continued(context_turn)
+            and _leans_on_context(query)
+        ):
+
+            merged = (
+                turn_text(context_turn).rstrip("?!. ")
+                + " "
+                + query
+            )
+
+            logger.info(
+                "Follow-up %r not rewritten; merged with turn %s: %r",
+                query,
+                context_turn.turn_id,
+                merged,
+            )
+
+            return merged
 
         return query
 

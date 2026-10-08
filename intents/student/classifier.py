@@ -12,6 +12,7 @@ from intents.common.conversation_context import (
     IntentClassification,
     build_classifier_messages,
     build_context_resolution,
+    followed_wrong_turn,
     is_conversation_recall_query,
     is_meta_intent,
     resolve_context_turn,
@@ -106,6 +107,30 @@ async def classify_student_intent(
         ),
     )
 
+    # A bare filter continues the most recent turn. If the classifier
+    # answered from an older one, keep neither its rewrite nor its intent.
+
+    wrong_turn = is_follow_up and followed_wrong_turn(
+        query=query,
+        raw_context_turn=parsed.get(
+            "context_turn"
+        ),
+        context_turn=context_turn,
+        turns=turns,
+    )
+
+    if wrong_turn:
+
+        logger.info(
+            "Follow-up %r answered from turn %r; continuing turn %s (%s) instead.",
+            query,
+            parsed.get("context_turn"),
+            context_turn.turn_id,
+            context_turn.predicted_intent,
+        )
+
+        intent = context_turn.predicted_intent
+
     resolved_query = resolve_followup_query(
         query=query,
         resolved_query=parsed.get(
@@ -113,7 +138,10 @@ async def classify_student_intent(
         ),
         is_follow_up=is_follow_up,
         context_turn=context_turn,
+        rebuild=wrong_turn,
     )
+    print("\n====Resolved Query in student classifier====")
+    print(resolved_query)
 
     context_resolution = build_context_resolution(
         is_follow_up=is_follow_up,

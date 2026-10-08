@@ -141,6 +141,14 @@ class ConversationContextService:
 
         for row in rows:
 
+            if not ConversationCache.is_contextual(
+                row.get(
+                    "predicted_intent"
+                )
+            ):
+
+                continue
+
             try:
 
                 turns.append(
