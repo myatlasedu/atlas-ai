@@ -107,9 +107,6 @@ async def classify_student_intent(
         ),
     )
 
-    # A bare filter continues the most recent turn. If the classifier
-    # answered from an older one, keep neither its rewrite nor its intent.
-
     wrong_turn = is_follow_up and followed_wrong_turn(
         query=query,
         raw_context_turn=parsed.get(

@@ -1062,7 +1062,10 @@ def resolve_followup_query(
         ):
 
             merged = (
-                turn_text(context_turn).rstrip("?!. ")
+                _strip_stale_windows(
+                    turn_text(context_turn),
+                    query,
+                ).rstrip("?!. ")
                 + " "
                 + query
             )
