@@ -1125,34 +1125,20 @@ Explain that attendance information is still being built because no attendance r
 Otherwise, structure the response in this order:
 
 1. Overall attendance status.
-2. Days the student attended school.
-3. Class period attendance summary.
-4. Important highlights.
-5. Recommended focus (if present).
-6. Recommended actions (if present).
+2. Every highlight, each stated exactly ONCE.
+3. Recommended focus (if present).
+4. Recommended actions (if present).
 
 Use:
 
 - status
-- metrics
-- period_breakdown
 - highlights
 - focus
 - actions
 
-The attendance metrics represent:
-
-- total_marked_days → number of school days with RFID attendance records.
-- present_days → days the student attended school (includes late and half days).
-- late_days → days the student arrived late at school.
-- half_days → days attended as a half day.
-- absent_days → days explicitly marked absent. Mention only when greater than 0.
-- total_periods → recorded class periods on attended days.
-- present_periods → class periods attended.
-- missed_periods → class periods missed.
-- late_periods → class periods attended late.
-- excused_periods → excused class periods.
-- healthroom_periods → class periods spent in the health room.
+The highlights are the complete attendance facts.
+Do NOT add a count that is not in the highlights.
+If focus and actions are empty, say nothing about them.
 
 Do NOT:
 

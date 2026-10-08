@@ -14,6 +14,7 @@ from llm.builders.assessment_builder import (
 
 from utils import (
     MARKS_QUERY_KEYWORDS,
+    resolve_canonical_name,
 )
 
 
@@ -42,21 +43,34 @@ def format_summary_response(
     upcoming: list,
     pending_count: int,
     role: str,
+    subject: str | None = None,
+    total: int | None = None,
 ) -> str:
 
     # Counts and dates only: marks stay on the report card.
 
-    if not graded_count and not upcoming and not pending_count:
+    label = f"{subject} " if subject else ""
+    if not (
+        total
+        if total is not None
+        else graded_count or upcoming or pending_count
+    ):
         if role == "guardian":
-            return "No assessments are recorded for your child yet."
-        return "No assessments are recorded for you yet."
+            return f"No {label}assessments are recorded for your child yet."
+        return f"No {label}assessments are recorded for you yet."
 
     owner = "Your child has" if role == "guardian" else "You have"
 
     lines = [
         f"{owner} {graded_count} graded, {len(upcoming)} upcoming "
-        f"and {pending_count} pending assessment(s)."
+        f"and {pending_count} pending {label}assessment(s)."
     ]
+
+    if total is not None:
+        lines = [
+            f"{owner} {total} {label}assessment(s): {graded_count} graded, "
+            f"{len(upcoming)} upcoming and {pending_count} pending."
+        ]
 
     if upcoming:
         lines.append("Upcoming:")
@@ -680,11 +694,43 @@ class AssessmentTool:
                     "strong",
                 )
             ):
+                graded_count = (performance or {}).get("graded_count", 0)
+                subject = getattr(parsed_intent, "subject", None)
+
+                if subject:
+                    subject = resolve_canonical_name(
+                        subject,
+                        sorted({
+                            asm["subject_name"]
+                            for asm in all_assessments
+                            if asm.get("subject_name")
+                        }),
+                    ) or subject
+                    in_subject = {
+                        asm["id"]: asm
+                        for asm in all_assessments
+                        if asm.get("subject_name") == subject
+                    }
+                    graded_count = sum(
+                        1 for asm in in_subject.values()
+                        if asm.get("status") == 3
+                    )
+                    upcoming = [
+                        item for item in upcoming
+                        if item["id"] in in_subject
+                    ]
+                    pending = [
+                        item for item in pending
+                        if item["id"] in in_subject
+                    ]
+
                 payload["direct_answer"] = format_summary_response(
-                    (performance or {}).get("graded_count", 0),
+                    graded_count,
                     upcoming,
                     len(pending),
                     role,
+                    subject,
+                    len(in_subject) if subject else None,
                 )
                 return payload
 

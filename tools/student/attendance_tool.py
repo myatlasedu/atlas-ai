@@ -282,4 +282,14 @@ class AttendanceTool:
                 )
             )
 
+            # The highlights already state every non-zero count;
+            # sending the raw metrics too made the summary say
+            # each one twice.
+            for key in ("metrics", "period_breakdown"):
+
+                payload["llm_context"].pop(
+                    key,
+                    None,
+                )
+
             return payload
