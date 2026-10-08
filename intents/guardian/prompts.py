@@ -48,6 +48,10 @@ from intents.student.prompt_parts.topic import (
     TOPIC_PROMPT
 )
 
+from intents.guardian.prompt_parts.screen_navigation import (
+    SCREEN_NAVIGATION_PROMPT
+)
+
 # from intents.guardian.prompt_parts.student_report import (
 #     STUDENT_REPORT_PROMPT
 # )
@@ -87,6 +91,9 @@ PROMPT_MAP = {
 
     GuardianIntent.TIMETABLE_SUMMARY:
         TIMETABLE_PROMPT,
+
+    GuardianIntent.SCREEN_NAVIGATION:
+        SCREEN_NAVIGATION_PROMPT,
 
     # GuardianIntent.STUDENT_REPORT:
     #     STUDENT_REPORT_PROMPT,
@@ -171,6 +178,7 @@ Return:
 
 {{
     "intent": "{intent.value}",
+    "navigation_target": null,
     "start_date": null,
     "end_date": null,
     "academic_year": null,

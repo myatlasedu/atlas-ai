@@ -82,6 +82,12 @@ TOOL_MAP = {
         "conversation_recall_tool"
 
     ],
+
+    GuardianIntent.SCREEN_NAVIGATION: [
+
+        "screen_navigation_tool"
+
+    ],
 }
 
 
