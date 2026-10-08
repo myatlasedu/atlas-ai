@@ -22,8 +22,11 @@ SUPPORTED NAVIGATION TARGETS
 - enrichment
 - announcements
 - notifications
+- mindfullness
 - wellbeing
 - healthroom
+- planner
+- resources
 - assessment
 - report_cards
 
