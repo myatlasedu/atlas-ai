@@ -512,10 +512,17 @@ class AssessmentRepository:
                 END AS is_graded,
                 r.status,
                 r.teacher_comment,
-                r.graded_at
+                r.graded_at,
+                sub.name AS subject_name
             FROM students_assessmentstudentrecord r
             INNER JOIN students_assessment a
                 ON a.id = r.assessment_id
+            LEFT JOIN schools_subjectoffering so
+                ON so.id = a.subject_offering_id
+            LEFT JOIN schools_subjectversion sv
+                ON sv.id = so.subject_version_id
+            LEFT JOIN schools_subject sub
+                ON sub.id = sv.subject_id
             WHERE r.enrollment_id = :enrollment_id
             ORDER BY a.assessment_date DESC, r.graded_at DESC
         """)
