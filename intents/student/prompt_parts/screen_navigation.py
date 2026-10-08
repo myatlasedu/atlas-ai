@@ -43,6 +43,18 @@ Open assignments
 
 → navigation_target = homework
 
+open resources
+
+→ navigation_target = resources
+
+Take me to resources
+
+→ navigation_target = resources
+
+Show my resources
+
+→ navigation_target = resources
+
 Show attendance page
 
 → navigation_target = attendance
