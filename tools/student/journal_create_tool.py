@@ -2,6 +2,10 @@ from cache.pending_action_cache import (
     PendingActionCache
 )
 
+from services.chat_session_service import (
+    current_turn
+)
+
 from services.journal_extractor import (
     JournalExtractor
 )
@@ -14,7 +18,12 @@ class JournalCreateTool:
         context,
         parsed_intent
     ):
-
+        # The journal creation feature is not yet implemented, so we return a placeholder response.
+        return {
+            "module": "journal",
+            "direct_answer": "Journal update coming soon."
+        }
+    
         extractor = (
             JournalExtractor()
         )
@@ -32,12 +41,21 @@ class JournalCreateTool:
 
         if not content:
 
+            message = (
+                "I couldn't find any journal content to save. "
+                "Please tell me what you'd like to add to your journal."
+            )
+
+            # No action is proposed, so this reply must reach the
+            # student as-is: journal_create has no summarizer prompt.
+
             return {
 
                 "module": "journal",
 
-                "error":
-                    "I couldn't find any journal content to save. Please tell me what you'd like to add to your journal."
+                "error": message,
+
+                "direct_answer": message,
             }
 
         await PendingActionCache.save(
@@ -46,7 +64,13 @@ class JournalCreateTool:
 
             action_type="create_journal",
 
-            payload=journal
+            payload=journal,
+
+            session_id=getattr(
+                current_turn.get(),
+                "session_id",
+                None,
+            ),
         )
         
         content = journal["content"].strip()
@@ -75,6 +99,9 @@ class JournalCreateTool:
 
             "action_type":
                 "create_journal",
+
+            "payload":
+                journal,
 
             "preview":
                 preview,

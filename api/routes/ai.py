@@ -43,9 +43,9 @@ async def ai_query(
     try:
         return await ai_service.answer(
             query=payload.query,
-            context=payload.context
+            context=payload.context,
+            session_id=payload.session_id
         )
-        end = time.perf_counter()
         
     except Exception as e:
         print("Error - ", e)
@@ -68,7 +68,8 @@ async def mentor_ai_query(
         return await (
             mentor_ai_service.answer(
                 query=payload.query,
-                context=payload.context
+                context=payload.context,
+                session_id=payload.session_id
             )
         )
 
@@ -99,7 +100,8 @@ async def guardian_ai_query(
         return await (
             guardian_ai_service.answer(
                 query=payload.query,
-                context=payload.context
+                context=payload.context,
+                session_id=payload.session_id
             )
         )
 

@@ -182,12 +182,15 @@ Use when the guardian asks about:
 
 - subjects
 - subject performance
-- maths
-- science
-- english
+- how my child is doing in maths / science / english
 - languages
 - weakest subject
 - strongest subject
+
+A subject name used as a FILTER on another module
+("science homework", "maths marks", "only science"
+after a homework question) is NOT subject_summary;
+it keeps that module's intent.
 
 --------------------------------------------------
 
@@ -242,6 +245,50 @@ Use when the guardian asks for:
 - complete overview
 - full overview
 - complete analysis
+
+--------------------------------------------------
+
+timetable_summary
+
+Use when the guardian asks about the child's school day:
+
+- timetable
+- structure of the day / SOD
+- schedule
+- lessons or periods today / tomorrow
+- which lesson is next
+
+--------------------------------------------------
+
+calendar_summary
+
+Use when the guardian asks about school calendar events:
+
+- upcoming events
+- school events
+- holidays
+- school calendar
+- PTM / parent teacher meeting dates
+- what is happening this week / this month at school
+
+--------------------------------------------------
+
+conversation_recall
+
+Questions about THIS CHAT itself: what the guardian
+asked earlier, or a recap of the chat so far.
+
+- What did I ask you?
+- What was my last question?
+- What did we discuss?
+- Summarize our conversation.
+- Recap this chat.
+
+A question about what was ASKED, SAID, DISCUSSED or
+TALKED ABOUT in this chat is ALWAYS
+conversation_recall, even when it mentions homework,
+attendance or any other school topic. It is NEVER
+unknown.
 
 --------------------------------------------------
 
@@ -424,6 +471,50 @@ Generate my child's report.
 Output:
 {
     "intent": "student_report",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Show my child's structure of the day.
+
+Output:
+{
+    "intent": "timetable_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+What lessons does my child have tomorrow?
+
+Output:
+{
+    "intent": "timetable_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Show upcoming school events.
+
+Output:
+{
+    "intent": "calendar_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+What did I ask you about my child's homework?
+
+Output:
+{
+    "intent": "conversation_recall",
     "confidence": 0.99
 }
 

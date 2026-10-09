@@ -49,11 +49,26 @@ class AtlasTool:
         parsed_intent
     ):
 
+        # Guardians read about their child; students about themselves.
+
+        owner = (
+            "your child's"
+            if getattr(context, "role", None) == "guardian"
+            else "your"
+        )
+
         if not context.enrollment_id:
 
             return {
+
+                "module":
+                    "atlas",
+
                 "error":
-                    "Enrollment ID missing"
+                    "Enrollment ID missing",
+
+                "direct_answer":
+                    f"Unable to load {owner} Atlas Score.",
             }
 
         async with AsyncSessionLocal() as db:
@@ -70,13 +85,22 @@ class AtlasTool:
 
                 return {
 
+                    "module":
+                        "atlas",
+
                     "error":
-                        "Atlas data not found."
+                        "Atlas data not found.",
+
+                    "direct_answer":
+                        f"{owner.capitalize()} Atlas Score is not available yet.",
                 }
 
             if atlas["is_calibrating"]:
 
                 return {
+
+                    "module":
+                        "atlas",
 
                     "status":
                         "calibrating",
@@ -85,7 +109,14 @@ class AtlasTool:
                         atlas["message"],
 
                     "calibration_end_date":
-                        atlas["calibration_end_date"]
+                        atlas["calibration_end_date"],
+
+                    "direct_answer": (
+                        "Atlas is currently calibrating. "
+                        f"{owner.capitalize()} Atlas Score and pillar "
+                        "insights will become available after "
+                        f"{atlas['calibration_end_date']}."
+                    ),
                 }
 
             atlas_score = atlas["atlas"]
@@ -116,6 +147,10 @@ class AtlasTool:
             )
 
             payload = {
+
+                "module":
+                    "atlas",
+
                 "available": True,
                 
                 "atlas_score":
@@ -170,9 +205,10 @@ class AtlasTool:
                 ]
             ):
 
-                payload["direct_answer"] = {
-                    "pillar": weakest_pillar
-                }
+                payload["direct_answer"] = (
+                    f"{owner.capitalize()} weakest Atlas pillar is "
+                    f"{weakest_pillar}."
+                )
 
             elif any(
                 phrase in query
@@ -184,8 +220,26 @@ class AtlasTool:
                 ]
             ):
 
-                payload["direct_answer"] = {
-                    "pillar": strongest_pillar
+                payload["direct_answer"] = (
+                    f"{owner.capitalize()} strongest Atlas pillar is "
+                    f"{strongest_pillar}."
+                )
+
+            else:
+
+                payload["llm_context"] = {
+
+                    "atlas_score":
+                        atlas_score,
+
+                    "pillars":
+                        pillars,
+
+                    "strongest_actionable_pillar":
+                        strongest_pillar,
+
+                    "weakest_actionable_pillar":
+                        weakest_pillar,
                 }
 
             return payload

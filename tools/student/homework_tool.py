@@ -22,6 +22,8 @@ from utils import (
     MARKS_MANIPULATION_KEYWORDS,
     VALID_HOMEWORK_GRADES,
     resolve_canonical_name,
+    format_homework_graded_response,
+    format_homework_ungraded_response,
 )
 
 
@@ -81,6 +83,7 @@ class HomeworkTool:
         enrollment_id,
         title,
         asks_for_marks,
+        role,
     ):
 
         # Runs when a specific homework is named; state comes from the latest attempt only.
@@ -258,7 +261,12 @@ class HomeworkTool:
 
         if state == "marks":
 
-            grade = (marks.get("grade") or "").strip()
+            is_graded = bool(
+                marks.get("is_graded")
+                or marks.get("isGrade")
+                or marks.get("isGraded")
+                or marks.get("grade")
+            )
 
             titled_mark = {
                 "title": marks["title"],
@@ -268,24 +276,23 @@ class HomeworkTool:
                 "submitted_at": str(marks["submitted_at"])[:16] if marks.get("submitted_at") else None,
                 "reviewed_at": str(marks["reviewed_at"])[:16] if marks.get("reviewed_at") else None,
                 "teacher_note": marks.get("teacher_note"),
-                "grade": grade or None,
+                "is_graded": is_graded,
+                "isGrade": is_graded,
+                "isGraded": is_graded,
                 "attempt_number": marks.get("attempt_number"),
             }
 
-            if grade in VALID_HOMEWORK_GRADES:
-
-                direct = (
-                    f"{close_match_note}"
-                    f"Your grade for {marks['title']} "
-                    f"is {grade}."
+            if is_graded:
+                direct = format_homework_graded_response(
+                    marks["title"],
+                    role,
+                    close_match_note,
                 )
-
             else:
-
-                direct = (
-                    f"{close_match_note}"
-                    f"{marks['title']} has been graded, "
-                    f"but no grade is recorded yet."
+                direct = format_homework_ungraded_response(
+                    marks["title"],
+                    role,
+                    close_match_note,
                 )
 
             return {
@@ -595,6 +602,8 @@ class HomeworkTool:
 
         enrollment_id = context.enrollment_id
 
+        role = getattr(context, "role", "student") or "student"
+
         query_lower = (
             getattr(parsed_intent, "original_query", "")
             or ""
@@ -643,6 +652,7 @@ class HomeworkTool:
                     enrollment_id,
                     title,
                     asks_for_marks,
+                    role,
                 )
 
         payload = empty_payload(focus)
@@ -667,7 +677,7 @@ class HomeworkTool:
 
             owner = (
                 "Your child's"
-                if getattr(context, "role", None) == "guardian"
+                if role == "guardian"
                 else "Your"
             )
 
@@ -800,6 +810,7 @@ class HomeworkTool:
                                 enrollment_id,
                                 canonical_title,
                                 False,
+                                role,
                             )
 
         payload["count_only"] = (
@@ -1465,14 +1476,12 @@ class HomeworkTool:
 
                     if (
                         item.get("status_tag") == "graded"
-                        and (item.get("grade") or "").strip()
-                        in VALID_HOMEWORK_GRADES
+                        or item.get("is_graded")
+                        or item.get("isGrade")
+                        or item.get("isGraded")
                     ):
 
-                        line += (
-                            f" (grade: "
-                            f"{(item['grade'] or '').strip()})"
-                        )
+                        line += " (graded)"
 
                     lines.append(line)
 
@@ -1551,20 +1560,9 @@ class HomeworkTool:
 
                 for item in rows:
 
-                    grade = (item.get("grade") or "").strip()
-
-                    if grade in VALID_HOMEWORK_GRADES:
-
-                        lines.append(
-                            f"• {item['title']} - "
-                            f"grade {grade}"
-                        )
-
-                    else:
-
-                        lines.append(
-                            f"• {item['title']}"
-                        )
+                    lines.append(
+                        f"• {item['title']} - graded"
+                    )
 
             else:
 

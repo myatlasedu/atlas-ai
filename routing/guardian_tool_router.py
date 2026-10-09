@@ -37,13 +37,7 @@ TOOL_MAP = {
 
     GuardianIntent.STUDENT_REPORT: [
 
-        "atlas_tool",
-
-        "attendance_tool",
-
-        "homework_tool",
-
-        "assessment_tool"
+        "student_performance_tool"
 
     ],
 
@@ -80,6 +74,12 @@ TOOL_MAP = {
     GuardianIntent.CALENDAR_SUMMARY: [
 
         "calendar_tool"
+
+    ],
+
+    GuardianIntent.CONVERSATION_RECALL: [
+
+        "conversation_recall_tool"
 
     ],
 }

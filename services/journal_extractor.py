@@ -34,18 +34,40 @@ Rules
 
 1. Extract ONLY the journal content.
 
-2. Remove commands such as
+2. Remove ONLY the journal command phrase, such as
 
 - save this in my journal
 - add this to my journal
 - journal this
-- save this
-- remember this
-- log this
+- write a journal
+- write a journal entry
 - create a journal entry
 - make a journal entry
 - write this in my journal
-- note this down
+
+The journal command is the ONLY thing you remove.
+EVERYTHING ELSE in the message is the journal content.
+
+Examples
+
+"write a journal complete the session task"
+-> {{"content": "complete the session task"}}
+
+"journal this: I need to finish my maths homework"
+-> {{"content": "I need to finish my maths homework"}}
+
+"write a journal I need to complete the session task"
+-> {{"content": "I need to complete the session task"}}
+
+Keep every word that follows the command, including
+"I need to", "I want to", "I have to", "today", "tomorrow".
+Cut nothing from the content.
+
+"save this in my journal revise chapter 3 tonight"
+-> {{"content": "revise chapter 3 tonight"}}
+
+"write a journal"
+-> {{"content": ""}}
 
 3. Preserve the student's exact wording.
 

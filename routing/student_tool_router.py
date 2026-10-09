@@ -116,6 +116,21 @@ TOOL_MAP = {
 
         "timetable_tool"
     ],
+
+    StudentIntent.CONVERSATION_RECALL: [
+
+        "conversation_recall_tool"
+    ],
+
+    StudentIntent.PLANNER_SUMMARY: [
+
+        "planner_tool"
+    ],
+
+    StudentIntent.PLANNER_CREATE: [
+
+        "planner_tool"
+    ],
 }
 
 

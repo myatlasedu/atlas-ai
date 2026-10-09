@@ -14,15 +14,17 @@ SUPPORTED NAVIGATION TARGETS
 - homework
 - attendance
 - journal
+- planner
 - forum
 - events
 - classroom
 - timetable
 - enrichment
 - announcements
-- notifications
-- wellbeing
+- mindfullness
 - healthroom
+- planner
+- resources
 - assessment
 - report_cards
 
@@ -42,6 +44,18 @@ Open assignments
 
 → navigation_target = homework
 
+open resources
+
+→ navigation_target = resources
+
+Take me to resources
+
+→ navigation_target = resources
+
+Show my resources
+
+→ navigation_target = resources
+
 Show attendance page
 
 → navigation_target = attendance
@@ -53,6 +67,14 @@ Take me to attendance
 Open journal
 
 → navigation_target = journal
+
+Open planner
+
+→ navigation_target = planner
+
+Take me to my planner
+
+→ navigation_target = planner
 
 Take me to the forum
 
@@ -144,7 +166,19 @@ Open notifications
 
 Open wellbeing
 
-→ navigation_target = wellbeing
+→ navigation_target = mindfullness
+
+Take me to wellbeing
+
+→ navigation_target = mindfullness
+
+Open mindfullness
+
+→ navigation_target = mindfullness
+
+Take me to mindfullness
+
+→ navigation_target = mindfullness
 
 Open health room
 

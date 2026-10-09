@@ -33,7 +33,6 @@ class ForumRepository:
                 f.description,
                 f.category,
                 f.location,
-                f.meeting_time,
                 f.created_at
             FROM students_forummember fm
             INNER JOIN students_forum f
