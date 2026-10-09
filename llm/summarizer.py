@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 
 from intents.student.enums import (
     StudentIntent
@@ -71,6 +72,14 @@ def build_prompt(
             dict
         )
     )
+
+    if intent == StudentIntent.TIMETABLE_SUMMARY:
+        query = re.sub(
+            r"\bmy (?:child|son|daughter|kid)(?:'s|s)?\s+",
+            "",
+            query,
+            flags=re.IGNORECASE,
+        )
 
     audience = (
         "Speak directly to the guardian. \
@@ -397,8 +406,10 @@ Explain that Atlas Score is still calibrating.
     - next_lesson
     - lessons
     - structure_of_day
-    - today's lessons
-    - tomorrow's lessons
+
+    Describe ONLY the day in the supplied data. Never
+    mention or guess any other day (for example
+    "tomorrow's lessons will follow a similar schedule").
 
     The timetable information is inside the "timetable" object.
 
