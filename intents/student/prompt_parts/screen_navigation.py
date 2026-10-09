@@ -21,9 +21,7 @@ SUPPORTED NAVIGATION TARGETS
 - timetable
 - enrichment
 - announcements
-- notifications
 - mindfullness
-- wellbeing
 - healthroom
 - planner
 - resources
@@ -168,7 +166,19 @@ Open notifications
 
 Open wellbeing
 
-→ navigation_target = wellbeing
+→ navigation_target = mindfullness
+
+Take me to wellbeing
+
+→ navigation_target = mindfullness
+
+Open mindfullness
+
+→ navigation_target = mindfullness
+
+Take me to mindfullness
+
+→ navigation_target = mindfullness
 
 Open health room
 
