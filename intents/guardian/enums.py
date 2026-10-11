@@ -54,6 +54,10 @@ class GuardianIntent(
         "student_report"
     )
 
+    CONVERSATION_RECALL = (
+        "conversation_recall"
+    )
+
     UNKNOWN = (
         "unknown"
     )

@@ -1,4 +1,9 @@
+import logging
+
 from sqlalchemy import text
+
+
+logger = logging.getLogger(__name__)
 
 
 class JournalRepository:
@@ -179,44 +184,146 @@ class JournalRepository:
 
         return dict(row) if row else None
 
-    async def create_entry(
+    async def search_planner_entries(
         self,
         user_id: int,
-        content: str,
+        start_date=None,
+        end_date=None,
+        keyword=None,
+        limit: int = 20,
+        ascending: bool = False,
     ):
 
+        # Planner entries live in the journal table; they are the
+        # rows without a subject offering.
+
+        where = [
+            "user_id = :user_id",
+            "subject_offering_id IS NULL",
+            "is_active = TRUE",
+        ]
+
+        params = {
+            "user_id": user_id,
+            "limit": limit,
+        }
+
+        if start_date:
+
+            where.append(
+                "journal_date >= :start_date"
+            )
+
+            params["start_date"] = start_date
+
+        if end_date:
+
+            where.append(
+                "journal_date <= :end_date"
+            )
+
+            params["end_date"] = end_date
+
+        if keyword:
+
+            where.append(
+                "LOWER(content) LIKE LOWER(:keyword)"
+            )
+
+            params["keyword"] = f"%{keyword.strip()}%"
+
+        direction = "ASC" if ascending else "DESC"
+
         query = text(
-            """
-            INSERT INTO students_journal (
+            f"""
+            SELECT
 
-                user_id,
+                id,
                 content,
-                created_at,
-                updated_at
+                tag,
+                journal_date
 
-            )
+            FROM students_journal
 
-            VALUES (
+            WHERE {" AND ".join(where)}
 
-                :user_id,
-                :content,
-                NOW(),
-                NOW()
+            ORDER BY journal_date {direction}, id {direction}
 
-            )
-
-            RETURNING id
+            LIMIT :limit
             """
         )
 
         result = await self.db.execute(
             query,
-            {
-                "user_id": user_id,
-                "content": content,
-            }
+            params,
         )
 
-        await self.db.commit()
+        return [
+            dict(row)
+            for row in result.mappings().all()
+        ]
 
-        return result.scalar_one()
+    async def create_entry(
+        self,
+        user_id: int,
+        content: str,
+        tag: str = "Note",
+        journal_date=None,
+    ):
+
+        try:
+
+            query = text(
+                """
+                INSERT INTO students_journal (
+
+                    user_id,
+                    content,
+                    journal_date,
+                    tag,
+                    is_active,
+                    created_at,
+                    updated_at
+
+                )
+
+                VALUES (
+
+                    :user_id,
+                    :content,
+                    COALESCE(:journal_date, CURRENT_DATE),
+                    :tag,
+                    TRUE,
+                    NOW(),
+                    NOW()
+
+                )
+
+                RETURNING id
+                """
+            )
+
+            result = await self.db.execute(
+                query,
+                {
+                    "user_id": user_id,
+                    "content": content,
+                    "journal_date": journal_date,
+                    "tag": tag or "Note",
+                },
+            )
+
+            await self.db.commit()
+
+            return result.scalar_one()
+
+        except Exception as e:
+
+            await self.db.rollback()
+
+            logger.warning(
+                "Journal insert failed (%s);",
+                e,
+            )
+
+            return None

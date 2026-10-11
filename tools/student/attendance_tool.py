@@ -97,6 +97,21 @@ class AttendanceTool:
                 0,
             )
 
+            absent_days = payload.get(
+                "absent_days",
+                0,
+            )
+
+            late_days = payload.get(
+                "late_days",
+                0,
+            )
+
+            half_days = payload.get(
+                "half_days",
+                0,
+            )
+
             total_periods = payload.get(
                 "total_periods",
                 0,
@@ -132,6 +147,17 @@ class AttendanceTool:
                 0,
             )
 
+            attended_periods = (
+                present_periods
+                + late_periods
+            )
+
+            expected_periods = (
+                total_periods
+                - excused_periods
+                - healthroom_periods
+            )
+
             # =====================================
             # INSIGHTS
             # =====================================
@@ -148,10 +174,28 @@ class AttendanceTool:
                     f"You attended school on {present_days} of {total_marked_days} recorded day(s)."
                 )
 
+                if late_days:
+
+                    insights.append(
+                        f"You arrived late at school on {late_days} day(s)."
+                    )
+
+                if half_days:
+
+                    insights.append(
+                        f"{half_days} day(s) were half days."
+                    )
+
+                if absent_days:
+
+                    insights.append(
+                        f"You were marked absent on {absent_days} day(s)."
+                    )
+
                 if total_periods:
 
                     insights.append(
-                        f"You attended {present_periods} of {total_periods} recorded class periods."
+                        f"You attended {attended_periods} of {total_periods} recorded class periods."
                     )
 
                 if missed_periods:
@@ -198,6 +242,12 @@ class AttendanceTool:
                     "Reduce missed class periods."
                 )
 
+            if late_days:
+
+                recommended_actions.append(
+                    "Arrive at school on time."
+                )
+
             if late_periods:
 
                 recommended_actions.append(
@@ -205,10 +255,10 @@ class AttendanceTool:
                 )
 
             if (
-                total_periods > 0
+                expected_periods > 0
                 and
                 (
-                    present_periods / total_periods
+                    attended_periods / expected_periods
                 ) < 0.9
             ):
 
@@ -231,5 +281,15 @@ class AttendanceTool:
                     payload,
                 )
             )
+
+            # The highlights already state every non-zero count;
+            # sending the raw metrics too made the summary say
+            # each one twice.
+            for key in ("metrics", "period_breakdown"):
+
+                payload["llm_context"].pop(
+                    key,
+                    None,
+                )
 
             return payload

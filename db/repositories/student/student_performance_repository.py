@@ -606,16 +606,6 @@ class StudentPerformanceRepository:
                         else None,
 
                         (
-                            f"Best assessment was "
-                            f"{highest_assessment['title']} "
-                            f"({highest_assessment['percentage']}%)."
-                        )
-
-                        if highest_assessment
-
-                        else None,
-
-                        (
                             f"Strongest Atlas pillar is "
                             f"{strongest_pillar.title()}."
                         )
@@ -660,16 +650,6 @@ class StudentPerformanceRepository:
                         )
 
                         if weakest_subject
-
-                        else None,
-
-                        (
-                            f"Lowest assessment was "
-                            f"{lowest_assessment['title']} "
-                            f"({lowest_assessment['percentage']}%)."
-                        )
-
-                        if lowest_assessment
 
                         else None,
 

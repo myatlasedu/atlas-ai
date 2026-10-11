@@ -211,7 +211,72 @@ Reading journal entries.
 
 journal_create
 
-Creating journal entries.
+The student gives you something to SAVE, REMEMBER,
+NOTE or LOG: a thought, a reflection, a note, a
+to-do, a plan, or anything they want kept in their
+journal. The message CARRIES the text to save.
+
+Command phrases that mark this intent:
+
+- remember this ...
+- save this ...
+- journal this ...
+- note this down ...
+- log this ...
+- write a journal ...
+- write this in my journal ...
+- add this to my journal ...
+
+Examples
+
+- Remember this I need to complete session
+- Remember this: I have to revise chapter 3
+- Save this I finished my project
+- Journal this: today was a productive day
+- Write a journal today is a good day
+- Note this down I must return the library book
+
+All -> journal_create
+
+Only when the message asks to be REMINDED AT a
+time or date ("remind me tomorrow at 6pm") is it
+personal_event_create instead.
+
+--------------------------------------------------
+
+planner_create
+
+The student wants to ADD an entry to their PLANNER.
+The message uses the word "planner" and carries the
+text to plan.
+
+Examples
+
+- Create planner revise chemistry tomorrow
+- Write planner finish the maths worksheet
+- Add to my planner: football practice on Friday
+
+All -> planner_create
+
+--------------------------------------------------
+
+planner_summary
+
+Reading planner entries.
+
+Examples
+
+- Show my planner
+- What is in my planner today?
+- My planner this week
+- Show my latest planner
+- Upcoming planners
+
+All -> planner_summary
+
+A message that says "planner" is NEVER journal_create
+or journal_summary. "Open planner" / "go to planner"
+is screen_navigation.
 
 --------------------------------------------------
 
@@ -381,17 +446,63 @@ Examples
 
 action_confirmation
 
-Yes
+ONLY a bare reply to a yes/no question. The
+message carries NO new content of its own.
 
-No
+- Yes
+- No
+- Confirm
+- Proceed
+- Continue
+- Cancel
+- Okay, create it
+- Go ahead
 
-Confirm
+A message that contains something to save,
+remember, note, log or schedule is NEVER
+action_confirmation, whatever else it contains.
 
-Proceed
+"Remember this I need to complete session"
+-> journal_create (it carries text to save)
 
-Continue
+--------------------------------------------------
 
-Cancel
+conversation_recall
+
+Questions about THIS CHAT itself: what the student
+asked earlier, what Atlas created or saved during
+this chat, or a recap of the chat so far.
+
+Examples
+
+- What did you create now?
+- What did you just save?
+- What did you do?
+- What did I ask you?
+- What i asked from you
+- What did I ask?
+- What have I asked you so far?
+- What did I say earlier?
+- What did I tell you to do?
+- What was my last question?
+- Summarize our conversation.
+- What have we discussed so far?
+- What did we discuss?
+- What did we talk about?
+- Recap this chat.
+
+NOT for reading stored data:
+
+- "Show my journal" -> journal_summary
+- "Show my reminders" -> personal_event_summary
+
+NOT for giving you something to remember:
+
+- "Remember this I need to complete session"
+  -> journal_create
+
+"Remember this ..." hands you text to save. A
+recall question asks you what happened before.
 
 --------------------------------------------------
 
@@ -600,6 +711,19 @@ Never classify these as
 - personal_event_summary
 
 8.
+
+A question about what was ASKED, SAID, CREATED,
+SAVED, DISCUSSED, TALKED ABOUT or DONE in this chat ("what did you create
+now?", "what did I ask you?", "what i asked from you", "what did we discuss",
+"summarize our conversation", "recap this chat") is ALWAYS conversation_recall,
+even when it mentions a journal, an event, or any other school topic.
+It is NEVER unknown.
+
+Only a request to READ stored entries ("show my
+journal", "show my reminders") is journal_summary
+or personal_event_summary.
+
+9.
 
 Once an intent clearly matches,
 STOP reasoning and return that intent.

@@ -45,6 +45,10 @@ from tools.student.journal_create_tool import (
     JournalCreateTool
 )
 
+from tools.student.planner_tool import (
+    PlannerTool
+)
+
 from tools.student.screen_navigation_tool import (
     ScreenNavigationTool
 )
@@ -55,6 +59,10 @@ from tools.student.calendar_tool import (
 
 from tools.student.timetable_tool import (
     TimetableTool,
+)
+
+from tools.student.conversation_recall_tool import (
+    ConversationRecallTool,
 )
 
 TOOL_REGISTRY = {
@@ -92,7 +100,9 @@ TOOL_REGISTRY = {
 
     "journal_create_tool": JournalCreateTool(),
 
-    "timetable_tool": TimetableTool()
-    
-    
+    "planner_tool": PlannerTool(),
+
+    "timetable_tool": TimetableTool(),
+
+    "conversation_recall_tool": ConversationRecallTool(),
 }

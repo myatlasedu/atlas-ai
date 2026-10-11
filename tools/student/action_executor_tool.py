@@ -1,11 +1,17 @@
 import logging
 
+from datetime import date
+
 from db.session import (
     AsyncSessionLocal
 )
 
 from cache.pending_action_cache import (
     PendingActionCache
+)
+
+from services.chat_session_service import (
+    current_turn
 )
 
 from db.repositories.student.personal_event_repository import (
@@ -37,9 +43,16 @@ class ActionExecutorTool:
         parsed_intent
     ):
 
+        session_id = getattr(
+            current_turn.get(),
+            "session_id",
+            None,
+        )
+
         pending_action = (
             await PendingActionCache.get(
-                context.user_id
+                context.user_id,
+                session_id=session_id,
             )
         )
 
@@ -131,7 +144,8 @@ class ActionExecutorTool:
                 )
 
             await PendingActionCache.delete(
-                context.user_id
+                context.user_id,
+                session_id=session_id,
             )
 
             logger.info(
@@ -153,6 +167,9 @@ class ActionExecutorTool:
                 "event_id":
                     event["id"],
 
+                "payload":
+                    payload,
+
                 "direct_answer":
                     (
                         f"Your event "
@@ -170,7 +187,19 @@ class ActionExecutorTool:
             ==
             "create_journal"
         ):
+            
+            await PendingActionCache.delete(
+                context.user_id,
+                session_id=session_id,
+            )
 
+            return {
+                "module": "action",
+                "action_cancelled": True,
+                "action_type": "create_journal",
+                "direct_answer": "Journal update coming soon.",
+            }
+        
             async with AsyncSessionLocal() as db:
 
                 repo = (
@@ -188,12 +217,28 @@ class ActionExecutorTool:
                         content=
                             payload.get(
                                 "content"
+                            ),
+
+                        tag=
+                            payload.get(
+                                "tag"
                             )
+                            or "Academic",
+
+                        journal_date=
+                            payload.get(
+                                "journal_date"
+                            ),
                     )
+                )
+                logger.info(
+                    "Journal created with ID: %s",
+                    journal_id,
                 )
 
             await PendingActionCache.delete(
-                context.user_id
+                context.user_id,
+                session_id=session_id,
             )
 
             logger.info(
@@ -215,9 +260,111 @@ class ActionExecutorTool:
                 "journal_id":
                     journal_id,
 
+                "payload":
+                    payload,
+
                 "direct_answer":
                     (
                         "Your journal entry "
+                        "has been saved."
+                    )
+            }
+
+        # =====================================
+        # CREATE PLANNER
+        # =====================================
+
+        if (
+            action_type
+            ==
+            "create_planner"
+        ):
+
+            # A planner entry is a journal row with no subject
+            # offering; create_entry leaves subject_offering_id NULL.
+
+            async with AsyncSessionLocal() as db:
+
+                planner_id = (
+                    await JournalRepository(
+                        db
+                    ).create_entry(
+
+                        user_id=
+                            context.user_id,
+
+                        content=
+                            payload.get(
+                                "content"
+                            ),
+
+                        tag=
+                            payload.get(
+                                "tag"
+                            ),
+
+                        journal_date=
+                            date.fromisoformat(
+                                payload[
+                                    "journal_date"
+                                ]
+                            ),
+                    )
+                )
+
+            # create_entry returns None when the insert failed. The
+            # pending action is kept so "yes" can retry.
+
+            if planner_id is None:
+
+                return {
+
+                    "module":
+                        "action",
+
+                    "action_completed":
+                        False,
+
+                    "action_type":
+                        "create_planner",
+
+                    "direct_answer":
+                        (
+                            "I couldn't save that to your planner. "
+                            "Please try again."
+                        )
+                }
+
+            await PendingActionCache.delete(
+                context.user_id,
+                session_id=session_id,
+            )
+
+            logger.info(
+                "Planner created: %s",
+                planner_id
+            )
+
+            return {
+
+                "module":
+                    "action",
+
+                "action_completed":
+                    True,
+
+                "action_type":
+                    "create_planner",
+
+                "planner_id":
+                    planner_id,
+
+                "payload":
+                    payload,
+
+                "direct_answer":
+                    (
+                        "Your planner entry "
                         "has been saved."
                     )
             }

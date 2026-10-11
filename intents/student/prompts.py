@@ -64,6 +64,14 @@ from intents.student.prompt_parts.timetable import (
     TIMETABLE_PROMPT,
 )
 
+from intents.student.prompt_parts.conversation_recall import (
+    CONVERSATION_RECALL_PROMPT,
+)
+
+from intents.student.prompt_parts.planner import (
+    PLANNER_PROMPT,
+)
+
 
 PROMPT_MAP = {
 
@@ -117,6 +125,15 @@ PROMPT_MAP = {
 
     StudentIntent.TIMETABLE_SUMMARY:
         TIMETABLE_PROMPT,
+
+    StudentIntent.CONVERSATION_RECALL:
+        CONVERSATION_RECALL_PROMPT,
+
+    StudentIntent.PLANNER_SUMMARY:
+        PLANNER_PROMPT,
+
+    StudentIntent.PLANNER_CREATE:
+        PLANNER_PROMPT,
 }
 
 

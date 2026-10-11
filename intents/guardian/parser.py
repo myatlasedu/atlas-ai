@@ -16,6 +16,18 @@ from intents.guardian.classifier import (
     classify_guardian_intent
 )
 
+from intents.common.conversation_context import (
+    is_conversation_recall_query,
+    is_follow_up_query,
+    is_meta_intent,
+    names_a_subject,
+    turn_text,
+)
+
+from schemas.conversation import (
+    ConversationTurn
+)
+
 from intents.guardian.enums import (
     GuardianIntent
 )
@@ -29,6 +41,8 @@ from intents.guardian.schemas import (
 )
 
 from utils import (
+    date_query,
+    month_window,
     resolve_dates,
     ist_today,
     MARKS_QUERY_KEYWORDS,
@@ -126,16 +140,27 @@ def normalize_homework_focus(
         .lower()
     )
 
-    window_phrase = any(
-        phrase in query_lower
-        for phrase in (
-            "this week",
-            "last week",
-            "next week",
-            "this month",
-            "last month",
-            "next month",
+    window_query = date_query(
+        parsed
+    )
+
+    named_month = month_window(
+        window_query
+    )
+
+    window_phrase = (
+        any(
+            phrase in window_query
+            for phrase in (
+                "this week",
+                "last week",
+                "next week",
+                "this month",
+                "last month",
+                "next month",
+            )
         )
+        or named_month is not None
     )
 
     if (
@@ -152,7 +177,7 @@ def normalize_homework_focus(
 
         parsed["homework_focus"] = "due_range"
 
-        if "this week" in query_lower:
+        if "this week" in window_query:
 
             today = ist_today()
 
@@ -166,7 +191,7 @@ def normalize_homework_focus(
 
             parsed["end_date"] = sunday.isoformat()
 
-        elif "last week" in query_lower:
+        elif "last week" in window_query:
 
             today = ist_today()
 
@@ -182,7 +207,7 @@ def normalize_homework_focus(
 
             parsed["end_date"] = sunday.isoformat()
 
-        elif "next week" in query_lower:
+        elif "next week" in window_query:
 
             today = ist_today()
 
@@ -198,7 +223,7 @@ def normalize_homework_focus(
 
             parsed["end_date"] = sunday.isoformat()
 
-        elif "this month" in query_lower:
+        elif "this month" in window_query:
 
             today = ist_today()
 
@@ -215,7 +240,7 @@ def normalize_homework_focus(
                 day=last_day,
             ).isoformat()
 
-        elif "last month" in query_lower:
+        elif "last month" in window_query:
 
             today = ist_today()
 
@@ -246,7 +271,7 @@ def normalize_homework_focus(
                 last_day,
             ).isoformat()
 
-        elif "next month" in query_lower:
+        elif "next month" in window_query:
 
             today = ist_today()
 
@@ -276,6 +301,16 @@ def normalize_homework_focus(
                 month,
                 last_day,
             ).isoformat()
+
+        elif named_month:
+
+            parsed["start_date"] = (
+                named_month[0].isoformat()
+            )
+
+            parsed["end_date"] = (
+                named_month[1].isoformat()
+            )
 
     # Late submissions ("late homework submitted last week") = handed in after the due date.
 
@@ -407,7 +442,7 @@ def normalize_homework_focus(
         focus in (None, "general", "due_range")
     ):
 
-        if "next year" in query_lower:
+        if "next year" in window_query:
 
             year = ist_today().year + 1
 
@@ -417,7 +452,7 @@ def normalize_homework_focus(
 
             parsed["end_date"] = f"{year}-12-31"
 
-        elif "last year" in query_lower:
+        elif "last year" in window_query:
 
             year = ist_today().year - 1
 
@@ -529,22 +564,133 @@ def normalize_dates(
     return parsed
 
 
+RECALL_ASKED_MARKERS = (
+    "did i ",
+    "i ask",
+    "i say",
+    "i said",
+    "i tell",
+    "i told",
+    "my question",
+    "my last",
+)
+
+
+def guardian_recall_scope(
+    query: str,
+) -> str:
+
+    query_lower = query.lower()
+
+    if any(
+        marker in query_lower
+        for marker in RECALL_ASKED_MARKERS
+    ):
+
+        return "asked"
+
+    return "summary"
+
+
 async def parse_guardian_intent(
     query: str,
     enrollment_id: int | None = None,
+    turns: list[ConversationTurn] | None = None,
 ) -> ParsedGuardianIntent:
 
     try:
 
         normalized_query = query.strip().lower()
 
-        classified_intent = (
+        classification = (
             await classify_guardian_intent(
-                normalized_query
+                normalized_query,
+                turns=turns,
             )
         )
 
-        query_lower = normalized_query
+        classified_intent = classification.intent
+
+        context_turn = classification.context_turn
+
+        # A follow-up is answered as its self-contained rewrite; a
+        # stand-alone query keeps the user's own words untouched.
+
+        resolved_query = (
+            classification.resolved_query
+            if (
+                classification.is_follow_up
+                and classification.resolved_query
+                and classification.resolved_query
+                != normalized_query
+            )
+            else query
+        )
+
+        if (
+            classification.is_follow_up
+            and context_turn
+            and not names_a_subject(normalized_query)
+            and not is_meta_intent(context_turn.predicted_intent)
+        ):
+
+            try:
+
+                inherited_intent = GuardianIntent(
+                    context_turn.predicted_intent
+                )
+
+            except ValueError:
+
+                inherited_intent = None
+
+            if (
+                inherited_intent
+                and inherited_intent != GuardianIntent.UNKNOWN
+                and inherited_intent != classified_intent
+            ):
+
+                logger.info(
+                    "Bare follow-up %r: keeping %s from turn %s (classifier said %s).",
+                    query,
+                    inherited_intent.value,
+                    context_turn.turn_id,
+                    classified_intent.value,
+                )
+
+                classified_intent = inherited_intent
+
+                # Any rewrite came with the rejected intent, so rebuild
+                # it from the turn being continued.
+
+                resolved_query = (
+                    f"{turn_text(context_turn)} {query}"
+                )
+
+                classification.context_resolution.update(
+                    intent=inherited_intent.value,
+                    resolved_query=resolved_query,
+                )
+
+        parse_query = (
+            resolved_query
+            .strip()
+            .lower()
+        )
+
+        query_lower = parse_query
+
+        if (
+            classified_intent == GuardianIntent.UNKNOWN
+            and is_conversation_recall_query(normalized_query)
+        ):
+
+            logger.info(
+                "UNKNOWN overridden to conversation_recall: %r",
+                query,
+            )
+
+            classified_intent = GuardianIntent.CONVERSATION_RECALL
 
         if (
             classified_intent == GuardianIntent.UNKNOWN
@@ -561,10 +707,72 @@ async def parse_guardian_intent(
 
             classified_intent = GuardianIntent.HOMEWORK_SUMMARY
 
+
+        if (
+            classified_intent == GuardianIntent.UNKNOWN
+            and turns
+            and (
+                classification.is_follow_up
+                or is_follow_up_query(parse_query)
+            )
+            and not is_meta_intent(
+                (context_turn or turns[0]).predicted_intent
+            )
+        ):
+
+            context_turn = context_turn or turns[0]
+
+            try:
+
+                classified_intent = GuardianIntent(
+                    context_turn.predicted_intent
+                )
+
+                logger.info(
+                    "Guardian UNKNOWN resolved to %s from conversation turn %s.",
+                    classified_intent.value,
+                    context_turn.turn_id,
+                )
+
+            except ValueError:
+
+                context_turn = None
+
+        if classified_intent == GuardianIntent.UNKNOWN:
+
+            context_turn = None
+
         logger.info(
             "Guardian classified intent: %s",
             classified_intent.value
         )
+
+        # Recall reads this chat, not school data: nothing to extract.
+
+        if classified_intent == GuardianIntent.CONVERSATION_RECALL:
+
+            return ParsedGuardianIntent(
+
+                intent=classified_intent.value,
+
+                recall_scope=guardian_recall_scope(
+                    normalized_query
+                ),
+
+                target_modules=[],
+
+                confidence=0.95,
+
+                original_query=query,
+
+                raw_query=query,
+
+                is_follow_up=False,
+
+                context_resolution=(
+                    classification.context_resolution
+                ),
+            )
 
         response = await chat_completion(
             messages=[
@@ -576,7 +784,7 @@ async def parse_guardian_intent(
                 },
                 {
                     "role": "user",
-                    "content": normalized_query
+                    "content": parse_query
                 }
             ],
             expect_json=True
@@ -622,10 +830,13 @@ async def parse_guardian_intent(
                 classified_intent.value
             )
 
-        # Safety net: marks for a specific homework must route to homework_summary.
+        # Safety net: marks for a specific homework must route to homework_summary,
+        # but NEVER when the user explicitly asked about an assessment/test/exam,
+        # and only if the topic actually matches a known homework title.
 
         if (
-            intent
+            enrollment_id
+            and intent
             ==
             GuardianIntent.ASSESSMENT_SUMMARY.value
             and
@@ -638,16 +849,44 @@ async def parse_guardian_intent(
                 "topic",
                 None,
             )
+            and not any(
+                w in query_lower
+                for w in ["assessment", "assessments", "exam", "exams"]
+            )
         ):
 
-            logger.info(
-                "Reclassifying guardian assessment intent to homework_summary: %r",
-                query,
+            async with AsyncSessionLocal() as db:
+
+                hw_repo = HomeworkRepository(db)
+
+                hw_titles = [
+                    t["title"]
+                    for t in (
+                        await hw_repo.list_enrollment_homework_titles(
+                            enrollment_id
+                        )
+                    )
+                ]
+
+            canonical_hw = resolve_canonical_name(
+                str(parsed["topic"]),
+                hw_titles,
             )
 
-            intent = (
-                GuardianIntent.HOMEWORK_SUMMARY.value
-            )
+            if canonical_hw:
+
+                logger.info(
+                    "Reclassifying guardian assessment intent to homework_summary "
+                    "(matches homework title %r): %r",
+                    canonical_hw,
+                    query,
+                )
+
+                intent = (
+                    GuardianIntent.HOMEWORK_SUMMARY.value
+                )
+
+                parsed["topic"] = canonical_hw
 
         # Safety net: an unknown with a homework topic routes to homework_summary.
 
@@ -718,7 +957,17 @@ async def parse_guardian_intent(
 
         parsed["intent"] = intent
 
-        parsed["original_query"] = query
+        parsed["original_query"] = resolved_query
+
+        parsed["raw_query"] = query
+
+        parsed["is_follow_up"] = (
+            classification.is_follow_up
+        )
+
+        parsed["context_resolution"] = (
+            classification.context_resolution
+        )
 
         parsed = normalize_dates(
             parsed

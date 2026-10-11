@@ -77,6 +77,35 @@ class ForumTool:
                     announcements
             }
 
+            is_guardian = (
+                getattr(context, "role", None)
+                == "guardian"
+            )
+
+            if forums:
+
+                membership_answer = (
+                    (
+                        "Your child is a member of "
+                        if is_guardian
+                        else "You are a member of "
+                    )
+                    + f"{len(forums)} forum(s): "
+                    + ", ".join(
+                        forum["title"]
+                        for forum in forums
+                    )
+                    + "."
+                )
+
+            else:
+
+                membership_answer = (
+                    "Your child is not a member of any forums."
+                    if is_guardian
+                    else "You are not a member of any forums."
+                )
+
             # =====================================
             # MEMBERSHIPS / CLUBS
             # =====================================
@@ -100,29 +129,9 @@ class ForumTool:
                 ]
             ):
 
-                if forums:
-
-                    titles = [
-                        forum["title"]
-                        for forum in forums
-                    ]
-
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        f"You are a member of "
-                        f"{len(forums)} forum(s): "
-                        f"{', '.join(titles)}."
-                    )
-
-                else:
-
-                    payload[
-                        "direct_answer"
-                    ] = (
-                        "You are not a member "
-                        "of any forums."
-                    )
+                payload[
+                    "direct_answer"
+                ] = membership_answer
 
                 return payload
 
@@ -193,5 +202,19 @@ class ForumTool:
                     )
 
                 return payload
+
+            # =====================================
+            # GENERAL FORUM QUESTION
+            # =====================================
+
+            payload["direct_answer"] = membership_answer
+
+            if latest_announcement:
+
+                payload["direct_answer"] += (
+                    " Latest forum announcement from "
+                    f"{latest_announcement['forum_title']}: "
+                    f"{latest_announcement['message']}"
+                )
 
             return payload

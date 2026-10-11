@@ -24,12 +24,49 @@ from services.date_service import (
     DateService
 )
 
+from services.chat_session_service import (
+    ChatSessionService,
+    current_turn,
+)
+
 logger = logging.getLogger(__name__)
 
 
 class MentorAIService:
 
     async def answer(
+        self,
+        query: str,
+        context,
+        session_id: int,
+    ):
+
+        turn = ChatSessionService.start_turn(
+            session_id=session_id,
+        )
+
+        token = current_turn.set(
+            turn
+        )
+
+        try:
+
+            response = await self._answer(
+                query=query,
+                context=context,
+            )
+
+        finally:
+
+            current_turn.reset(
+                token
+            )
+
+        response["session_id"] = session_id
+
+        return response
+
+    async def _answer(
         self,
         query: str,
         context
@@ -66,18 +103,37 @@ class MentorAIService:
                 "query":
                     query,
 
-                "intent":
-                    parsed_intent.model_dump(),
-
-                "data":
-                    {},
+                "role":
+                    "mentor",
 
                 "summary":
                     (
                         "I couldn't determine "
                         "what information you "
                         "are looking for."
-                    )
+                    ),
+
+                "parsed_intent":
+                    parsed_intent.model_dump(),
+
+                "selected_tools":
+                    [],
+
+                "context_resolution":
+                    getattr(
+                        parsed_intent,
+                        "context_resolution",
+                        None,
+                    ),
+
+                "status":
+                    "completed",
+
+                "intent":
+                    parsed_intent.model_dump(),
+
+                "data":
+                    {},
             }
 
         # =====================================
@@ -170,12 +226,31 @@ class MentorAIService:
             "query":
                 query,
 
+            "role":
+                "mentor",
+
+            "summary":
+                summary,
+
+            "parsed_intent":
+                parsed_intent.model_dump(),
+
+            "selected_tools":
+                tools_to_run,
+
+            "context_resolution":
+                getattr(
+                    parsed_intent,
+                    "context_resolution",
+                    None,
+                ),
+
+            "status":
+                "completed",
+
             "intent":
                 parsed_intent.model_dump(),
 
             "data":
                 results,
-
-            "summary":
-                summary
         }
