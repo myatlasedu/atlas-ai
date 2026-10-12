@@ -23,9 +23,9 @@ SUPPORTED NAVIGATION TARGETS
 - announcements
 - mindfullness
 - healthroom
-- planner
+- notifications
 - resources
-- assessment
+- assessments
 - report_cards
 
 ==================================================
@@ -194,7 +194,7 @@ Show my profile
 
 Open assessment
 
-→ navigation_target = assessment
+→ navigation_target = assessments
 
 Take me to assessments
 
@@ -206,7 +206,7 @@ Open exams
 
 Show assessments screen
 
-→ navigation_target = assessment
+→ navigation_target = assessments
 
 Open report card
 
