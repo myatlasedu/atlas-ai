@@ -601,8 +601,6 @@ def normalize_navigation_target(
     value,
 ) -> str | None:
 
-    # "Report Card" / "food menu" -> "report_card" / "food_menu"
-
     if value is None:
 
         return None
@@ -628,9 +626,6 @@ def apply_navigation_target(
 
     if intent == GuardianIntent.SCREEN_NAVIGATION.value:
 
-        # The model names the screen; keep it only when the
-        # guardian app actually has that screen.
-
         target = normalize_navigation_target(
             parsed.get(
                 "navigation_target"
@@ -652,11 +647,6 @@ def apply_navigation_target(
         parsed["navigation_target"] = target
 
         return parsed
-
-    # A data intent answers from one guardian screen, so the
-    # response carries that screen the same way screen
-    # navigation does. Intents without a mapped screen keep
-    # whatever the model returned.
 
     target = get_navigation_target_for_intent(
         intent
@@ -720,9 +710,6 @@ async def parse_guardian_intent(
             except ValueError:
 
                 inherited_intent = None
-
-            # A navigation turn has no data question to continue,
-            # and inheriting it would navigate with no destination.
 
             if (
                 inherited_intent
