@@ -152,9 +152,11 @@ class PlannerTool:
                 planner,
 
             "confirmation_message": (
-                f"Would you like me to add this to your planner "
-                f"for {format_day(planner_date)} ({tag})?\n\n"
-                f"{description}"
+                f"Create planner:\n\n"
+                f"Plan: {description}\n"
+                f"Tag: {tag}\n"
+                f"Date: {format_day(planner_date)}\n\n"
+                f"Reply YES to confirm."
             ),
         }
 
