@@ -42,6 +42,12 @@ assessment_summary
 Do NOT treat other intents as homework when homework
 words are absent.
 
+A query that starts with "open", "go to", "take me to"
+or "navigate to" followed by one of these screens:
+homework, attendance, assessments, report cards,
+timetable, announcements, events / calendar
+is ALWAYS screen_navigation, never a summary intent.
+
 A query about homework that also names a subject
 (e.g. "science homework") is homework_summary - the
 subject is a filter on the homework, not a subject
@@ -270,6 +276,28 @@ Use when the guardian asks about school calendar events:
 - school calendar
 - PTM / parent teacher meeting dates
 - what is happening this week / this month at school
+
+--------------------------------------------------
+
+screen_navigation
+
+Use ONLY when the guardian's primary goal is to OPEN
+a screen inside Atlas:
+
+- Open homework
+- Take me to attendance
+- Open resources
+- Open food menu
+- Show my child's the food menu 
+- Open timetable
+- Open announcements
+- Show my child's events
+- Show my child's resources
+- Show my child's books
+
+Asking for information ("show my child's homework",
+"how is my child's attendance") is NOT navigation;
+it keeps that module's summary intent.
 
 --------------------------------------------------
 
@@ -504,6 +532,17 @@ Show upcoming school events.
 Output:
 {
     "intent": "calendar_summary",
+    "confidence": 0.99
+}
+
+--------------------------------------------------
+
+User:
+Take me to attendance.
+
+Output:
+{
+    "intent": "screen_navigation",
     "confidence": 0.99
 }
 
