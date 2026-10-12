@@ -23,7 +23,7 @@ SUPPORTED NAVIGATION TARGETS
 - announcements
 - mindfullness
 - healthroom
-- planner
+- notifications
 - resources
 - assessments
 - report_cards

@@ -35,6 +35,10 @@ from intents.student.schemas import (
     ParsedStudentIntent,
 )
 
+from routing.student_tool_router import (
+    get_navigation_target_for_intent,
+)
+
 from schemas.conversation import (
     ConversationTurn,
 )
@@ -885,6 +889,23 @@ def normalize_recall_scope(
     return parsed
 
 
+def apply_navigation_target(
+    parsed: dict,
+) -> dict:
+
+    target = get_navigation_target_for_intent(
+        parsed.get(
+            "intent"
+        )
+    )
+
+    if target is not None:
+
+        parsed["navigation_target"] = target
+
+    return parsed
+
+
 async def parse_student_intent(
     query: str,
     enrollment_id: int | None = None,
@@ -1204,6 +1225,15 @@ async def parse_student_intent(
         # ==================================================
 
         parsed = normalize_recall_scope(
+            parsed
+        )
+
+        # ==================================================
+        # STEP 7d
+        # NAVIGATION TARGET
+        # ==================================================
+
+        parsed = apply_navigation_target(
             parsed
         )
 

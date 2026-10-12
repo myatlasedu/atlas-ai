@@ -17,6 +17,8 @@ SUPPORTED NAVIGATION TARGETS
 - timetable
 - announcements
 - events
+- food_menu
+- resources
 
 ==================================================
 EXAMPLES
@@ -34,10 +36,25 @@ Open attendance
 Go to attendance
 → navigation_target = attendance
 
+Open assessments
+→ navigation_target = assessments
+
+Open exams
+→ navigation_target = assessments
+
+Open report card
+→ navigation_target = report_cards
+
+Show my child's report card
+→ navigation_target = report_cards
+
 Open timetable
 → navigation_target = timetable
 
 Open structure of the day
+→ navigation_target = timetable
+
+Open Timetable
 → navigation_target = timetable
 
 Take me to announcements

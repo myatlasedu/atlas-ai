@@ -40,6 +40,11 @@ from intents.guardian.schemas import (
     ParsedGuardianIntent
 )
 
+from routing.guardian_tool_router import (
+    SUPPORTED_NAVIGATION_TARGETS,
+    get_navigation_target_for_intent,
+)
+
 from utils import (
     date_query,
     month_window,
@@ -592,6 +597,78 @@ def guardian_recall_scope(
     return "summary"
 
 
+def normalize_navigation_target(
+    value,
+) -> str | None:
+
+    # "Report Card" / "food menu" -> "report_card" / "food_menu"
+
+    if value is None:
+
+        return None
+
+    target = "_".join(
+        str(value)
+        .strip()
+        .lower()
+        .replace("-", " ")
+        .split()
+    )
+
+    return target or None
+
+
+def apply_navigation_target(
+    parsed: dict,
+) -> dict:
+
+    intent = parsed.get(
+        "intent"
+    )
+
+    if intent == GuardianIntent.SCREEN_NAVIGATION.value:
+
+        # The model names the screen; keep it only when the
+        # guardian app actually has that screen.
+
+        target = normalize_navigation_target(
+            parsed.get(
+                "navigation_target"
+            )
+        )
+
+        if (
+            target is not None
+            and target not in SUPPORTED_NAVIGATION_TARGETS
+        ):
+
+            logger.warning(
+                "Unsupported guardian navigation target %r dropped.",
+                target,
+            )
+
+            target = None
+
+        parsed["navigation_target"] = target
+
+        return parsed
+
+    # A data intent answers from one guardian screen, so the
+    # response carries that screen the same way screen
+    # navigation does. Intents without a mapped screen keep
+    # whatever the model returned.
+
+    target = get_navigation_target_for_intent(
+        intent
+    )
+
+    if target is not None:
+
+        parsed["navigation_target"] = target
+
+    return parsed
+
+
 async def parse_guardian_intent(
     query: str,
     enrollment_id: int | None = None,
@@ -644,9 +721,13 @@ async def parse_guardian_intent(
 
                 inherited_intent = None
 
+            # A navigation turn has no data question to continue,
+            # and inheriting it would navigate with no destination.
+
             if (
                 inherited_intent
                 and inherited_intent != GuardianIntent.UNKNOWN
+                and inherited_intent != GuardianIntent.SCREEN_NAVIGATION
                 and inherited_intent != classified_intent
             ):
 
@@ -717,6 +798,10 @@ async def parse_guardian_intent(
             )
             and not is_meta_intent(
                 (context_turn or turns[0]).predicted_intent
+            )
+            and (
+                (context_turn or turns[0]).predicted_intent
+                != GuardianIntent.SCREEN_NAVIGATION.value
             )
         ):
 
@@ -976,6 +1061,10 @@ async def parse_guardian_intent(
         parsed = normalize_homework_focus(
             parsed,
             intent
+        )
+
+        parsed = apply_navigation_target(
+            parsed
         )
 
         parsed.setdefault(

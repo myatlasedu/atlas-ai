@@ -90,6 +90,48 @@ TOOL_MAP = {
     ],
 }
 
+SUPPORTED_NAVIGATION_TARGETS = frozenset(
+    {
+        "homework",
+        "attendance",
+        "assessments",
+        "report_cards",
+        "timetable",
+        "announcements",
+        "events",
+        "food_menu",
+        "resources",
+    }
+)
+
+
+NAVIGATION_MAP = {
+
+    GuardianIntent.ATTENDANCE_SUMMARY:
+        "attendance",
+
+    GuardianIntent.HOMEWORK_SUMMARY:
+        "homework",
+
+    GuardianIntent.ASSESSMENT_SUMMARY:
+        "assessments",
+
+    GuardianIntent.STUDENT_REPORT:
+        "report_cards",
+
+    GuardianIntent.ANNOUNCEMENT_SUMMARY:
+        "announcements",
+
+    GuardianIntent.TIMETABLE_SUMMARY:
+        "timetable",
+
+    GuardianIntent.CALENDAR_SUMMARY:
+        "calendar",
+
+    GuardianIntent.ATLAS_SCORE_SUMMARY:
+        "atlas_score",
+}
+
 
 def get_tools_for_intent(
     intent: GuardianIntent,
@@ -98,4 +140,13 @@ def get_tools_for_intent(
     return TOOL_MAP.get(
         intent,
         [],
+    )
+
+
+def get_navigation_target_for_intent(
+    intent: GuardianIntent | str,
+) -> str | None:
+
+    return NAVIGATION_MAP.get(
+        intent
     )
