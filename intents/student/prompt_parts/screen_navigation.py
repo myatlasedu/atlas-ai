@@ -11,6 +11,8 @@ SUPPORTED NAVIGATION TARGETS
 ==================================================
 
 - profile
+- daily_summary
+- atlas_score
 - homework
 - attendance
 - journal
@@ -214,6 +216,18 @@ Open exams
 Show assessments screen
 
 → navigation_target = assessments
+
+Take me to daily summary
+
+→ navigation_target = daily_summary
+
+Open my daily summary
+
+→ navigation_target = daily_summary
+
+Show my daily summary
+
+→ navigation_target = daily_summary
 
 ==================================================
 CLASSIFICATION RULES

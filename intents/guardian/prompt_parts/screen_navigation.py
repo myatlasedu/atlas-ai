@@ -18,6 +18,8 @@ SUPPORTED NAVIGATION TARGETS
 - events
 - food_menu
 - resources
+- calendar
+- atlas_score
 
 ==================================================
 EXAMPLES
