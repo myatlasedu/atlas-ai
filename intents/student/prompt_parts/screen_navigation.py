@@ -26,7 +26,6 @@ SUPPORTED NAVIGATION TARGETS
 - notifications
 - resources
 - assessments
-- report_cards
 
 ==================================================
 EXAMPLES
@@ -73,6 +72,14 @@ Open planner
 → navigation_target = planner
 
 Take me to my planner
+
+→ navigation_target = planner
+
+Take me to planner
+
+→ navigation_target = planner
+
+Take to me planner
 
 → navigation_target = planner
 
@@ -207,30 +214,6 @@ Open exams
 Show assessments screen
 
 → navigation_target = assessments
-
-Open report card
-
-→ navigation_target = report_cards
-
-Show my report card
-
-→ navigation_target = report_cards
-
-Take me to report cards
-
-→ navigation_target = report_cards
-
-Open report card screen
-
-→ navigation_target = report_cards
-
-View my report
-
-→ navigation_target = report_cards
-
-Show my academic report
-
-→ navigation_target = report_cards
 
 ==================================================
 CLASSIFICATION RULES
@@ -378,17 +361,6 @@ Output:
 }
 
 --------------------------------------------------
-
-User:
-
-Open report card
-
-Output:
-
-{
-    "intent": "screen_navigation",
-    "navigation_target": "report_cards"
-}
 
 Only use:
 

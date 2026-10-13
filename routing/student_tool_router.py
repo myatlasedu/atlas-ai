@@ -150,8 +150,8 @@ NAVIGATION_MAP = {
     StudentIntent.ATLAS_SCORE_SUMMARY:
         "atlas_score",
 
-    StudentIntent.STUDENT_REPORT:
-        "report_cards",
+    # StudentIntent.STUDENT_REPORT:
+    #     "report_cards",
 
     StudentIntent.ANNOUNCEMENT_SUMMARY:
         "announcements",
