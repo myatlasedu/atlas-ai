@@ -13,12 +13,13 @@ SUPPORTED NAVIGATION TARGETS
 - homework
 - attendance
 - assessments
-- report_cards
 - timetable
 - announcements
 - events
 - food_menu
 - resources
+- calendar
+- atlas_score
 
 ==================================================
 EXAMPLES
@@ -41,12 +42,6 @@ Open assessments
 
 Open exams
 → navigation_target = assessments
-
-Open report card
-→ navigation_target = report_cards
-
-Show my child's report card
-→ navigation_target = report_cards
 
 Open timetable
 → navigation_target = timetable

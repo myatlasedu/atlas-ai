@@ -95,7 +95,7 @@ SUPPORTED_NAVIGATION_TARGETS = frozenset(
         "homework",
         "attendance",
         "assessments",
-        "report_cards",
+        # "report_cards",
         "timetable",
         "announcements",
         "events",
@@ -116,8 +116,8 @@ NAVIGATION_MAP = {
     GuardianIntent.ASSESSMENT_SUMMARY:
         "assessments",
 
-    GuardianIntent.STUDENT_REPORT:
-        "report_cards",
+    # GuardianIntent.STUDENT_REPORT:
+    #     "report_cards",
 
     GuardianIntent.ANNOUNCEMENT_SUMMARY:
         "announcements",
