@@ -557,6 +557,10 @@ Open Calendar
 
 → screen_navigation
 
+Open Daily Summary
+
+→ screen_navigation
+
 NOT
 
 Show upcoming holidays

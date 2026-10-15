@@ -15,7 +15,6 @@ SUPPORTED NAVIGATION TARGETS
 - atlas_score
 - homework
 - attendance
-- journal
 - planner
 - forum
 - events
@@ -67,7 +66,11 @@ Take me to attendance
 
 Open journal
 
-→ navigation_target = journal
+→ navigation_target = planner
+
+Take me to journal
+
+→ navigation_target = planner
 
 Open planner
 
