@@ -31,7 +31,7 @@ from tools.student.registry import (
 )
 
 from llm.summarizer import (
-    summarize_response,
+    summarize_response_with_html,
 )
 
 from services.context_service import (
@@ -263,6 +263,7 @@ class StudentAIService:
         summarizer_latency_ms = 0
 
         summary = ""
+        html_response = None
 
         # ==================================================
         # CONVERSATION CONTEXT
@@ -450,6 +451,9 @@ class StudentAIService:
                     "summary":
                         summary,
 
+                    "html":
+                        None,
+
                     "parsed_intent":
                         parsed_intent.model_dump(),
 
@@ -599,6 +603,9 @@ class StudentAIService:
 
                 "summary":
                     summary,
+
+                "html":
+                    None,
 
                 "parsed_intent":
                     parsed_intent.model_dump(),
@@ -771,6 +778,9 @@ class StudentAIService:
                     "summary":
                         summary,
 
+                    "html":
+                        None,
+
                     "parsed_intent":
                         parsed_intent.model_dump(),
 
@@ -880,6 +890,9 @@ class StudentAIService:
                 "summary":
                     None,
 
+                "html":
+                    None,
+
                 "parsed_intent":
                     parsed_intent.model_dump(),
 
@@ -908,16 +921,15 @@ class StudentAIService:
             time.perf_counter()
         )
 
-        summary = await summarize_response(
-
+        summarized = await summarize_response_with_html(
             query=query,
-
             data=results,
-
             context=context,
-
             intent=get_predicted_intent(parsed_intent),
         )
+
+        summary = summarized["summary"]
+        html_response = summarized["html"]
 
         summarizer_latency_ms = int(
             (
@@ -1002,6 +1014,9 @@ class StudentAIService:
 
             "summary":
                 summary,
+
+            "html":
+                html_response,
 
             "parsed_intent":
                 parsed_intent.model_dump(),
