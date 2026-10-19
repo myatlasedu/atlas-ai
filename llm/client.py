@@ -16,14 +16,14 @@ client = AsyncOpenAI(
 async def chat_completion(
     messages,
     expect_json: bool = False,
-    max_tokens: int = 500,
+    max_tokens: int = 3000,
     thinking=False,
 ):
 
     kwargs = {
         "model": settings.LLM_MODEL,
         "messages": messages,
-        "temperature": 0.1,
+        "temperature": 0.3,
         "max_tokens": max_tokens,
         "timeout": 60,
     }

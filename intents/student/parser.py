@@ -1,6 +1,7 @@
 import logging
 import re
 import calendar
+from difflib import get_close_matches
 from datetime import date
 from datetime import timedelta
 from llm.client import (
@@ -170,6 +171,73 @@ def _normalize_dates(
     return parsed
 
 
+# Deterministic weekday resolution for timetable/SOD requests.
+# Python weekday convention: Monday=0 ... Sunday=6.
+WEEKDAY_NAMES = {
+    "monday": 0,
+    "tuesday": 1,
+    "wednesday": 2,
+    "thursday": 3,
+    "friday": 4,
+    "saturday": 5,
+    "sunday": 6,
+}
+
+
+def resolve_timetable_weekday(parsed: dict) -> dict:
+    """Resolve a weekday in a timetable query to a concrete calendar date.
+
+    Explicit dates already resolved by the normal date parser take precedence.
+    Fuzzy matching is restricted to sufficiently long tokens to avoid matching
+    common words such as "for" or "show" as weekday names.
+    """
+    if parsed.get("intent") != StudentIntent.TIMETABLE_SUMMARY.value:
+        return parsed
+
+    query = str(parsed.get("original_query") or parsed.get("raw_query") or "").lower()
+
+    # Preserve an explicit date/date range supplied by the normal date parser.
+    if parsed.get("start_date") or parsed.get("end_date"):
+        return parsed
+
+    tokens = re.findall(r"[a-z]+", query)
+    weekday = next((token for token in tokens if token in WEEKDAY_NAMES), None)
+
+    # Handle common misspellings such as "wndsday" without fuzzy-matching
+    # short/general words or relative-date words.
+    if weekday is None:
+        for token in tokens:
+            if len(token) < 6 or token in {"today", "tomorrow", "yesterday"}:
+                continue
+            matches = get_close_matches(
+                token, WEEKDAY_NAMES.keys(), n=1, cutoff=0.72
+            )
+            if matches:
+                weekday = matches[0]
+                break
+
+    if weekday is None:
+        return parsed
+
+    today = ist_today()
+    target_weekday = WEEKDAY_NAMES[weekday]
+    days_ahead = (target_weekday - today.weekday()) % 7
+
+    # "next Wednesday" means the following week's Wednesday.
+    if re.search(r"\bnext\s+\w+", query):
+        days_ahead = days_ahead or 7
+
+    target_date = today + timedelta(days=days_ahead)
+    parsed["start_date"] = target_date.isoformat()
+    parsed["end_date"] = target_date.isoformat()
+
+    logger.info(
+        "Resolved timetable weekday %r to %s from query %r",
+        weekday, target_date.isoformat(), query,
+    )
+    return parsed
+
+
 VALID_HOMEWORK_FOCUS = {
     "topic_status",
     "pending",
@@ -226,6 +294,26 @@ def normalize_focus(
             focus = None
 
     parsed["homework_focus"] = focus
+
+    # Monthly comparison is a dedicated history query, not a general status overview.
+    query_lower = str(parsed.get("original_query", "") or "").strip().lower()
+    comparison_phrase = any(phrase in query_lower for phrase in (
+        "comparison", "compare", "trend", "breakdown",
+        "daily", "by day", "each day", "per day", "day by day",
+        "weekly", "by week", "each week", "per week", "week by week",
+        "monthly", "by month", "each month", "month by month",
+    ))
+    if (
+        parsed.get("intent") == StudentIntent.HOMEWORK_SUMMARY.value
+        and not parsed.get("topic")
+        and comparison_phrase
+    ):
+        parsed["homework_focus"] = "comparison"
+        # This is a historical comparison; do not retain a default current-month window.
+        parsed["start_date"] = None
+        parsed["end_date"] = None
+        return parsed
+
 
     # A named title with no explicit focus is a question about that homework's status/details.
 
@@ -1200,6 +1288,9 @@ async def parse_student_intent(
         parsed = _normalize_dates(
             parsed
         )
+
+        # Resolve weekday names deterministically for timetable/SOD requests.
+        parsed = resolve_timetable_weekday(parsed)
 
         # ==================================================
         # STEP 7
