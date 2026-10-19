@@ -23,7 +23,10 @@ from services.chat_session_service import (
     current_turn
 )
 
-from utils import ist_today
+from utils import (
+    ist_today,
+    mentions_date,
+)
 
 
 PLANNER_TAGS = (
@@ -108,9 +111,16 @@ class PlannerTool:
 
             tag = DEFAULT_PLANNER_TAG
 
+        query = (
+            parsed_intent.raw_query
+            or parsed_intent.original_query
+            or ""
+        )
+
         planner_date = (
             parsed_intent.start_date
-            or ist_today()
+            if parsed_intent.start_date and mentions_date(query)
+            else ist_today()
         )
 
         planner = {
@@ -152,9 +162,11 @@ class PlannerTool:
                 planner,
 
             "confirmation_message": (
-                f"Would you like me to add this to your planner "
-                f"for {format_day(planner_date)} ({tag})?\n\n"
-                f"{description}"
+                f"Create planner:\n\n"
+                f"Plan: {description}\n"
+                f"Tag: {tag}\n"
+                f"Date: {format_day(planner_date)}\n\n"
+                f"Reply YES to confirm."
             ),
         }
 

@@ -45,6 +45,14 @@ class TimetableRepository:
             weekday=weekday,
         )
 
+        # A holiday overrides the weekly template for that date.
+
+        holiday = await self._get_holiday(
+            campus_id=enrollment["campus_id"],
+            academic_class_id=enrollment["academic_class_id"],
+            target_date=target_date,
+        )
+
         entries = self._merge_entries(
             lessons=lessons,
             enrichments=enrichments,
@@ -71,7 +79,14 @@ class TimetableRepository:
             "activity_count": len(activities),
             "break_count": len(breaks),
             "has_teaching": has_teaching,
-            "entries": entries if has_teaching else [],
+
+            "holiday": holiday,
+
+            "entries": (
+                entries
+                if has_teaching and holiday is None
+                else []
+            ),
         }
 
     async def _get_enrollment(self, enrollment_id: int):
@@ -80,7 +95,11 @@ class TimetableRepository:
             SELECT
                 se.id,
                 se.academic_class_id,
-                ac.schedule_structure_id
+
+                ac.schedule_structure_id,
+
+                ac.campus_id
+
             FROM students_studentenrollment se
             INNER JOIN schools_academicclass ac
                 ON ac.id = se.academic_class_id
@@ -101,6 +120,99 @@ class TimetableRepository:
             raise ValueError("Active enrollment not found.")
 
         return row
+
+    async def _get_holiday(
+        self,
+        campus_id: int,
+        academic_class_id: int,
+        target_date: date,
+    ):
+
+        # event_type 1 is a holiday. Events are stored in UTC, so
+        # the IST calendar date is compared, and an event mapped
+        # to specific classes only counts for those classes.
+
+        query = text(
+            """
+            SELECT
+
+                e.id,
+
+                e.title,
+
+                (e.start_datetime AT TIME ZONE 'Asia/Kolkata')::date
+                    AS start_date,
+
+                (e.end_datetime AT TIME ZONE 'Asia/Kolkata')::date
+                    AS end_date
+
+            FROM schools_schoolevent e
+
+            WHERE
+
+                e.event_type = 1
+
+                AND e.is_active = TRUE
+
+                AND e.campus_id = :campus_id
+
+                AND (e.start_datetime AT TIME ZONE 'Asia/Kolkata')::date
+                    <= :target_date
+
+                AND (e.end_datetime AT TIME ZONE 'Asia/Kolkata')::date
+                    >= :target_date
+
+                AND (
+                    EXISTS (
+                        SELECT 1
+                        FROM schools_schooleventclassmap scm
+                        WHERE
+                            scm.school_event_id = e.id
+                            AND scm.academic_class_id = :academic_class_id
+                    )
+
+                    OR
+
+                    NOT EXISTS (
+                        SELECT 1
+                        FROM schools_schooleventclassmap scm
+                        WHERE scm.school_event_id = e.id
+                    )
+                )
+
+            ORDER BY
+
+                e.start_datetime
+
+            LIMIT 1
+            """
+        )
+
+        result = await self.db.execute(
+            query,
+            {
+                "campus_id": campus_id,
+                "academic_class_id": academic_class_id,
+                "target_date": target_date,
+            },
+        )
+
+        row = result.mappings().first()
+
+        if row is None:
+
+            return None
+
+        return {
+
+            "id": row["id"],
+
+            "title": row["title"],
+
+            "start_date": row["start_date"],
+
+            "end_date": row["end_date"],
+        }
 
     async def _get_breaks(
         self,

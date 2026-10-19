@@ -557,6 +557,97 @@ class GuardianAIService:
             )
 
         # ==================================================
+        # SCREEN NAVIGATION SHORT CIRCUIT
+        # ==================================================
+
+        if (
+            parsed_intent.intent
+            ==
+            GuardianIntent.SCREEN_NAVIGATION
+        ):
+
+            navigation_target = parsed_intent.navigation_target
+
+            await ConversationRecallCache.append(
+                session_id,
+                user_query=query,
+                chatbot_summary=(
+                    f"Navigated to {navigation_target}"
+                    if navigation_target
+                    else "Screen navigation requested."
+                ),
+            )
+
+            self._schedule_audit(
+
+                context=context,
+
+                query=query,
+
+                parsed_intent=parsed_intent,
+
+                selected_tools=selected_tools,
+
+                tool_results=results,
+
+                summary="",
+
+                total_latency_ms=int(
+                    (
+                        time.perf_counter()
+                        - request_start
+                    )
+                    * 1000
+                ),
+
+                intent_latency_ms=(
+                    intent_latency_ms
+                ),
+
+                tool_latency_ms=(
+                    tool_latency_ms
+                ),
+
+                summarizer_latency_ms=0,
+            )
+
+            return {
+
+                "success": True,
+
+                "session_id":
+                    session_id,
+
+                "role":
+                    context.role,
+
+                "query":
+                    query,
+
+                "summary":
+                    None,
+
+                "parsed_intent":
+                    parsed_intent.model_dump(),
+
+                "selected_tools":
+                    selected_tools,
+
+                "context_resolution":
+                    getattr(
+                        parsed_intent,
+                        "context_resolution",
+                        None,
+                    ),
+
+                "predicted_intent":
+                    get_predicted_intent(parsed_intent),
+
+                "data":
+                    results,
+            }
+
+        # ==================================================
         # SUMMARY
         # ==================================================
 
