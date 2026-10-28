@@ -6,18 +6,14 @@ class ScreenNavigationTool:
         parsed_intent
     ):
 
-        navigation_target = (
-            parsed_intent.navigation_target
-        )
-
         return {
 
             "module":
                 "navigation",
 
             "navigate":
-                navigation_target is not None,
+                True,
 
             "navigation_target":
-                navigation_target
+                parsed_intent.navigation_target
         }

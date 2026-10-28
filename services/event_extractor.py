@@ -1,9 +1,6 @@
 import json
 import logging
-from utils import (
-    ist_now,
-    mentions_date,
-)
+from utils import ist_now
 
 from llm.client import (
     chat_completion
@@ -13,6 +10,7 @@ from datetime import datetime
 
 
 logger = logging.getLogger(__name__)
+today = ist_now().date()
 
 
 class EventExtractor:
@@ -21,8 +19,6 @@ class EventExtractor:
         self,
         query: str
     ):
-
-        today = ist_now().date()
 
         prompt = f"""
 Extract a personal event from the user request.
@@ -81,22 +77,7 @@ For start_datetime and end_datetime:
 
 6. Never change the explicitly provided start date or start time.
 
-7. If the user mentions no date at all, use the current date above
-   (today) as the date, with the same all-day or time rules as above.
-
 Examples:
-
-User:
-Create an event for revision homework of math
-
-Output:
-{{
-    "title": "Revision Homework of Math",
-    "event_type": "STUDY",
-    "start_datetime": "{today.isoformat()}T00:00:00",
-    "end_datetime": "{today.isoformat()}T23:59:59",
-    "description": null
-}}
 
 User:
 Remind me to study maths tomorrow at 6pm
@@ -202,7 +183,7 @@ Return JSON only.
 
         try:
 
-            event = json.loads(
+            return json.loads(
                 content
             )
 
@@ -213,18 +194,3 @@ Return JSON only.
             )
 
             return None
-
-        if isinstance(event, dict) and not mentions_date(query):
-
-            for field in ("start_datetime", "end_datetime"):
-
-                value = event.get(field)
-
-                if not isinstance(value, str) or "T" not in value:
-                    continue
-
-                event[field] = (
-                    f"{today.isoformat()}T{value.split('T', 1)[1]}"
-                )
-
-        return event

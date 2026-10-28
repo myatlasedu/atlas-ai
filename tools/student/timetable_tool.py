@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date
 
 from db.session import (
     AsyncSessionLocal,
@@ -7,17 +7,10 @@ from db.session import (
 from db.repositories.student.timetable_repository import (
     TimetableRepository,
 )
-
-from tools.student.timetable_answer import (
-    build_timetable_answer,
-    find_current_entry,
-    find_next_entry,
+from llm.builders.timetable_builder import (
+    build_timetable_llm_context,
 )
-
-from utils import (
-    IST,
-    ist_today,
-)
+from utils import ist_today
 
 
 class TimetableTool:
@@ -45,26 +38,33 @@ class TimetableTool:
                 target_date=target_date,
             )
 
-        now = datetime.now(IST)
+        lesson_count = structure.get(
+            "lesson_count",
+            0,
+        )
 
-        entries = structure["entries"]
+        activity_count = structure.get(
+            "activity_count",
+            0,
+        )
 
-        current_entry = None
+        if (
+            lesson_count == 0
+            and
+            activity_count == 0
+        ):
 
-        next_entry = None
-
-        if structure["date"] == now.date() and entries:
-
-            current_entry = find_current_entry(
-                entries,
-                now.time(),
+            direct_answer = (
+                "No Structure of the Day is available."
             )
 
-            next_entry = find_next_entry(
-                entries,
-                now.time(),
-            )
+        else:
 
+            direct_answer = (
+                f"Found {lesson_count} lessons and "
+                f"{activity_count} activities for the "
+                f"Structure of the Day."
+            )
 
         return {
 
@@ -78,31 +78,19 @@ class TimetableTool:
                 structure["weekday"],
 
             "lesson_count":
-                structure["lesson_count"],
+                lesson_count,
 
             "activity_count":
-                structure["activity_count"],
-
-            "holiday":
-                structure["holiday"],
-
-            "current_entry":
-                current_entry,
-
-            "next_entry":
-                next_entry,
+                activity_count,
 
             "entries":
-                entries,
+                structure["entries"],
+
+            "llm_context":
+                build_timetable_llm_context(
+                    structure,
+                ),
 
             "direct_answer":
-                build_timetable_answer(
-                    structure,
-                    role=getattr(
-                        context,
-                        "role",
-                        "student",
-                    ),
-                    now=now,
-                ),
+                direct_answer,
         }
