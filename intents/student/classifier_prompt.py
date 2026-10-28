@@ -275,7 +275,7 @@ Examples
 All -> planner_summary
 
 A message that says "planner" is NEVER journal_create
-or journal_summary. "Open planner" / "go to planner" / "Take me to planner"
+or journal_summary. "Open planner" / "go to planner"
 is screen_navigation.
 
 --------------------------------------------------
@@ -554,10 +554,6 @@ Open Attendance
 → screen_navigation
 
 Open Calendar
-
-→ screen_navigation
-
-Open Daily Summary
 
 → screen_navigation
 

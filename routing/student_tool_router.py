@@ -133,49 +133,6 @@ TOOL_MAP = {
     ],
 }
 
-NAVIGATION_MAP = {
-
-    StudentIntent.DAILY_SUMMARY:
-        "daily_summary",
-
-    StudentIntent.ATTENDANCE_SUMMARY:
-        "attendance",
-
-    StudentIntent.HOMEWORK_SUMMARY:
-        "homework",
-
-    StudentIntent.ASSESSMENT_SUMMARY:
-        "assessments",
-
-    StudentIntent.ATLAS_SCORE_SUMMARY:
-        "atlas_score",
-
-    # StudentIntent.STUDENT_REPORT:
-    #     "report_cards",
-
-    StudentIntent.ANNOUNCEMENT_SUMMARY:
-        "announcements",
-
-    StudentIntent.FORUM_SUMMARY:
-        "forum",
-
-    StudentIntent.TIMETABLE_SUMMARY:
-        "timetable",
-
-    StudentIntent.CALENDAR_SUMMARY:
-        "calendar",
-
-    StudentIntent.PERSONAL_EVENT_SUMMARY:
-        "events",
-
-    StudentIntent.JOURNAL_SUMMARY:
-        "journal",
-
-    StudentIntent.PLANNER_SUMMARY:
-        "planner",
-
-}
-
 
 def get_tools_for_intent(
     intent: StudentIntent
@@ -184,14 +141,5 @@ def get_tools_for_intent(
     return TOOL_MAP.get(
         intent,
         []
-    )
-
-
-def get_navigation_target_for_intent(
-    intent: StudentIntent | str,
-) -> str | None:
-
-    return NAVIGATION_MAP.get(
-        intent
     )
 

@@ -313,39 +313,6 @@ def resolve_dates(parsed: dict) -> dict:
 
     return parsed
 
-_TIME_TOKEN = re.compile(r"\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b|\b\d{1,2}:\d{2}\b")
-
-_DATE_WORDS = (
-    "today", "tonight", "tomorrow", "yesterday", "day after",
-    "next", "coming", "upcoming", "weekend", "this week", "this month",
-)
-
-_MONTH_WORDS = "|".join(sorted(_MONTH_NUMBERS, key=len, reverse=True))
-
-_DATE_DIGITS = re.compile(
-    r"\b\d{1,2}(?:st|nd|rd|th)\b"                 # 5th
-    r"|\b\d{1,2}/\d{1,2}(?:/\d{2,4})?\b"          # 05/10, 5/10/2026
-    r"|\b\d{1,2}-\d{1,2}-\d{2,4}\b"               # 5-10-2026 (a bare 3-4 is a range)
-    r"|\b\d{4}-\d{2}-\d{2}\b"                     # 2026-10-05
-    rf"|\b\d{{1,2}}\s+(?:{_MONTH_WORDS})\b"       # 5 october
-    rf"|\b(?:{_MONTH_WORDS})\s+\d{{1,2}}\b"       # october 5
-)
-
-def mentions_date(query: str) -> bool:
-    """True when the text names a day in any form; a bare time ("at 6pm") is not a date.
-
-    Used to decide whether a create request may carry the model's date or
-    must fall back to today."""
-    text_ = (query or "").lower()
-    text_ = _TIME_TOKEN.sub(" ", text_)
-    if any(word in text_ for word in _DATE_WORDS):
-        return True
-    if any(re.search(rf"\b{day}\b", text_) for day in _WEEKDAY_MAP):
-        return True
-    if any(re.search(rf"\b{name}\b", text_) for name in _MONTH_NUMBERS if name not in _AMBIGUOUS_MONTHS):
-        return True
-    return bool(_DATE_DIGITS.search(text_))
-
 # ==========================================================
 # GRADE SANITIZATION
 # ==========================================================

@@ -58,10 +58,6 @@ class GuardianIntent(
         "conversation_recall"
     )
 
-    SCREEN_NAVIGATION = (
-        "screen_navigation"
-    )
-
     UNKNOWN = (
         "unknown"
     )

@@ -11,10 +11,9 @@ SUPPORTED NAVIGATION TARGETS
 ==================================================
 
 - profile
-- daily_summary
-- atlas_score
 - homework
 - attendance
+- journal
 - planner
 - forum
 - events
@@ -24,9 +23,10 @@ SUPPORTED NAVIGATION TARGETS
 - announcements
 - mindfullness
 - healthroom
-- notifications
+- planner
 - resources
 - assessments
+- report_cards
 
 ==================================================
 EXAMPLES
@@ -66,25 +66,13 @@ Take me to attendance
 
 Open journal
 
-→ navigation_target = planner
-
-Take me to journal
-
-→ navigation_target = planner
+→ navigation_target = journal
 
 Open planner
 
 → navigation_target = planner
 
 Take me to my planner
-
-→ navigation_target = planner
-
-Take me to planner
-
-→ navigation_target = planner
-
-Take to me planner
 
 → navigation_target = planner
 
@@ -220,17 +208,29 @@ Show assessments screen
 
 → navigation_target = assessments
 
-Take me to daily summary
+Open report card
 
-→ navigation_target = daily_summary
+→ navigation_target = report_cards
 
-Open my daily summary
+Show my report card
 
-→ navigation_target = daily_summary
+→ navigation_target = report_cards
 
-Show my daily summary
+Take me to report cards
 
-→ navigation_target = daily_summary
+→ navigation_target = report_cards
+
+Open report card screen
+
+→ navigation_target = report_cards
+
+View my report
+
+→ navigation_target = report_cards
+
+Show my academic report
+
+→ navigation_target = report_cards
 
 ==================================================
 CLASSIFICATION RULES
@@ -378,6 +378,17 @@ Output:
 }
 
 --------------------------------------------------
+
+User:
+
+Open report card
+
+Output:
+
+{
+    "intent": "screen_navigation",
+    "navigation_target": "report_cards"
+}
 
 Only use:
 

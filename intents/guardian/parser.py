@@ -40,11 +40,6 @@ from intents.guardian.schemas import (
     ParsedGuardianIntent
 )
 
-from routing.guardian_tool_router import (
-    SUPPORTED_NAVIGATION_TARGETS,
-    get_navigation_target_for_intent,
-)
-
 from utils import (
     date_query,
     month_window,
@@ -597,68 +592,6 @@ def guardian_recall_scope(
     return "summary"
 
 
-def normalize_navigation_target(
-    value,
-) -> str | None:
-
-    if value is None:
-
-        return None
-
-    target = "_".join(
-        str(value)
-        .strip()
-        .lower()
-        .replace("-", " ")
-        .split()
-    )
-
-    return target or None
-
-
-def apply_navigation_target(
-    parsed: dict,
-) -> dict:
-
-    intent = parsed.get(
-        "intent"
-    )
-
-    if intent == GuardianIntent.SCREEN_NAVIGATION.value:
-
-        target = normalize_navigation_target(
-            parsed.get(
-                "navigation_target"
-            )
-        )
-
-        if (
-            target is not None
-            and target not in SUPPORTED_NAVIGATION_TARGETS
-        ):
-
-            logger.warning(
-                "Unsupported guardian navigation target %r dropped.",
-                target,
-            )
-
-            target = None
-
-        parsed["navigation_target"] = target
-
-        return parsed
-
-    target = get_navigation_target_for_intent(
-        intent
-    )
-
-    if target is not None:
-
-        parsed["navigation_target"] = target
-
-    return parsed
-
-
 async def parse_guardian_intent(
     query: str,
     enrollment_id: int | None = None,
@@ -714,7 +647,6 @@ async def parse_guardian_intent(
             if (
                 inherited_intent
                 and inherited_intent != GuardianIntent.UNKNOWN
-                and inherited_intent != GuardianIntent.SCREEN_NAVIGATION
                 and inherited_intent != classified_intent
             ):
 
@@ -785,10 +717,6 @@ async def parse_guardian_intent(
             )
             and not is_meta_intent(
                 (context_turn or turns[0]).predicted_intent
-            )
-            and (
-                (context_turn or turns[0]).predicted_intent
-                != GuardianIntent.SCREEN_NAVIGATION.value
             )
         ):
 
@@ -1048,10 +976,6 @@ async def parse_guardian_intent(
         parsed = normalize_homework_focus(
             parsed,
             intent
-        )
-
-        parsed = apply_navigation_target(
-            parsed
         )
 
         parsed.setdefault(
