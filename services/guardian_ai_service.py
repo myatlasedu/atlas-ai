@@ -35,7 +35,7 @@ from tools.guardian.attendance_tool import (
 )
 
 from llm.summarizer import (
-    summarize_response,
+    summarize_response_with_html,
 )
 
 from services.context_service import (
@@ -307,6 +307,7 @@ class GuardianAIService:
         summarizer_latency_ms = 0
 
         summary = ""
+        html_response = None
 
         # ==================================================
         # CONVERSATION CONTEXT
@@ -452,6 +453,9 @@ class GuardianAIService:
                 "summary":
                     summary,
 
+                "html":
+                    None,
+
                 "parsed_intent":
                     parsed_intent.model_dump(),
 
@@ -564,7 +568,7 @@ class GuardianAIService:
             time.perf_counter()
         )
 
-        summary = await summarize_response(
+        summarized = await summarize_response_with_html(
 
             query=query,
 
@@ -574,6 +578,9 @@ class GuardianAIService:
 
             intent=get_predicted_intent(parsed_intent),
         )
+
+        summary = summarized["summary"]
+        html_response = summarized["html"]
 
         summarizer_latency_ms = int(
             (
@@ -663,6 +670,9 @@ class GuardianAIService:
 
             "summary":
                 summary,
+
+            "html":
+                html_response,
 
             "parsed_intent":
                 parsed_intent.model_dump(),
