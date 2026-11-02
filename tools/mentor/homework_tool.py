@@ -5,6 +5,7 @@ from db.session import (
 from db.repositories.mentor.homework_repository import (
     MentorHomeworkRepository
 )
+from sqlalchemy import text
 
 
 class HomeworkTool:

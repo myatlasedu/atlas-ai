@@ -50,7 +50,13 @@ def build_attendance_llm_context(
         0,
     )
 
-    if total_marked_days == 0:
+    # Support both legacy daily attendance and period-based attendance.
+    has_attendance_records = (
+        total_marked_days > 0
+        or total_periods > 0
+    )
+
+    if not has_attendance_records:
 
         status = "building"
 

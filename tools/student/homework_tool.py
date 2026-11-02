@@ -75,6 +75,144 @@ def empty_payload(
     }
 
 
+def _local_date(value):
+    """Return a date in the app's IST timezone without assuming input type."""
+    if value is None:
+        return None
+    if isinstance(value, date) and not hasattr(value, "hour"):
+        return value
+    try:
+        if getattr(value, "tzinfo", None) is not None:
+            value = value.astimezone(IST)
+        return value.date()
+    except (AttributeError, TypeError, ValueError):
+        return coerce_date(value)
+
+
+def resolve_comparison_period(query):
+    """Resolve the requested comparison granularity from the user's wording."""
+    query = (query or "").strip().lower()
+
+    daily_phrases = (
+        "daily", "by day", "per day", "day by day", "each day",
+        "daily comparison", "daily trend",
+    )
+    weekly_phrases = (
+        "weekly", "by week", "per week", "week by week", "each week",
+        "weekly comparison", "weekly trend",
+    )
+    monthly_phrases = (
+        "monthly", "by month", "per month", "month by month", "each month",
+        "monthly comparison", "monthly trend",
+    )
+
+    # Match explicit period terms. If the user does not specify one, preserve
+    # the original monthly-comparison default.
+    if any(phrase in query for phrase in daily_phrases):
+        return "daily"
+    if any(phrase in query for phrase in weekly_phrases):
+        return "weekly"
+    if any(phrase in query for phrase in monthly_phrases):
+        return "monthly"
+    return "monthly"
+
+
+def build_homework_comparison(rows, today, period="monthly"):
+    """Aggregate each assigned homework into one exclusive outcome by due period."""
+    buckets = {}
+    excluded_missing_due_date = 0
+    current_period = None
+
+    if period == "daily":
+        current_period = today
+    elif period == "weekly":
+        current_period = today - timedelta(days=today.weekday())
+    else:
+        period = "monthly"
+        current_period = (today.year, today.month)
+
+    for row in rows:
+        due_day = _local_date(row.get("due_date"))
+        if due_day is None:
+            excluded_missing_due_date += 1
+            continue
+
+        if period == "daily":
+            if due_day > today:
+                continue
+            key = due_day
+            label = due_day.strftime("%d %b %Y")
+            period_value = due_day.isoformat()
+        elif period == "weekly":
+            week_start = due_day - timedelta(days=due_day.weekday())
+            # Current week is week-to-date; exclude future weeks and future due dates.
+            if week_start > current_period or due_day > today:
+                continue
+            week_end = week_start + timedelta(days=6)
+            key = week_start
+            label = f"{week_start.strftime('%d %b')} – {week_end.strftime('%d %b %Y')}"
+            period_value = week_start.isoformat()
+        else:
+            month_key = (due_day.year, due_day.month)
+            if month_key > current_period or (month_key == current_period and due_day > today):
+                continue
+            key = month_key
+            label = due_day.strftime("%b %Y")
+            period_value = due_day.strftime("%Y-%m")
+
+        bucket = buckets.setdefault(key, {
+            "period": period,
+            "period_key": period_value,
+            "label": label,
+            "assigned": 0,
+            "completed_on_time": 0,
+            "completed_late": 0,
+            "not_completed": 0,
+        })
+        bucket["assigned"] += 1
+
+        status = row.get("status_tag")
+        submitted_day = _local_date(row.get("submitted_at"))
+        completed = status in ("submitted", "graded") and submitted_day is not None
+
+        if completed and submitted_day <= due_day:
+            bucket["completed_on_time"] += 1
+        elif completed and submitted_day > due_day:
+            bucket["completed_late"] += 1
+        else:
+            # Pending, overdue, resubmission-requested, or missing submission date.
+            bucket["not_completed"] += 1
+
+    result = []
+    for key in sorted(buckets):
+        item = buckets[key]
+        assigned = item["assigned"]
+        completed = item["completed_on_time"] + item["completed_late"]
+        item["completed"] = completed
+        item["pending"] = item["not_completed"]  # compatibility with existing consumers
+        item["completion_rate"] = round(completed * 100 / assigned, 1) if assigned else 0.0
+        item["on_time_rate"] = round(item["completed_on_time"] * 100 / completed, 1) if completed else None
+        assert assigned == item["completed_on_time"] + item["completed_late"] + item["not_completed"]
+        result.append(item)
+
+    period_note = {
+        "daily": "Each bucket is one due date; future due dates are excluded.",
+        "weekly": "Weeks run Monday–Sunday; the current week includes due dates through today only.",
+        "monthly": "Historical months are complete; the current month includes due dates through today only.",
+    }[period]
+    response = {
+        "period": period,
+        "buckets": result,
+        "excluded_missing_due_date": excluded_missing_due_date,
+        "period_note": period_note,
+    }
+    # Keep the old monthly key for existing consumers, while the new generic
+    # buckets field is authoritative for all periods.
+    if period == "monthly":
+        response["months"] = result
+    return response
+
+
 class HomeworkTool:
 
     async def resolve_title_reply(
@@ -840,6 +978,31 @@ class HomeworkTool:
             )
 
             # =====================================
+            # MONTHLY COMPARISON
+            # =====================================
+
+            if focus == "comparison":
+
+                # Fetch the enrollment's assigned homework history. Do not pass the
+                # LLM's default this-month dates: comparison needs actual due-month history.
+                rows = await repo.get_pending_homework(
+                    enrollment_id,
+                    subject=subject,
+                    teacher=teacher,
+                    include_submitted=True,
+                )
+
+                comparison_period = resolve_comparison_period(query_lower)
+                comparison = build_homework_comparison(rows, today, comparison_period)
+                payload["comparison"] = comparison
+                payload["focus"] = "comparison"
+                payload["llm_context"] = build_homework_llm_context(payload)
+                payload["direct_answer"] = self.build_direct_answer(
+                    "comparison", payload
+                )
+                return payload
+
+            # =====================================
             # PENDING
             # =====================================
 
@@ -1362,6 +1525,41 @@ class HomeworkTool:
             }
 
             return count_lines.get(focus)
+
+        if focus == "comparison":
+
+            comparison = payload.get("comparison") or {}
+            period = comparison.get("period", "monthly")
+            buckets = comparison.get("buckets") or comparison.get("months") or []
+            period_labels = {"daily": "daily", "weekly": "weekly", "monthly": "monthly"}
+            period_label = period_labels.get(period, "monthly")
+            if not buckets:
+                return (
+                    f"I couldn't build a {period_label} homework comparison because no assignments "
+                    "with due dates in the available period were found in the records."
+                )
+
+            group_label = {"daily": "due date", "weekly": "due week", "monthly": "due month"}.get(period, "due month")
+            lines.append(f"{period_label.capitalize()} homework comparison (grouped by {group_label}):")
+            for item in buckets:
+                lines.append(
+                    f"• {item['label']}: {item['assigned']} assigned; "
+                    f"{item['completed_on_time']} completed on time, "
+                    f"{item['completed_late']} completed late, "
+                    f"{item.get('not_completed', item.get('pending', 0))} not completed; "
+                    f"completion rate {item['completion_rate']:.1f}%"
+                )
+
+            lines.append(
+                "Categories are exclusive, so on-time + late + not completed equals assigned."
+            )
+            lines.append(comparison.get("period_note", "Future due dates are excluded."))
+            if comparison.get("excluded_missing_due_date"):
+                lines.append(
+                    f"{comparison['excluded_missing_due_date']} assignment(s) without a due date "
+                    "were excluded because they cannot be grouped into a comparison period."
+                )
+            return "\n".join(lines)
 
         if focus == "pending":
 
