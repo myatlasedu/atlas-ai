@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -26,18 +26,22 @@ class AIRequest(BaseModel):
 
     session_id: int
 
+    response_mode: Literal["standard", "voice"] = "standard"
+
 
 class MentorContext(BaseModel):
 
-    
     user_id: int
 
     academic_year_id: int
 
     staff_id: int
 
+
 class MentorAIRequest(BaseModel):
+
     query: str
+
     context: MentorContext
 
     session_id: int
@@ -58,6 +62,7 @@ class GuardianContext(BaseModel):
     role: str
 
     academic_class_id: int | None = None
+
 
 class GuardianAIRequest(BaseModel):
 
