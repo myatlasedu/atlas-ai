@@ -32,6 +32,7 @@ from tools.student.registry import (
 
 from llm.summarizer import (
     summarize_response_with_html,
+    summarize_response_for_voice,
 )
 
 from services.context_service import (
@@ -203,15 +204,19 @@ class StudentAIService:
         query: str,
         context,
         session_id: int,
+        response_mode: str = "standard",
     ):
+
+        if response_mode not in ("standard", "voice"):
+            raise ValueError(
+                f"Unsupported response mode: {response_mode}"
+            )
 
         turn = ChatSessionService.start_turn(
             session_id=session_id,
         )
 
-        token = current_turn.set(
-            turn
-        )
+        token = current_turn.set(turn)
 
         try:
 
@@ -219,23 +224,24 @@ class StudentAIService:
                 query=query,
                 context=context,
                 session_id=session_id,
+                response_mode=response_mode,
             )
 
         finally:
 
-            current_turn.reset(
-                token
-            )
+            current_turn.reset(token)
 
         response["session_id"] = session_id
 
         return response
+
 
     async def _answer(
         self,
         query: str,
         context,
         session_id: int,
+        response_mode: str = "standard",
     ):
 
         request_start = time.perf_counter()
@@ -913,23 +919,36 @@ class StudentAIService:
                     results,
             }
 
+        
         # ==================================================
         # SUMMARIZER
         # ==================================================
 
-        summarizer_start = (
-            time.perf_counter()
-        )
+        summarizer_start = time.perf_counter()
 
-        summarized = await summarize_response_with_html(
-            query=query,
-            data=results,
-            context=context,
-            intent=get_predicted_intent(parsed_intent),
-        )
+        if response_mode == "voice":
 
-        summary = summarized["summary"]
-        html_response = summarized["html"]
+            summary = await summarize_response_for_voice(
+                query=query,
+                data=results,
+                context=context,
+                intent=get_predicted_intent(parsed_intent),
+            )
+
+            # Voice responses are plain text only.
+            html_response = None
+
+        else:
+
+            summarized = await summarize_response_with_html(
+                query=query,
+                data=results,
+                context=context,
+                intent=get_predicted_intent(parsed_intent),
+            )
+
+            summary = summarized["summary"]
+            html_response = summarized["html"]
 
         summarizer_latency_ms = int(
             (
@@ -940,8 +959,10 @@ class StudentAIService:
         )
 
         logger.info(
-            "Summarizer completed."
+            "Summarizer completed. response_mode=%s",
+            response_mode,
         )
+
 
         # ==================================================
         # CONVERSATION RECALL CACHE
